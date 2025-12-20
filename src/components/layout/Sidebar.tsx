@@ -10,8 +10,9 @@ import {
   Flame
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { NavItem } from "@/types";
 
-const mainNavItems = [
+const mainNavItems: NavItem[] = [
   { to: "/", icon: Home, label: "Feed" },
   { to: "/explore", icon: Compass, label: "Explore" },
   { to: "/messages", icon: MessageCircle, label: "Messages" },
@@ -19,7 +20,7 @@ const mainNavItems = [
   { to: "/profile", icon: User, label: "Profile" },
 ];
 
-const secondaryNavItems = [
+const secondaryNavItems: NavItem[] = [
   { to: "/settings", icon: Settings, label: "Settings" },
 ];
 

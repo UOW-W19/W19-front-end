@@ -1,4 +1,5 @@
-import { MapPin, Heart, MessageCircle, Globe } from "lucide-react";
+import { Globe } from "lucide-react";
+import PostCard from "@/components/feed/PostCard";
 
 // Placeholder post data
 const mockPosts = [
@@ -71,50 +72,7 @@ export default function FeedPage() {
       {/* Posts */}
       <div className="space-y-4">
         {mockPosts.map((post) => (
-          <article
-            key={post.id}
-            className="rounded-2xl border border-border bg-card p-4 transition-all duration-200 hover:shadow-soft animate-fade-in"
-          >
-            {/* Author header */}
-            <div className="mb-3 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-primary to-coral-light text-sm font-semibold text-primary-foreground">
-                  {post.author.avatar}
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium text-foreground">{post.author.name}</span>
-                    <span className="text-sm">{post.author.flag}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <MapPin className="h-3 w-3" />
-                    <span>{post.location}</span>
-                    <span>•</span>
-                    <span>{post.distance}</span>
-                  </div>
-                </div>
-              </div>
-              <span className="text-xs text-muted-foreground">{post.time}</span>
-            </div>
-
-            {/* Content */}
-            <div className="mb-4 space-y-2">
-              <p className="text-foreground leading-relaxed">{post.content}</p>
-              <p className="text-sm text-muted-foreground italic">{post.translation}</p>
-            </div>
-
-            {/* Actions */}
-            <div className="flex items-center gap-4 border-t border-border pt-3">
-              <button className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors">
-                <Heart className="h-4 w-4" />
-                <span>{post.reactions.likes}</span>
-              </button>
-              <button className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors">
-                <MessageCircle className="h-4 w-4" />
-                <span>{post.reactions.comments}</span>
-              </button>
-            </div>
-          </article>
+          <PostCard key={post.id} post={post} />
         ))}
       </div>
     </div>

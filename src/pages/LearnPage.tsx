@@ -1,7 +1,8 @@
 import { Flame, BookOpen, Trophy, ArrowRight, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import type { SavedWord } from "@/types";
 
-const savedWords = [
+const savedWords: SavedWord[] = [
   { word: "さくら", translation: "cherry blossom", language: "🇯🇵", mastery: 80 },
   { word: "mariposa", translation: "butterfly", language: "🇪🇸", mastery: 60 },
   { word: "bibliothèque", translation: "library", language: "🇫🇷", mastery: 40 },

@@ -1,8 +1,9 @@
 import { MapPin, Calendar, Edit2, Settings, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
+import type { UserLanguage } from "@/types";
 
-const userLanguages = [
+const userLanguages: UserLanguage[] = [
   { code: "en", name: "English", flag: "🇬🇧", level: "Native", isLearning: false },
   { code: "es", name: "Spanish", flag: "🇪🇸", level: "B2", isLearning: true },
   { code: "ja", name: "Japanese", flag: "🇯🇵", level: "A2", isLearning: true },
