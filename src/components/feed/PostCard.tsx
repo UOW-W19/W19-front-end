@@ -64,17 +64,17 @@ export default function PostCard({ post }: PostCardProps) {
   };
 
   return (
-    <article className="rounded-2xl border border-border bg-card p-4 transition-all duration-200 hover:shadow-soft animate-fade-in">
+    <article className="rounded-2xl border border-border bg-card p-4 transition-all duration-200 animate-fade-in">
       {/* Author header */}
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-primary to-coral-light text-sm font-semibold text-primary-foreground">
+          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-primary to-coral-light text-sm font-semibold text-primary-foreground">
             {post.author.avatar}
           </div>
           <div>
             <div className="flex items-center gap-2">
               <span className="font-medium text-foreground">{post.author.name}</span>
-              <span className="text-sm">{post.author.flag}</span>
+              <span className="text-base">{post.author.flag}</span>
             </div>
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <MapPin className="h-3 w-3" />
@@ -89,50 +89,49 @@ export default function PostCard({ post }: PostCardProps) {
 
       {/* Content */}
       <div className="mb-4 space-y-2">
-        <p className="text-foreground leading-relaxed">{post.content}</p>
+        <p className="text-foreground leading-relaxed text-[15px]">{post.content}</p>
         <p className="text-sm text-muted-foreground italic">{post.translation}</p>
       </div>
 
-      {/* Actions */}
+      {/* Actions - larger touch targets */}
       <div className="flex items-center gap-1 border-t border-border pt-3">
         <Button
           variant="ghost"
           size="sm"
           onClick={handleLike}
-          className={`flex items-center gap-1.5 transition-all duration-200 ${
+          className={`flex items-center gap-1.5 h-10 px-3 rounded-full active:scale-95 transition-all duration-200 ${
             isLiked 
-              ? "text-rose-500 hover:text-rose-600" 
-              : "text-muted-foreground hover:text-primary"
+              ? "text-rose-500 active:text-rose-600" 
+              : "text-muted-foreground active:text-primary"
           }`}
         >
           <Heart 
-            className={`h-4 w-4 transition-transform duration-200 ${isLiked ? "fill-current scale-110" : ""}`} 
+            className={`h-5 w-5 transition-transform duration-200 ${isLiked ? "fill-current scale-110" : ""}`} 
           />
-          <span>{likesCount}</span>
+          <span className="text-sm font-medium">{likesCount}</span>
         </Button>
         
         <Button
           variant="ghost"
           size="sm"
           onClick={handleComment}
-          className={`flex items-center gap-1.5 transition-colors ${
+          className={`flex items-center gap-1.5 h-10 px-3 rounded-full active:scale-95 transition-colors ${
             showComments 
               ? "text-primary" 
-              : "text-muted-foreground hover:text-primary"
+              : "text-muted-foreground active:text-primary"
           }`}
         >
-          <MessageCircle className={`h-4 w-4 ${showComments ? "fill-primary/20" : ""}`} />
-          <span>{post.reactions.comments + comments.length - 1}</span>
+          <MessageCircle className={`h-5 w-5 ${showComments ? "fill-primary/20" : ""}`} />
+          <span className="text-sm font-medium">{post.reactions.comments + comments.length - 1}</span>
         </Button>
         
         <Button
           variant="ghost"
           size="sm"
           onClick={handleShare}
-          className="flex items-center gap-1.5 text-muted-foreground hover:text-primary transition-colors ml-auto"
+          className="flex items-center gap-1.5 h-10 px-3 rounded-full text-muted-foreground active:text-primary active:scale-95 transition-all ml-auto"
         >
-          <Share2 className="h-4 w-4" />
-          <span className="hidden sm:inline">Share</span>
+          <Share2 className="h-5 w-5" />
         </Button>
       </div>
 

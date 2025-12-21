@@ -7,30 +7,29 @@ interface HeaderProps {
 
 export function Header({ title = "Feed" }: HeaderProps) {
   return (
-    <header className="sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur-md">
-      <div className="flex h-14 items-center justify-between px-4 md:px-6">
-        {/* Mobile logo */}
-        <div className="flex items-center gap-2 md:hidden">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-            <Globe className="h-4 w-4 text-primary-foreground" />
+    <header className="sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur-md pt-[env(safe-area-inset-top)]">
+      <div className="flex h-14 items-center justify-between px-4">
+        {/* Logo - always visible on mobile */}
+        <div className="flex items-center gap-2 lg:hidden">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary shadow-glow">
+            <Globe className="h-5 w-5 text-primary-foreground" />
           </div>
-          <span className="text-lg font-semibold text-foreground">Locale</span>
+          <span className="text-lg font-bold text-foreground">Locale</span>
         </div>
 
         {/* Desktop title */}
-        <h1 className="hidden text-xl font-semibold text-foreground md:block">
+        <h1 className="hidden text-xl font-semibold text-foreground lg:block">
           {title}
         </h1>
 
-        {/* Actions */}
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full">
+        {/* Actions - touch-friendly sizes */}
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full active:scale-95">
             <Search className="h-5 w-5 text-muted-foreground" />
           </Button>
-          <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full relative">
+          <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full relative active:scale-95">
             <Bell className="h-5 w-5 text-muted-foreground" />
-            {/* Notification dot */}
-            <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-primary" />
+            <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-primary" />
           </Button>
         </div>
       </div>

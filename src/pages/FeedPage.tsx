@@ -1,8 +1,13 @@
-import { Globe } from "lucide-react";
+import { useState, useCallback } from "react";
+import { Globe, Plus } from "lucide-react";
 import PostCard from "@/components/feed/PostCard";
+import ComposeModal from "@/components/feed/ComposeModal";
+import { Button } from "@/components/ui/button";
+import { PullToRefresh } from "@/components/ui/PullToRefresh";
+import type { Post } from "@/types";
 
 // Placeholder post data
-const mockPosts = [
+const initialPosts: Post[] = [
   {
     id: "1",
     author: {
@@ -50,31 +55,112 @@ const mockPosts = [
   },
 ];
 
-export default function FeedPage() {
-  return (
-    <div className="w-full max-w-2xl mx-auto px-4 py-6 overflow-x-hidden">
-      {/* Language filter chips */}
-      <div className="mb-6 flex gap-2 overflow-x-auto pb-2 scrollbar-thin -mx-4 px-4">
-        <button className="flex shrink-0 items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">
-          <Globe className="h-4 w-4" />
-          All
-        </button>
-        {["🇪🇸 Spanish", "🇯🇵 Japanese", "🇫🇷 French", "🇩🇪 German"].map((lang) => (
-          <button
-            key={lang}
-            className="shrink-0 rounded-full bg-muted px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted/80 transition-colors"
-          >
-            {lang}
-          </button>
-        ))}
-      </div>
+// Simulated new posts for refresh
+const newPostsPool: Post[] = [
+  {
+    id: "new1",
+    author: {
+      name: "Kim Soo-yeon",
+      avatar: "K",
+      language: "Korean",
+      flag: "🇰🇷",
+    },
+    content: "오늘 한강에서 자전거를 탔어요. 날씨가 너무 좋았어요!",
+    translation: "I rode a bike at Han River today. The weather was so nice!",
+    location: "Seoul, Korea",
+    distance: "3.2 km",
+    reactions: { likes: 42, comments: 6 },
+    time: "Just now",
+  },
+  {
+    id: "new2",
+    author: {
+      name: "Luca Bianchi",
+      avatar: "L",
+      language: "Italian",
+      flag: "🇮🇹",
+    },
+    content: "Ho fatto la pizza margherita per la prima volta. Era deliziosa!",
+    translation: "I made margherita pizza for the first time. It was delicious!",
+    location: "Rome, Italy",
+    distance: "5.1 km",
+    reactions: { likes: 38, comments: 15 },
+    time: "Just now",
+  },
+];
 
-      {/* Posts */}
-      <div className="space-y-4">
-        {mockPosts.map((post) => (
-          <PostCard key={post.id} post={post} />
-        ))}
+export default function FeedPage() {
+  const [posts, setPosts] = useState<Post[]>(initialPosts);
+  const [isComposeOpen, setIsComposeOpen] = useState(false);
+  const [refreshIndex, setRefreshIndex] = useState(0);
+
+  const handleRefresh = useCallback(async () => {
+    // Simulate network delay
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    
+    // Add a new post from the pool
+    const newPost = {
+      ...newPostsPool[refreshIndex % newPostsPool.length],
+      id: Date.now().toString(),
+      time: "Just now",
+    };
+    
+    setPosts((prev) => [newPost, ...prev]);
+    setRefreshIndex((prev) => prev + 1);
+  }, [refreshIndex]);
+
+  const handleCreatePost = (newPostData: Omit<Post, "id" | "time" | "reactions">) => {
+    const newPost: Post = {
+      ...newPostData,
+      id: Date.now().toString(),
+      time: "Just now",
+      reactions: { likes: 0, comments: 0 },
+    };
+    setPosts([newPost, ...posts]);
+  };
+
+  return (
+    <PullToRefresh onRefresh={handleRefresh} className="h-full">
+      <div className="w-full max-w-2xl mx-auto px-4 py-4 overflow-x-hidden">
+        {/* Language filter chips - touch-friendly */}
+        <div className="mb-4 flex gap-2 overflow-x-auto pb-2 scrollbar-thin -mx-4 px-4">
+          <button className="flex shrink-0 items-center gap-1.5 rounded-full bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground active:scale-95 transition-transform">
+            <Globe className="h-4 w-4" />
+            All
+          </button>
+          {["🇪🇸 Spanish", "🇯🇵 Japanese", "🇫🇷 French", "🇩🇪 German"].map((lang) => (
+            <button
+              key={lang}
+              className="shrink-0 rounded-full bg-muted px-4 py-2.5 text-sm font-medium text-muted-foreground active:bg-muted/70 active:scale-95 transition-all"
+            >
+              {lang}
+            </button>
+          ))}
+        </div>
+
+        {/* Posts */}
+        <div className="space-y-4">
+          {posts.map((post) => (
+            <PostCard key={post.id} post={post} />
+          ))}
+        </div>
+
+        {/* Floating compose button - positioned above bottom nav */}
+        <Button
+          onClick={() => setIsComposeOpen(true)}
+          size="lg"
+          className="fixed bottom-24 right-4 lg:bottom-8 lg:right-8 h-14 w-14 rounded-full shadow-glow p-0 active:scale-95 transition-transform"
+        >
+          <Plus className="h-6 w-6" />
+        </Button>
+
+        {/* Compose modal */}
+        <ComposeModal
+          isOpen={isComposeOpen}
+          onClose={() => setIsComposeOpen(false)}
+          onSubmit={handleCreatePost}
+        />
       </div>
-    </div>
+    </PullToRefresh>
   );
 }

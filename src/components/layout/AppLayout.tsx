@@ -17,20 +17,22 @@ export function AppLayout() {
   const title = routeTitles[location.pathname] || "Locale";
 
   return (
-    <div className="flex min-h-screen w-full bg-background overflow-x-hidden">
-      {/* Desktop sidebar */}
-      <Sidebar />
+    <div className="flex min-h-[100dvh] w-full bg-background overflow-x-hidden">
+      {/* Desktop sidebar - hidden on mobile/tablet */}
+      <div className="hidden lg:block">
+        <Sidebar />
+      </div>
 
       {/* Main content */}
       <div className="flex flex-1 flex-col min-w-0">
         <Header title={title} />
         
-        <main className="flex-1 overflow-y-auto overflow-x-hidden pb-20 md:pb-0">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden pb-24 lg:pb-0">
           <Outlet />
         </main>
       </div>
 
-      {/* Mobile bottom navigation */}
+      {/* Mobile/tablet bottom navigation */}
       <BottomNav />
     </div>
   );
