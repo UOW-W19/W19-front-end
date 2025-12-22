@@ -48,7 +48,7 @@ export default function ComposeModal({ isOpen, onClose, onSubmit }: ComposeModal
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center">
+    <div className="fixed inset-0 z-[100] flex items-end justify-center">
       {/* Backdrop */}
       <div 
         className="absolute inset-0 bg-foreground/40 backdrop-blur-sm animate-fade-in"

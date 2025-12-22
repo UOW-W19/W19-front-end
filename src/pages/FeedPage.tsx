@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { Globe, Plus } from "lucide-react";
+import { Globe, Plus, MessageCircle } from "lucide-react";
 import PostCard from "@/components/feed/PostCard";
 import ComposeModal from "@/components/feed/ComposeModal";
 import { Button } from "@/components/ui/button";
@@ -89,10 +89,25 @@ const newPostsPool: Post[] = [
   },
 ];
 
+const languages = ["Spanish", "Japanese", "French", "German", "Korean", "Italian"];
+const languageFlags: Record<string, string> = {
+  Spanish: "🇪🇸",
+  Japanese: "🇯🇵",
+  French: "🇫🇷",
+  German: "🇩🇪",
+  Korean: "🇰🇷",
+  Italian: "🇮🇹",
+};
+
 export default function FeedPage() {
   const [posts, setPosts] = useState<Post[]>(initialPosts);
   const [isComposeOpen, setIsComposeOpen] = useState(false);
   const [refreshIndex, setRefreshIndex] = useState(0);
+  const [selectedLanguage, setSelectedLanguage] = useState<string | null>(null);
+
+  const filteredPosts = selectedLanguage
+    ? posts.filter((post) => post.author.language === selectedLanguage)
+    : posts;
 
   const handleRefresh = useCallback(async () => {
     // Simulate network delay
@@ -122,37 +137,61 @@ export default function FeedPage() {
   return (
     <PullToRefresh onRefresh={handleRefresh} className="h-full">
       <div className="w-full max-w-2xl mx-auto px-4 py-4 overflow-x-hidden">
-        {/* Language filter chips - touch-friendly */}
-        <div className="mb-4 flex gap-2 overflow-x-auto pb-2 scrollbar-thin -mx-4 px-4">
-          <button className="flex shrink-0 items-center gap-1.5 rounded-full bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground active:scale-95 transition-transform">
+        {/* Language filter chips - wrapping grid */}
+        <div className="mb-4 flex flex-wrap gap-2">
+          <button
+            onClick={() => setSelectedLanguage(null)}
+            className={`flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium active:scale-95 transition-all ${
+              selectedLanguage === null
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground"
+            }`}
+          >
             <Globe className="h-4 w-4" />
             All
           </button>
-          {["🇪🇸 Spanish", "🇯🇵 Japanese", "🇫🇷 French", "🇩🇪 German"].map((lang) => (
+          {languages.map((lang) => (
             <button
               key={lang}
-              className="shrink-0 rounded-full bg-muted px-4 py-2.5 text-sm font-medium text-muted-foreground active:bg-muted/70 active:scale-95 transition-all"
+              onClick={() => setSelectedLanguage(lang)}
+              className={`rounded-full px-3 py-2 text-sm font-medium active:scale-95 transition-all ${
+                selectedLanguage === lang
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-muted-foreground"
+              }`}
             >
-              {lang}
+              {languageFlags[lang]} {lang}
             </button>
           ))}
+          {/* Compose button inline with filters */}
+          <button
+            onClick={() => setIsComposeOpen(true)}
+            className="ml-auto flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground active:scale-95 transition-all shadow-glow"
+          >
+            <Plus className="h-4 w-4" />
+            Post
+          </button>
         </div>
 
         {/* Posts */}
         <div className="space-y-4">
-          {posts.map((post) => (
-            <PostCard key={post.id} post={post} />
-          ))}
+          {filteredPosts.length > 0 ? (
+            filteredPosts.map((post) => (
+              <PostCard key={post.id} post={post} />
+            ))
+          ) : (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="rounded-full bg-muted p-4 mb-4">
+                <MessageCircle className="h-8 w-8 text-muted-foreground" />
+              </div>
+              <h3 className="text-lg font-semibold text-foreground mb-1">No posts yet</h3>
+              <p className="text-sm text-muted-foreground max-w-xs">
+                No posts in {selectedLanguage} yet. Be the first to share something!
+              </p>
+            </div>
+          )}
         </div>
 
-        {/* Floating compose button - positioned above bottom nav */}
-        <Button
-          onClick={() => setIsComposeOpen(true)}
-          size="lg"
-          className="fixed bottom-24 right-4 lg:bottom-8 lg:right-8 h-14 w-14 rounded-full shadow-glow p-0 active:scale-95 transition-transform"
-        >
-          <Plus className="h-6 w-6" />
-        </Button>
 
         {/* Compose modal */}
         <ComposeModal

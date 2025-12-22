@@ -6,6 +6,7 @@ import MessagesPage from "./pages/MessagesPage";
 import LearnPage from "./pages/LearnPage";
 import ProfilePage from "./pages/ProfilePage";
 import SettingsPage from "./pages/SettingsPage";
+import InstallPage from "./pages/InstallPage";
 
 const App = () => (
   <BrowserRouter>
@@ -17,6 +18,7 @@ const App = () => (
         <Route path="/learn" element={<LearnPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/install" element={<InstallPage />} />
       </Route>
     </Routes>
   </BrowserRouter>
