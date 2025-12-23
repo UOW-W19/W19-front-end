@@ -3,11 +3,11 @@ import { MapPin, Heart, MessageCircle, Share2, Send, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Post, Comment } from "@/types";
 
-interface PostCardProps {
+export interface PostCardProps {
   post: Post;
 }
 
-export default function PostCard({ post }: PostCardProps) {
+export function PostCard({ post }: PostCardProps) {
   const [isLiked, setIsLiked] = useState(false);
   const [likesCount, setLikesCount] = useState(post.reactions.likes);
   const [showComments, setShowComments] = useState(false);
@@ -92,6 +92,17 @@ export default function PostCard({ post }: PostCardProps) {
         <p className="text-foreground leading-relaxed text-[15px]">{post.content}</p>
         <p className="text-sm text-muted-foreground italic">{post.translation}</p>
       </div>
+
+      {/* Post Image */}
+      {post.image && (
+        <div className="mb-4 -mx-4 sm:mx-0 sm:rounded-xl overflow-hidden">
+          <img 
+            src={post.image} 
+            alt="Post" 
+            className="w-full h-auto max-h-80 object-cover"
+          />
+        </div>
+      )}
 
       {/* Actions - larger touch targets */}
       <div className="flex items-center gap-1 border-t border-border pt-3">
@@ -195,3 +206,5 @@ export default function PostCard({ post }: PostCardProps) {
     </article>
   );
 }
+
+export default PostCard;

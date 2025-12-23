@@ -1,9 +1,9 @@
-import { useState } from "react";
-import { X, Globe, MapPin, Sparkles, Send } from "lucide-react";
+import { useState, useRef, type ChangeEvent } from "react";
+import { X, Globe, MapPin, Sparkles, Send, ImagePlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Post } from "@/types";
 
-interface ComposeModalProps {
+export interface ComposeModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (post: Omit<Post, "id" | "time" | "reactions">) => void;
@@ -18,11 +18,31 @@ const languages = [
   { code: "ko", name: "Korean", flag: "🇰🇷" },
 ];
 
-export default function ComposeModal({ isOpen, onClose, onSubmit }: ComposeModalProps) {
+export function ComposeModal({ isOpen, onClose, onSubmit }: ComposeModalProps) {
   const [content, setContent] = useState("");
   const [translation, setTranslation] = useState("");
   const [selectedLanguage, setSelectedLanguage] = useState(languages[0]);
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImageSelect = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setSelectedImage(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeImage = () => {
+    setSelectedImage(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
 
   const handleSubmit = () => {
     if (!content.trim()) return;
@@ -38,10 +58,12 @@ export default function ComposeModal({ isOpen, onClose, onSubmit }: ComposeModal
       translation: translation.trim() || "Translation pending...",
       location: "Your Location",
       distance: "0 km",
+      image: selectedImage || undefined,
     });
 
     setContent("");
     setTranslation("");
+    setSelectedImage(null);
     onClose();
   };
 
@@ -124,11 +146,43 @@ export default function ComposeModal({ isOpen, onClose, onSubmit }: ComposeModal
               value={content}
               onChange={(e) => setContent(e.target.value)}
               placeholder={`Share something in ${selectedLanguage.name}...`}
-              className="w-full min-h-[140px] p-4 rounded-2xl bg-muted border-0 text-foreground text-base placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
+              className="w-full min-h-[120px] p-4 rounded-2xl bg-muted border-0 text-foreground text-base placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
             />
             <div className="text-right text-xs text-muted-foreground">
               {content.length} characters
             </div>
+          </div>
+
+          {/* Image upload */}
+          <div className="space-y-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleImageSelect}
+              className="hidden"
+              id="image-upload"
+            />
+            
+            {selectedImage ? (
+              <div className="relative rounded-2xl overflow-hidden">
+                <img src={selectedImage} alt="Selected" className="w-full h-40 object-cover" />
+                <button
+                  onClick={removeImage}
+                  className="absolute top-2 right-2 p-1.5 bg-foreground/60 hover:bg-foreground/80 rounded-full transition-colors"
+                >
+                  <X className="w-4 h-4 text-background" />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full flex items-center justify-center gap-2 p-4 rounded-2xl border-2 border-dashed border-border hover:border-primary/50 hover:bg-muted/50 transition-colors text-muted-foreground"
+              >
+                <ImagePlus className="h-5 w-5" />
+                <span className="text-sm font-medium">Add a photo</span>
+              </button>
+            )}
           </div>
 
           {/* Translation input */}
@@ -155,3 +209,5 @@ export default function ComposeModal({ isOpen, onClose, onSubmit }: ComposeModal
     </div>
   );
 }
+
+export default ComposeModal;

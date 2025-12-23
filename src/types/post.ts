@@ -10,6 +10,7 @@ export interface Post {
   translation: string;
   location: string;
   distance: string;
+  image?: string;
   reactions: { likes: number; comments: number };
   time: string;
 }

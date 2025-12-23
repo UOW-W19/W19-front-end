@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
-import { Globe, Plus, MessageCircle } from "lucide-react";
-import PostCard from "@/components/feed/PostCard";
-import ComposeModal from "@/components/feed/ComposeModal";
+import { Globe, Plus, MessageCircle, ChevronDown, Check } from "lucide-react";
+import { PostCard } from "@/components/feed/PostCard";
+import { ComposeModal } from "@/components/feed/ComposeModal";
 import { Button } from "@/components/ui/button";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import type { Post } from "@/types";
@@ -104,6 +104,7 @@ export default function FeedPage() {
   const [isComposeOpen, setIsComposeOpen] = useState(false);
   const [refreshIndex, setRefreshIndex] = useState(0);
   const [selectedLanguage, setSelectedLanguage] = useState<string | null>(null);
+  const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
 
   const filteredPosts = selectedLanguage
     ? posts.filter((post) => post.author.language === selectedLanguage)
@@ -137,40 +138,73 @@ export default function FeedPage() {
   return (
     <PullToRefresh onRefresh={handleRefresh} className="h-full">
       <div className="w-full max-w-2xl mx-auto px-4 py-4 overflow-x-hidden">
-        {/* Language filter chips - wrapping grid */}
-        <div className="mb-4 flex flex-wrap gap-2">
-          <button
-            onClick={() => setSelectedLanguage(null)}
-            className={`flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium active:scale-95 transition-all ${
-              selectedLanguage === null
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted text-muted-foreground"
-            }`}
-          >
-            <Globe className="h-4 w-4" />
-            All
-          </button>
-          {languages.map((lang) => (
+        {/* Header with filters and post button */}
+        <div className="mb-4 flex items-center justify-between gap-3">
+          {/* Language dropdown */}
+          <div className="relative">
             <button
-              key={lang}
-              onClick={() => setSelectedLanguage(lang)}
-              className={`rounded-full px-3 py-2 text-sm font-medium active:scale-95 transition-all ${
-                selectedLanguage === lang
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground"
-              }`}
+              onClick={() => setShowLanguageDropdown(!showLanguageDropdown)}
+              className="flex items-center gap-2 px-3 py-2 rounded-full bg-muted hover:bg-muted/80 transition-colors text-sm font-medium"
             >
-              {languageFlags[lang]} {lang}
+              <span className="text-base">
+                {selectedLanguage ? languageFlags[selectedLanguage] : "🌍"}
+              </span>
+              <span className="text-foreground">
+                {selectedLanguage || "All Languages"}
+              </span>
+              <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${showLanguageDropdown ? 'rotate-180' : ''}`} />
             </button>
-          ))}
-          {/* Compose button inline with filters */}
-          <button
+
+            {showLanguageDropdown && (
+              <>
+                <div 
+                  className="fixed inset-0 z-40" 
+                  onClick={() => setShowLanguageDropdown(false)} 
+                />
+                <div className="absolute top-full left-0 mt-2 w-48 bg-card border border-border rounded-xl shadow-lg py-1 z-50 max-h-64 overflow-y-auto">
+                  <button
+                    onClick={() => {
+                      setSelectedLanguage(null);
+                      setShowLanguageDropdown(false);
+                    }}
+                    className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-muted transition-colors text-left"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Globe className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm text-foreground">All Languages</span>
+                    </div>
+                    {selectedLanguage === null && <Check className="h-4 w-4 text-primary" />}
+                  </button>
+                  {languages.map((lang) => (
+                    <button
+                      key={lang}
+                      onClick={() => {
+                        setSelectedLanguage(lang);
+                        setShowLanguageDropdown(false);
+                      }}
+                      className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-muted transition-colors text-left"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-base">{languageFlags[lang]}</span>
+                        <span className="text-sm text-foreground">{lang}</span>
+                      </div>
+                      {selectedLanguage === lang && <Check className="h-4 w-4 text-primary" />}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Compose button */}
+          <Button
             onClick={() => setIsComposeOpen(true)}
-            className="ml-auto flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground active:scale-95 transition-all shadow-glow"
+            size="sm"
+            className="gap-1.5 h-9 px-4 rounded-full shadow-sm"
           >
             <Plus className="h-4 w-4" />
             Post
-          </button>
+          </Button>
         </div>
 
         {/* Posts */}
@@ -194,10 +228,10 @@ export default function FeedPage() {
 
 
         {/* Compose modal */}
-        <ComposeModal
-          isOpen={isComposeOpen}
-          onClose={() => setIsComposeOpen(false)}
-          onSubmit={handleCreatePost}
+        <ComposeModal 
+          isOpen={isComposeOpen} 
+          onClose={() => setIsComposeOpen(false)} 
+          onSubmit={handleCreatePost} 
         />
       </div>
     </PullToRefresh>
