@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react';
-import { MapPin } from 'lucide-react';
-import type { Meetup } from '@/types/meetup';
+import { MapPin, Plus } from 'lucide-react';
+import { toast } from 'sonner';
+import type { Meetup, CreateMeetupRequest } from '@/types/meetup';
 import { meetupsApi } from '@/services/api/meetups';
+import { Button } from '@/components/ui/button';
 import MeetupCard from '@/components/explore/MeetupCard';
 import MeetupDetailSheet from '@/components/explore/MeetupDetailSheet';
+import CreateMeetupModal from '@/components/explore/CreateMeetupModal';
 
 const nearbyLearners = [
   { id: '1', name: 'Alex', languages: ['🇪🇸', '🇫🇷'], distance: '0.5 km' },
@@ -16,6 +19,7 @@ export default function ExplorePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedMeetup, setSelectedMeetup] = useState<Meetup | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
 
   useEffect(() => {
     loadMeetups();
@@ -47,6 +51,20 @@ export default function ExplorePage() {
     const updated = await meetupsApi.leaveMeetup(id);
     setMeetups((prev) => prev.map((m) => (m.id === id ? updated : m)));
     setSelectedMeetup(updated);
+  };
+
+  const handleCreateMeetup = async (data: CreateMeetupRequest) => {
+    try {
+      const newMeetup = await meetupsApi.createMeetup(data);
+      setMeetups((prev) => [newMeetup, ...prev]);
+      toast.success('Meetup created!', {
+        description: `"${newMeetup.title}" is now live.`,
+      });
+    } catch (error) {
+      toast.error('Failed to create meetup', {
+        description: error instanceof Error ? error.message : 'Please try again.',
+      });
+    }
   };
 
   return (
@@ -87,7 +105,17 @@ export default function ExplorePage() {
 
       {/* Upcoming meetups */}
       <section>
-        <h2 className="mb-4 text-lg font-semibold text-foreground">Upcoming Meetups</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-foreground">Upcoming Meetups</h2>
+          <Button
+            size="sm"
+            onClick={() => setCreateModalOpen(true)}
+            className="gap-1.5"
+          >
+            <Plus className="h-4 w-4" />
+            Create
+          </Button>
+        </div>
         {isLoading ? (
           <div className="space-y-3">
             {[1, 2].map((i) => (
@@ -96,6 +124,10 @@ export default function ExplorePage() {
                 className="h-24 rounded-2xl bg-muted animate-pulse"
               />
             ))}
+          </div>
+        ) : meetups.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            <p>No meetups yet. Be the first to create one!</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -117,6 +149,13 @@ export default function ExplorePage() {
         onOpenChange={setSheetOpen}
         onJoin={handleJoin}
         onLeave={handleLeave}
+      />
+
+      {/* Create meetup modal */}
+      <CreateMeetupModal
+        isOpen={createModalOpen}
+        onClose={() => setCreateModalOpen(false)}
+        onSubmit={handleCreateMeetup}
       />
     </div>
   );
