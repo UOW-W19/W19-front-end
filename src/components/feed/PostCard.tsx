@@ -5,10 +5,11 @@ import type { Post, Comment } from "@/types";
 
 export interface PostCardProps {
   post: Post;
+  onLikeToggle?: (postId: string, isLiked: boolean) => void;
 }
 
-export function PostCard({ post }: PostCardProps) {
-  const [isLiked, setIsLiked] = useState(false);
+export function PostCard({ post, onLikeToggle }: PostCardProps) {
+  const [isLiked, setIsLiked] = useState(post.isLiked ?? false);
   const [likesCount, setLikesCount] = useState(post.reactions.likes);
   const [showComments, setShowComments] = useState(false);
   const [comments, setComments] = useState<Comment[]>([
@@ -18,12 +19,16 @@ export function PostCard({ post }: PostCardProps) {
   const [showShareToast, setShowShareToast] = useState(false);
 
   const handleLike = () => {
-    if (isLiked) {
-      setLikesCount((prev) => prev - 1);
+    if (onLikeToggle) {
+      onLikeToggle(post.id, isLiked);
     } else {
-      setLikesCount((prev) => prev + 1);
+      if (isLiked) {
+        setLikesCount((prev) => prev - 1);
+      } else {
+        setLikesCount((prev) => prev + 1);
+      }
+      setIsLiked(!isLiked);
     }
-    setIsLiked(!isLiked);
   };
 
   const handleComment = () => {

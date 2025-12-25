@@ -13,6 +13,7 @@ export interface Post {
   image?: string;
   reactions: { likes: number; comments: number };
   time: string;
+  isLiked?: boolean;
 }
 
 export interface Comment {

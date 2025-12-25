@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import { 
   User, 
   Bell, 
@@ -10,6 +11,7 @@ import {
   Moon,
   Sun
 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 const settingsSections = [
   {
@@ -36,8 +38,31 @@ const settingsSections = [
 ];
 
 export default function SettingsPage() {
+  const navigate = useNavigate();
+  const { logout, user } = useAuth();
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/auth');
+  };
+
   return (
     <div className="mx-auto max-w-2xl px-4 py-6">
+      {/* User info card */}
+      {user && (
+        <div className="mb-6 rounded-2xl border border-border bg-card p-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground text-lg font-semibold">
+              {user.displayName.charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <p className="font-semibold text-foreground">{user.displayName}</p>
+              <p className="text-sm text-muted-foreground">{user.email}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Theme toggle card */}
       <div className="mb-6 rounded-2xl border border-border bg-card p-4">
         <div className="flex items-center justify-between">
@@ -80,7 +105,10 @@ export default function SettingsPage() {
       ))}
 
       {/* Logout */}
-      <button className="flex w-full items-center justify-center gap-2 rounded-2xl border border-destructive/30 bg-destructive/5 p-4 text-destructive hover:bg-destructive/10 transition-colors">
+      <button 
+        onClick={handleLogout}
+        className="flex w-full items-center justify-center gap-2 rounded-2xl border border-destructive/30 bg-destructive/5 p-4 text-destructive hover:bg-destructive/10 transition-colors"
+      >
         <LogOut className="h-5 w-5" />
         <span className="font-medium">Log Out</span>
       </button>

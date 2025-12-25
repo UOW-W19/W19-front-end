@@ -1,33 +1,54 @@
-import { MapPin, Users, Calendar } from "lucide-react";
-
-const mockMeetups = [
-  {
-    id: "1",
-    title: "Spanish Conversation Hour",
-    language: "🇪🇸 Spanish",
-    location: "Central Park Café",
-    date: "Tomorrow, 3:00 PM",
-    participants: 8,
-    maxParticipants: 12,
-  },
-  {
-    id: "2",
-    title: "Japanese Language Exchange",
-    language: "🇯🇵 Japanese",
-    location: "Downtown Library",
-    date: "Saturday, 2:00 PM",
-    participants: 5,
-    maxParticipants: 10,
-  },
-];
+import { useState, useEffect } from 'react';
+import { MapPin } from 'lucide-react';
+import type { Meetup } from '@/types/meetup';
+import { meetupsApi } from '@/services/api/meetups';
+import MeetupCard from '@/components/explore/MeetupCard';
+import MeetupDetailSheet from '@/components/explore/MeetupDetailSheet';
 
 const nearbyLearners = [
-  { id: "1", name: "Alex", languages: ["🇪🇸", "🇫🇷"], distance: "0.5 km" },
-  { id: "2", name: "Sofia", languages: ["🇯🇵", "🇰🇷"], distance: "1.2 km" },
-  { id: "3", name: "Marco", languages: ["🇩🇪", "🇮🇹"], distance: "2.1 km" },
+  { id: '1', name: 'Alex', languages: ['🇪🇸', '🇫🇷'], distance: '0.5 km' },
+  { id: '2', name: 'Sofia', languages: ['🇯🇵', '🇰🇷'], distance: '1.2 km' },
+  { id: '3', name: 'Marco', languages: ['🇩🇪', '🇮🇹'], distance: '2.1 km' },
 ];
 
 export default function ExplorePage() {
+  const [meetups, setMeetups] = useState<Meetup[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [selectedMeetup, setSelectedMeetup] = useState<Meetup | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
+
+  useEffect(() => {
+    loadMeetups();
+  }, []);
+
+  const loadMeetups = async () => {
+    try {
+      const data = await meetupsApi.getMeetups();
+      setMeetups(data);
+    } catch (error) {
+      console.error('Failed to load meetups:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleMeetupClick = (meetup: Meetup) => {
+    setSelectedMeetup(meetup);
+    setSheetOpen(true);
+  };
+
+  const handleJoin = async (id: string) => {
+    const updated = await meetupsApi.joinMeetup(id);
+    setMeetups((prev) => prev.map((m) => (m.id === id ? updated : m)));
+    setSelectedMeetup(updated);
+  };
+
+  const handleLeave = async (id: string) => {
+    const updated = await meetupsApi.leaveMeetup(id);
+    setMeetups((prev) => prev.map((m) => (m.id === id ? updated : m)));
+    setSelectedMeetup(updated);
+  };
+
   return (
     <div className="mx-auto max-w-4xl px-4 py-6">
       {/* Map placeholder */}
@@ -54,7 +75,9 @@ export default function ExplorePage() {
               <p className="text-xs text-muted-foreground mb-1">{learner.distance}</p>
               <div className="flex gap-1">
                 {learner.languages.map((lang, i) => (
-                  <span key={i} className="text-sm">{lang}</span>
+                  <span key={i} className="text-sm">
+                    {lang}
+                  </span>
                 ))}
               </div>
             </div>
@@ -65,35 +88,36 @@ export default function ExplorePage() {
       {/* Upcoming meetups */}
       <section>
         <h2 className="mb-4 text-lg font-semibold text-foreground">Upcoming Meetups</h2>
-        <div className="space-y-3">
-          {mockMeetups.map((meetup) => (
-            <div
-              key={meetup.id}
-              className="rounded-2xl border border-border bg-card p-4 transition-all hover:shadow-soft"
-            >
-              <div className="flex items-start justify-between mb-2">
-                <div>
-                  <h3 className="font-medium text-foreground">{meetup.title}</h3>
-                  <span className="text-sm">{meetup.language}</span>
-                </div>
-                <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
-                  {meetup.participants}/{meetup.maxParticipants} joined
-                </span>
-              </div>
-              <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                <span className="flex items-center gap-1">
-                  <MapPin className="h-3.5 w-3.5" />
-                  {meetup.location}
-                </span>
-                <span className="flex items-center gap-1">
-                  <Calendar className="h-3.5 w-3.5" />
-                  {meetup.date}
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
+        {isLoading ? (
+          <div className="space-y-3">
+            {[1, 2].map((i) => (
+              <div
+                key={i}
+                className="h-24 rounded-2xl bg-muted animate-pulse"
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {meetups.map((meetup) => (
+              <MeetupCard
+                key={meetup.id}
+                meetup={meetup}
+                onClick={() => handleMeetupClick(meetup)}
+              />
+            ))}
+          </div>
+        )}
       </section>
+
+      {/* Meetup detail sheet */}
+      <MeetupDetailSheet
+        meetup={selectedMeetup}
+        open={sheetOpen}
+        onOpenChange={setSheetOpen}
+        onJoin={handleJoin}
+        onLeave={handleLeave}
+      />
     </div>
   );
 }
