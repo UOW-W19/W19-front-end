@@ -1,36 +1,36 @@
 import { useState, useEffect } from 'react';
-import { MapPin, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { toast } from 'sonner';
-import type { Meetup, CreateMeetupRequest } from '@/types/meetup';
+import type { Meetup, NearbyLearner, CreateMeetupRequest } from '@/types/meetup';
 import { meetupsApi } from '@/services/api/meetups';
+import { learnersApi } from '@/services/api/learners';
 import { Button } from '@/components/ui/button';
 import MeetupCard from '@/components/explore/MeetupCard';
 import MeetupDetailSheet from '@/components/explore/MeetupDetailSheet';
 import CreateMeetupModal from '@/components/explore/CreateMeetupModal';
-
-const nearbyLearners = [
-  { id: '1', name: 'Alex', languages: ['🇪🇸', '🇫🇷'], distance: '0.5 km' },
-  { id: '2', name: 'Sofia', languages: ['🇯🇵', '🇰🇷'], distance: '1.2 km' },
-  { id: '3', name: 'Marco', languages: ['🇩🇪', '🇮🇹'], distance: '2.1 km' },
-];
-
+import ExploreMap from '@/components/explore/ExploreMap';
 export default function ExplorePage() {
   const [meetups, setMeetups] = useState<Meetup[]>([]);
+  const [learners, setLearners] = useState<NearbyLearner[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedMeetup, setSelectedMeetup] = useState<Meetup | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
 
   useEffect(() => {
-    loadMeetups();
+    loadData();
   }, []);
 
-  const loadMeetups = async () => {
+  const loadData = async () => {
     try {
-      const data = await meetupsApi.getMeetups();
-      setMeetups(data);
+      const [meetupsData, learnersData] = await Promise.all([
+        meetupsApi.getMeetups(),
+        learnersApi.getNearbyLearners(),
+      ]);
+      setMeetups(meetupsData);
+      setLearners(learnersData);
     } catch (error) {
-      console.error('Failed to load meetups:', error);
+      console.error('Failed to load data:', error);
     } finally {
       setIsLoading(false);
     }
@@ -67,35 +67,42 @@ export default function ExplorePage() {
     }
   };
 
+  // Helper to get language flags
+  const getLanguageFlags = (languages: string[]) => {
+    const flagMap: Record<string, string> = {
+      Spanish: '🇪🇸', French: '🇫🇷', Japanese: '🇯🇵', Korean: '🇰🇷',
+      German: '🇩🇪', Italian: '🇮🇹', English: '🇬🇧', Portuguese: '🇧🇷',
+    };
+    return languages.map(l => flagMap[l] || '🌐');
+  };
+
   return (
     <div className="mx-auto max-w-4xl px-4 py-6">
-      {/* Map placeholder */}
-      <div className="mb-6 h-48 rounded-2xl bg-gradient-to-br from-sage/30 to-sage-light/30 border border-border flex items-center justify-center">
-        <div className="text-center">
-          <MapPin className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-          <p className="text-sm text-muted-foreground">Map coming soon</p>
-        </div>
+      {/* Interactive Map */}
+      <div className="mb-6">
+        <ExploreMap
+          meetups={meetups}
+          learners={learners}
+          onMeetupClick={handleMeetupClick}
+        />
       </div>
 
       {/* Nearby learners */}
       <section className="mb-8">
         <h2 className="mb-4 text-lg font-semibold text-foreground">Nearby Learners</h2>
         <div className="grid grid-cols-3 gap-3">
-          {nearbyLearners.map((learner) => (
+          {learners.map((learner) => (
             <div
               key={learner.id}
               className="flex flex-col items-center rounded-2xl border border-border bg-card p-4 text-center transition-all hover:shadow-soft"
             >
               <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-lavender to-accent text-lg font-semibold text-accent-foreground">
-                {learner.name[0]}
+                {learner.displayName[0]}
               </div>
-              <p className="font-medium text-foreground text-sm">{learner.name}</p>
-              <p className="text-xs text-muted-foreground mb-1">{learner.distance}</p>
-              <div className="flex gap-1">
-                {learner.languages.map((lang, i) => (
-                  <span key={i} className="text-sm">
-                    {lang}
-                  </span>
+              <p className="font-medium text-foreground text-sm">{learner.displayName}</p>
+              <div className="flex gap-1 mt-1">
+                {getLanguageFlags(learner.languages.learning).map((flag, i) => (
+                  <span key={i} className="text-sm">{flag}</span>
                 ))}
               </div>
             </div>

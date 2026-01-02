@@ -40,3 +40,18 @@ export interface CreateMeetupRequest {
   time: string;
   maxParticipants: number;
 }
+
+export interface NearbyLearner {
+  id: string;
+  displayName: string;
+  avatarUrl?: string;
+  coordinates: {
+    lat: number;
+    lng: number;
+  };
+  languages: {
+    learning: string[];
+    native: string[];
+  };
+  distanceKm?: number;
+}
