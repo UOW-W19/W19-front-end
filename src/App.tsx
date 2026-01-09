@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { AppLayout } from "./components/layout/AppLayout";
-import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { AppLayout } from "@/components/layout/AppLayout";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import FeedPage from "./pages/FeedPage";
 import ExplorePage from "./pages/ExplorePage";
 import MessagesPage from "./pages/MessagesPage";
@@ -10,6 +11,15 @@ import SettingsPage from "./pages/SettingsPage";
 import InstallPage from "./pages/InstallPage";
 import AuthPage from "./pages/AuthPage";
 import ScannerPage from "./pages/ScannerPage";
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      staleTime: 1000 * 60 * 5, // 5 minutes
+    },
+  },
+});
 
 // Protected route wrapper
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -52,12 +62,16 @@ const AppRoutes = () => (
   </Routes>
 );
 
-const App = () => (
-  <BrowserRouter>
-    <AuthProvider>
-      <AppRoutes />
-    </AuthProvider>
-  </BrowserRouter>
-);
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <AuthProvider>
+          <AppRoutes />
+        </AuthProvider>
+      </BrowserRouter>
+    </QueryClientProvider>
+  );
+}
 
 export default App;

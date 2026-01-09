@@ -9,26 +9,28 @@ import type { ApiPost, Post } from "@/types";
 
 // Convert API post to UI post format
 const toUiPost = (apiPost: ApiPost): Post => {
-  const lang = getLanguageByCode(apiPost.language);
+  const lang = getLanguageByCode(apiPost.originalLanguage);
   return {
     id: apiPost.id,
     author: {
       name: apiPost.author.displayName,
-      avatar: apiPost.author.displayName.charAt(0).toUpperCase(),
-      language: lang?.name || apiPost.language,
-      flag: lang?.flag || '🌍',
+      avatar: apiPost.author.avatarUrl 
+        ? apiPost.author.displayName.charAt(0).toUpperCase()
+        : apiPost.author.displayName.charAt(0).toUpperCase(),
+      language: apiPost.author.language ?? lang?.name ?? apiPost.originalLanguage,
+      flag: apiPost.author.flagEmoji ?? lang?.flag ?? '🌍',
     },
     content: apiPost.content,
     translation: apiPost.translation || '',
     location: apiPost.location || '',
-    distance: '', // Would need geo calculation
+    distance: apiPost.distance || '',
     image: apiPost.imageUrl,
     reactions: { 
-      likes: apiPost.likesCount, 
-      comments: apiPost.commentsCount 
+      likes: apiPost.reactions.likes, 
+      comments: apiPost.reactions.comments 
     },
     time: formatRelativeTime(apiPost.createdAt),
-    isLiked: apiPost.isLiked,
+    isLiked: apiPost.userReaction === 'LIKE',
   };
 };
 
@@ -54,10 +56,6 @@ export default function FeedPage() {
   const [isComposeOpen, setIsComposeOpen] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState<string | null>(null);
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
-
-  useEffect(() => {
-    console.log("[FeedPage] isComposeOpen:", isComposeOpen);
-  }, [isComposeOpen]);
 
   // Fetch posts on mount and when language filter changes
   const fetchPosts = useCallback(async () => {
@@ -88,10 +86,9 @@ export default function FeedPage() {
     const langCode = LANGUAGES.find(l => l.name === newPostData.author.language)?.code || 'en';
     const payload = {
       content: newPostData.content,
-      translation: newPostData.translation,
-      language: langCode,
-      imageUrl: newPostData.image,
-      location: newPostData.location,
+      originalLanguage: langCode,
+      translation: newPostData.translation || undefined,
+      imageUrl: newPostData.image || undefined,
     };
     console.log('[FeedPage] Creating post:', payload);
     try {

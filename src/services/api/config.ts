@@ -1,7 +1,7 @@
 // API configuration and language data
 import type { Language } from '@/types/api';
 
-export const API_BASE_URL = 'http://localhost:8081/api';
+export const API_BASE_URL = 'https://superconservatively-gildable-paulina.ngrok-free.dev/api';
 
 // Supported languages
 export const LANGUAGES: Language[] = [

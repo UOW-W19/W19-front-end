@@ -1,9 +1,9 @@
-
+// API Types matching Backend contract (Frontend Integration Guide)
 
 // ============ AUTH ============
 export interface RegisterRequest {
   email: string;
-  username?: string; // Auto-generated from displayName if not provided
+  username?: string;
   password: string;
   displayName: string;
   nativeLanguage?: string;
@@ -16,10 +16,11 @@ export interface LoginRequest {
 }
 
 export interface AuthResponse {
+  userId: string;
   accessToken: string;
   refreshToken: string;
   expiresIn: number;
-  user: UserProfile;
+  user?: UserProfile; // Populated by frontend after fetching profile
 }
 
 export interface RefreshRequest {
@@ -30,11 +31,14 @@ export interface RefreshRequest {
 export interface UserProfile {
   id: string;
   email: string;
+  username?: string;
   displayName: string;
   avatarUrl?: string;
   bio?: string;
   nativeLanguage: string;
   learningLanguages: string[];
+  latitude?: number;
+  longitude?: number;
   location?: string;
   createdAt: string;
   followersCount: number;
@@ -47,39 +51,54 @@ export interface UpdateProfileRequest {
   bio?: string;
   avatarUrl?: string;
   location?: string;
+  latitude?: number;
+  longitude?: number;
   learningLanguages?: string[];
 }
 
-// ============ POSTS ============
-export interface ApiPost {
+// ============ AUTHOR ============
+export interface AuthorDto {
   id: string;
-  authorId: string;
-  author: PostAuthor;
-  content: string;
-  translation?: string;
-  language: string;
-  imageUrl?: string;
-  location?: string;
-  likesCount: number;
-  commentsCount: number;
-  isLiked: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface PostAuthor {
-  id: string;
+  username: string;
   displayName: string;
   avatarUrl?: string;
-  nativeLanguage: string;
+  language?: string;
+  flagEmoji?: string;
+}
+
+// ============ POSTS ============
+export interface PostReactionSummary {
+  likes: number;
+  comments: number;
+}
+
+export interface ApiPost {
+  id: string;
+  content: string;
+  originalLanguage: string;
+  translation?: string;
+  imageUrl?: string;
+
+  // Location
+  latitude?: number;
+  longitude?: number;
+  distance?: string;
+  location?: string;
+
+  // Metadata
+  author: AuthorDto;
+  reactions: PostReactionSummary;
+  userReaction?: string | null;
+  createdAt: string;
 }
 
 export interface CreatePostRequest {
   content: string;
+  originalLanguage: string;
   translation?: string;
-  language: string;
   imageUrl?: string;
-  location?: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface FeedResponse {
@@ -91,19 +110,16 @@ export interface FeedResponse {
 // ============ REACTIONS ============
 export interface ReactionResponse {
   postId: string;
-  type: 'like';
-  count: number;
-  isReacted: boolean;
+  profileId: string;
+  reaction: string;
 }
 
 // ============ COMMENTS ============
 export interface ApiComment {
   id: string;
-  postId: string;
-  authorId: string;
-  author: PostAuthor;
   content: string;
   createdAt: string;
+  author: AuthorDto;
 }
 
 export interface CreateCommentRequest {
@@ -136,3 +152,6 @@ export interface PaginationParams {
   cursor?: string;
   limit?: number;
 }
+
+// Legacy alias for backward compatibility
+export type PostAuthor = AuthorDto;

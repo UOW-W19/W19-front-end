@@ -1,12 +1,14 @@
-
+// Posts API Service - Real backend integration
 import type { 
   ApiPost, 
+  AuthorDto,
+  PostReactionSummary,
   CreatePostRequest, 
   FeedResponse,
   ReactionResponse,
   PaginationParams 
 } from '@/types/api';
-import { API_BASE_URL, getLanguageByCode } from './config';
+import { API_BASE_URL } from './config';
 import { getStoredToken } from './auth';
 
 // Helper for API requests
@@ -18,6 +20,7 @@ const apiRequest = async <T>(
   
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
+    'ngrok-skip-browser-warning': 'true',
     ...options.headers,
   };
   
@@ -48,93 +51,124 @@ const apiRequest = async <T>(
   return response.json();
 };
 
-// Backend response types
+// Backend response types (matching snake_case API documentation)
+interface BackendAuthor {
+  id: string | number;
+  username?: string;
+  display_name?: string;
+  avatar_url?: string;
+  language?: string;
+  flag_emoji?: string;
+}
+
 interface BackendPost {
-  id: string;
+  id: string | number;
   content: string;
-  originalLanguage: string;
-  translation?: string;
-  imageUrl?: string;
+  original_language?: string;
+  image_url?: string;
+  
+  // Location
   latitude?: number;
   longitude?: number;
-  distance?: string; // already formatted by backend
+  distance?: string;
   location?: string;
-  createdAt: string;
-  author: {
-    id: string;
-    username: string;
-    displayName: string;
-    avatarUrl?: string;
-    language?: string;
-    flagEmoji?: string;
+  
+  // Metadata
+  author: BackendAuthor;
+  reactions?: {
+    likes?: number;
+    comments?: number;
   };
-  reactions: {
-    likes: number;
-    comments: number;
-  };
-  userReaction?: string | null; // e.g. "LIKE"
+  user_reaction?: string | null;
+  created_at?: string;
 }
 
 interface BackendFeedResponse {
   content: BackendPost[];
-  page: number;
-  size: number;
-  totalElements: number;
-  totalPages: number;
+  pageable?: object;
   last: boolean;
+  totalPages?: number;
+  totalElements?: number;
+  number?: number;
+  size?: number;
 }
+
+interface BackendReactionResponse {
+  post_id: string;
+  profile_id: string;
+  reaction: string;
+}
+
+// Transform backend author to frontend AuthorDto
+const transformAuthor = (author: BackendAuthor): AuthorDto => ({
+  id: String(author.id),
+  username: author.username ?? author.display_name ?? 'unknown',
+  displayName: author.display_name ?? author.username ?? 'Unknown',
+  avatarUrl: author.avatar_url,
+  language: author.language,
+  flagEmoji: author.flag_emoji,
+});
 
 // Transform backend post to frontend ApiPost
 const transformPost = (post: BackendPost): ApiPost => {
-  const language = getLanguageByCode(post.originalLanguage);
+  const reactions: PostReactionSummary = {
+    likes: post.reactions?.likes ?? 0,
+    comments: post.reactions?.comments ?? 0,
+  };
 
   return {
     id: String(post.id),
-    authorId: String(post.author.id),
-    author: {
-      id: String(post.author.id),
-      displayName: post.author.displayName,
-      avatarUrl: post.author.avatarUrl,
-      nativeLanguage: post.author.language || post.originalLanguage,
-    },
     content: post.content,
-    translation: post.translation,
-    language: post.originalLanguage,
-    imageUrl: post.imageUrl,
+    originalLanguage: post.original_language ?? 'en',
+    imageUrl: post.image_url,
+    latitude: post.latitude,
+    longitude: post.longitude,
+    distance: post.distance,
     location: post.location,
-    likesCount: post.reactions?.likes ?? 0,
-    commentsCount: post.reactions?.comments ?? 0,
-    isLiked: (post.userReaction || '').toUpperCase() === 'LIKE',
-    createdAt: post.createdAt,
-    updatedAt: post.createdAt,
+    author: transformAuthor(post.author),
+    reactions,
+    userReaction: post.user_reaction ?? null,
+    createdAt: post.created_at ?? new Date().toISOString(),
   };
 };
 
 // Posts API functions
 export const postsApi = {
-  async getFeed(params?: PaginationParams & { language?: string }): Promise<FeedResponse> {
+  async getFeed(params?: PaginationParams & { language?: string; latitude?: number; longitude?: number }): Promise<FeedResponse> {
     const queryParams = new URLSearchParams();
-    
-    // Pagination (backend uses page/size, not cursor)
+
+    // Pagination (backend uses page/size)
     const page = params?.cursor ? parseInt(params.cursor, 10) : 0;
     queryParams.set('page', String(page));
     queryParams.set('size', String(params?.limit || 20));
-    
+
     // Language filter
-    if (params?.language && params.language !== 'all') {
-      queryParams.set('language', params.language);
+    queryParams.set('language', params?.language ?? 'all');
+
+    // Location for distance calculation (optional)
+    if (params?.latitude !== undefined) {
+      queryParams.set('latitude', String(params.latitude));
     }
-    
-    const response = await apiRequest<BackendFeedResponse>(
-      `/posts?${queryParams.toString()}`
-    );
-    
+    if (params?.longitude !== undefined) {
+      queryParams.set('longitude', String(params.longitude));
+    }
+
+    const url = `/posts?${queryParams.toString()}`;
+    console.log('[postsApi] Fetching feed:', url);
+
+    const response = await apiRequest<BackendFeedResponse>(url);
+    console.log('[postsApi] Raw backend response:', response);
+
     const posts = response.content.map(transformPost);
-    
+    console.log('[postsApi] Transformed posts:', posts);
+
+    const pageNumber = response.number ?? page;
+    const hasMore = !response.last;
+
     return {
       posts,
-      nextCursor: response.last ? undefined : String(response.page + 1),
-      hasMore: !response.last,
+      nextCursor: hasMore ? String(pageNumber + 1) : undefined,
+      hasMore,
     };
   },
 
@@ -144,12 +178,13 @@ export const postsApi = {
   },
 
   async createPost(data: CreatePostRequest): Promise<ApiPost> {
+    // Send snake_case to backend
     const body = {
       content: data.content,
-      originalLanguage: data.language,
-      translation: data.translation,
-      imageUrl: data.imageUrl,
-      // Location can be added if we have lat/lng
+      original_language: data.originalLanguage,
+      image_url: data.imageUrl,
+      latitude: data.latitude,
+      longitude: data.longitude,
     };
     
     const post = await apiRequest<BackendPost>('/posts', {
@@ -161,11 +196,11 @@ export const postsApi = {
   },
 
   async updatePost(postId: string, data: Partial<CreatePostRequest>): Promise<ApiPost> {
+    // Send snake_case to backend
     const body: Record<string, unknown> = {};
     if (data.content !== undefined) body.content = data.content;
-    if (data.language !== undefined) body.originalLanguage = data.language;
-    if (data.translation !== undefined) body.translation = data.translation;
-    if (data.imageUrl !== undefined) body.imageUrl = data.imageUrl;
+    if (data.originalLanguage !== undefined) body.original_language = data.originalLanguage;
+    if (data.imageUrl !== undefined) body.image_url = data.imageUrl;
     
     const post = await apiRequest<BackendPost>(`/posts/${postId}`, {
       method: 'PATCH',
@@ -182,30 +217,27 @@ export const postsApi = {
   },
 
   async likePost(postId: string): Promise<ReactionResponse> {
-    await apiRequest<void>(`/posts/${postId}/reactions`, {
+    const response = await apiRequest<BackendReactionResponse>(`/posts/${postId}/reactions`, {
       method: 'POST',
       body: JSON.stringify({ reaction: 'LIKE' }),
     });
     
-    // Backend may not return count, so we return optimistic response
     return {
-      postId,
-      type: 'like',
-      count: 0, // Will be updated on next fetch
-      isReacted: true,
+      postId: response.post_id,
+      profileId: response.profile_id,
+      reaction: response.reaction,
     };
   },
 
   async unlikePost(postId: string): Promise<ReactionResponse> {
-    await apiRequest<void>(`/posts/${postId}/reactions`, {
+    const response = await apiRequest<BackendReactionResponse>(`/posts/${postId}/reactions`, {
       method: 'DELETE',
     });
     
     return {
-      postId,
-      type: 'like',
-      count: 0,
-      isReacted: false,
+      postId: response.post_id,
+      profileId: response.profile_id,
+      reaction: response.reaction,
     };
   },
 };

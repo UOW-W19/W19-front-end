@@ -1,5 +1,5 @@
 // Re-export all types for convenient imports
-export * from "./post.ts";
-export * from "./language.ts";
-export * from "./navigation.ts";
-export * from "./api.ts";
+export * from "./post";
+export * from "./language";
+export * from "./navigation";
+export * from "./api";

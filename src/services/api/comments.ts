@@ -1,6 +1,7 @@
-
+// Comments API Service - Real backend integration
 import type { 
   ApiComment, 
+  AuthorDto,
   CreateCommentRequest, 
   CommentsResponse,
   PaginationParams 
@@ -17,6 +18,7 @@ const apiRequest = async <T>(
   
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
+    'ngrok-skip-browser-warning': 'true',
     ...options.headers,
   };
   
@@ -47,41 +49,45 @@ const apiRequest = async <T>(
   return response.json();
 };
 
-// Backend response types
+// Backend response types (matching snake_case API documentation)
+interface BackendAuthor {
+  id: string | number;
+  username?: string;
+  display_name?: string;
+  avatar_url?: string;
+}
+
 interface BackendComment {
-  id: number;
-  postId: number;
+  id: string | number;
   content: string;
-  createdAt: string;
-  author: {
-    id: number;
-    displayName: string;
-    avatarUrl?: string;
-  };
+  created_at?: string;
+  author: BackendAuthor;
 }
 
 interface BackendCommentsResponse {
   content: BackendComment[];
-  page: number;
-  size: number;
-  totalElements: number;
-  totalPages: number;
+  pageable?: object;
   last: boolean;
+  totalPages?: number;
+  totalElements?: number;
+  number?: number;
+  size?: number;
 }
+
+// Transform backend author to frontend AuthorDto
+const transformAuthor = (author: BackendAuthor): AuthorDto => ({
+  id: String(author.id),
+  username: author.username ?? author.display_name ?? 'unknown',
+  displayName: author.display_name ?? author.username ?? 'Unknown',
+  avatarUrl: author.avatar_url,
+});
 
 // Transform backend comment to frontend ApiComment
 const transformComment = (comment: BackendComment): ApiComment => ({
   id: String(comment.id),
-  postId: String(comment.postId),
-  authorId: String(comment.author.id),
-  author: {
-    id: String(comment.author.id),
-    displayName: comment.author.displayName,
-    avatarUrl: comment.author.avatarUrl,
-    nativeLanguage: 'en', // Backend doesn't return this
-  },
   content: comment.content,
-  createdAt: comment.createdAt,
+  createdAt: comment.created_at ?? new Date().toISOString(),
+  author: transformAuthor(comment.author),
 });
 
 export const commentsApi = {
@@ -97,11 +103,13 @@ export const commentsApi = {
     );
     
     const comments = response.content.map(transformComment);
+    const pageNumber = response.number ?? page;
+    const hasMore = !response.last;
     
     return {
       comments,
-      nextCursor: response.last ? undefined : String(response.page + 1),
-      hasMore: !response.last,
+      nextCursor: hasMore ? String(pageNumber + 1) : undefined,
+      hasMore,
     };
   },
 

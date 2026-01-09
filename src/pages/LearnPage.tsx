@@ -1,5 +1,5 @@
-import { useState, useMemo, useCallback } from "react";
-import { Sparkles, RotateCcw, Check, X, ChevronLeft, BookOpen, Camera, TrendingUp, Globe, Zap, ArrowUpDown, ChevronDown } from "lucide-react";
+import { useState, useMemo, useCallback, useRef } from "react";
+import { Sparkles, RotateCcw, Check, X, ChevronLeft, BookOpen, Camera, TrendingUp, Globe, Zap, ArrowUpDown, ChevronDown, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { SavedWord } from "@/types";
 import {
@@ -9,150 +9,54 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-
-// Mock saved words data - in real app, this comes from API
-const initialSavedWords: SavedWord[] = [
-  { 
-    id: "1",
-    word: "さくら", 
-    translation: "cherry blossom", 
-    language: "Japanese",
-    languageFlag: "🇯🇵", 
-    mastery: 80,
-    source: 'post',
-    sourceContext: "Spring festival post by @yuki"
-  },
-  { 
-    id: "2",
-    word: "mariposa", 
-    translation: "butterfly", 
-    language: "Spanish",
-    languageFlag: "🇪🇸", 
-    mastery: 60,
-    source: 'scan',
-    sourceContext: "Scanned at botanical garden"
-  },
-  { 
-    id: "3",
-    word: "bibliothèque", 
-    translation: "library", 
-    language: "French",
-    languageFlag: "🇫🇷", 
-    mastery: 40,
-    source: 'post',
-    sourceContext: "Study tips post by @marie"
-  },
-  { 
-    id: "4",
-    word: "Schmetterling", 
-    translation: "butterfly", 
-    language: "German",
-    languageFlag: "🇩🇪", 
-    mastery: 20,
-    source: 'scan',
-    sourceContext: "Scanned at museum"
-  },
-  { 
-    id: "5",
-    word: "こんにちは", 
-    translation: "hello", 
-    language: "Japanese",
-    languageFlag: "🇯🇵", 
-    mastery: 90,
-    source: 'post',
-    sourceContext: "Greeting customs by @tanaka"
-  },
-];
+import {
+  useSavedWords,
+  useLearningStats,
+  useStartPracticeSession,
+  useSubmitPracticeResult,
+  useCompletePracticeSession,
+  transformSessionWord,
+} from "@/hooks/useLearnApi";
+import type { PracticeResult } from "@/hooks/useLearnApi";
 
 type PracticeMode = 'idle' | 'practicing' | 'results';
-type SortOption = 'newest' | 'mastery-high' | 'mastery-low';
+type SortOption = 'newest' | 'mastery_high' | 'mastery_low';
 
-const SESSION_OPTIONS = [5, 10, 15] as const;
-const MAX_SESSION_SIZE = 15;
-
-interface PracticeResult {
-  word: SavedWord;
-  correct: boolean;
-}
-
-// Spaced repetition: prioritize words with lower mastery
-const selectWordsForPractice = (words: SavedWord[], count: number): SavedWord[] => {
-  // Weight words inversely by mastery (lower mastery = higher weight)
-  const weightedWords = words.map(word => ({
-    word,
-    weight: Math.pow(100 - word.mastery, 2) + 10 // Quadratic weight, minimum 10
-  }));
-  
-  const totalWeight = weightedWords.reduce((sum, w) => sum + w.weight, 0);
-  const selected: SavedWord[] = [];
-  const usedIds = new Set<string>();
-  
-  while (selected.length < Math.min(count, words.length)) {
-    let random = Math.random() * totalWeight;
-    
-    for (const { word, weight } of weightedWords) {
-      if (usedIds.has(word.id)) continue;
-      random -= weight;
-      if (random <= 0) {
-        selected.push(word);
-        usedIds.add(word.id);
-        break;
-      }
-    }
-    
-    // Fallback: add first unused word if random selection fails
-    if (selected.length < Math.min(count, words.length)) {
-      const unused = words.find(w => !usedIds.has(w.id));
-      if (unused && !usedIds.has(unused.id)) {
-        selected.push(unused);
-        usedIds.add(unused.id);
-      }
-    }
-  }
-  
-  // Shuffle the selected words
-  return selected.sort(() => Math.random() - 0.5);
-};
-
-// Calculate mastery change based on spaced repetition
-const calculateMasteryChange = (currentMastery: number, correct: boolean): number => {
-  if (correct) {
-    // Correct: increase more when mastery is low, less when high
-    const increase = Math.max(5, Math.floor((100 - currentMastery) / 5));
-    return Math.min(100, currentMastery + increase);
-  } else {
-    // Incorrect: decrease more significantly to prioritize review
-    const decrease = Math.max(10, Math.floor(currentMastery / 4));
-    return Math.max(0, currentMastery - decrease);
-  }
-};
-
-// Calculate stats from saved words
-const getStats = (words: SavedWord[]) => {
-  const totalWords = words.length;
-  const avgMastery = totalWords > 0 
-    ? Math.round(words.reduce((acc, w) => acc + w.mastery, 0) / totalWords) 
-    : 0;
-  const languages = [...new Set(words.map(w => w.languageFlag))];
-  const masteredWords = words.filter(w => w.mastery >= 80).length;
-  
-  return { totalWords, avgMastery, languages, masteredWords };
-};
+const SESSION_SIZE_OPTIONS = [5, 10, 15] as const;
 
 export default function LearnPage() {
-  const [savedWords, setSavedWords] = useState<SavedWord[]>(initialSavedWords);
   const [mode, setMode] = useState<PracticeMode>('idle');
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
   const [practiceWords, setPracticeWords] = useState<SavedWord[]>([]);
   const [results, setResults] = useState<PracticeResult[]>([]);
-  const [sessionSize, setSessionSize] = useState<(typeof SESSION_OPTIONS)[number]>(5);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const startTimeRef = useRef<number>(0);
   
   // Filtering & Sorting
   const [languageFilter, setLanguageFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<SortOption>('newest');
+  
+  // Session size options
+  const [sessionSize, setSessionSize] = useState<5 | 10 | 15>(10);
 
-  const stats = getStats(savedWords);
+  // API Hooks
+  const { 
+    data: savedWords = [], 
+    isLoading: isLoadingWords,
+    error: wordsError,
+  } = useSavedWords({
+    sort: sortBy,
+  });
+
+  const { 
+    data: stats,
+    isLoading: isLoadingStats,
+  } = useLearningStats();
+
+  const startSessionMutation = useStartPracticeSession();
+  const submitResultMutation = useSubmitPracticeResult();
+  const completeSessionMutation = useCompletePracticeSession();
   
   // Get unique languages for filter
   const uniqueLanguages = useMemo(() => {
@@ -162,79 +66,124 @@ export default function LearnPage() {
     );
   }, [savedWords]);
 
-  // Filter and sort words
+  // Filter words (sorting handled by API)
   const filteredWords = useMemo(() => {
-    let words = [...savedWords];
-    
-    // Apply language filter
-    if (languageFilter !== 'all') {
-      words = words.filter(w => w.languageFlag === languageFilter);
+    if (languageFilter === 'all') return savedWords;
+    return savedWords.filter(w => w.languageFlag === languageFilter);
+  }, [savedWords, languageFilter]);
+
+  // Computed stats from API or fallback
+  const displayStats = useMemo(() => {
+    if (stats) {
+      return {
+        totalWords: stats.total_words,
+        avgMastery: stats.average_mastery,
+        languages: stats.languages.map(l => l.flag),
+        masteredWords: stats.mastery_distribution.mastered,
+      };
     }
-    
-    // Apply sorting
-    switch (sortBy) {
-      case 'mastery-high':
-        words.sort((a, b) => b.mastery - a.mastery);
-        break;
-      case 'mastery-low':
-        words.sort((a, b) => a.mastery - b.mastery);
-        break;
-      case 'newest':
-      default:
-        break;
-    }
-    
-    return words;
-  }, [savedWords, languageFilter, sortBy]);
+    // Fallback to local computation
+    const totalWords = savedWords.length;
+    const avgMastery = totalWords > 0 
+      ? Math.round(savedWords.reduce((acc, w) => acc + w.mastery, 0) / totalWords) 
+      : 0;
+    const languages = [...new Set(savedWords.map(w => w.languageFlag))];
+    const masteredWords = savedWords.filter(w => w.mastery >= 76).length;
+    return { totalWords, avgMastery, languages, masteredWords };
+  }, [stats, savedWords]);
 
-  const startPractice = useCallback(() => {
-    const targetCount = Math.min(sessionSize, MAX_SESSION_SIZE, savedWords.length);
-    if (targetCount === 0) return;
-
-    // Use spaced repetition to select words (prioritize low mastery)
-    const selected = selectWordsForPractice(savedWords, targetCount);
-    setPracticeWords(selected);
-    setCurrentIndex(0);
-    setShowAnswer(false);
-    setResults([]);
-    setMode('practicing');
-  }, [savedWords, sessionSize]);
-
-  const handleAnswer = useCallback((correct: boolean) => {
-    const currentWord = practiceWords[currentIndex];
-    const newResults = [...results, { word: currentWord, correct }];
-    setResults(newResults);
-    
-    // Update mastery immediately using spaced repetition algorithm
-    setSavedWords(prev => prev.map(word => {
-      if (word.id === currentWord.id) {
-        return {
-          ...word,
-          mastery: calculateMasteryChange(word.mastery, correct)
-        };
-      }
-      return word;
-    }));
-    
-    if (currentIndex < practiceWords.length - 1) {
-      setCurrentIndex(currentIndex + 1);
+  const startPractice = useCallback(async () => {
+    try {
+      const session = await startSessionMutation.mutateAsync({
+        session_size: sessionSize,
+        language_code: languageFilter !== 'all' 
+          ? savedWords.find(w => w.languageFlag === languageFilter)?.language 
+          : null,
+      });
+      
+      setSessionId(session.session_id);
+      setPracticeWords(session.words.map(transformSessionWord));
+      setCurrentIndex(0);
       setShowAnswer(false);
-    } else {
-      setMode('results');
+      setResults([]);
+      startTimeRef.current = Date.now();
+      setMode('practicing');
+    } catch {
+      // Error handled by mutation
     }
-  }, [practiceWords, currentIndex, results]);
+  }, [startSessionMutation, sessionSize, languageFilter, savedWords]);
+
+  const handleAnswer = useCallback(async (correct: boolean) => {
+    if (!sessionId) return;
+    
+    const currentWord = practiceWords[currentIndex];
+    const responseTimeMs = Date.now() - startTimeRef.current;
+    
+    try {
+      const result = await submitResultMutation.mutateAsync({
+        sessionId,
+        data: {
+          word_id: currentWord.id,
+          is_correct: correct,
+          response_time_ms: responseTimeMs,
+        },
+      });
+      
+      const newResult: PracticeResult = {
+        word: currentWord,
+        correct,
+        oldMastery: result.old_mastery,
+        newMastery: result.new_mastery,
+      };
+      
+      setResults(prev => [...prev, newResult]);
+      
+      if (currentIndex < practiceWords.length - 1) {
+        setCurrentIndex(currentIndex + 1);
+        setShowAnswer(false);
+        startTimeRef.current = Date.now();
+      } else {
+        // Complete session
+        await completeSessionMutation.mutateAsync(sessionId);
+        setMode('results');
+      }
+    } catch {
+      // Error handled by mutation
+    }
+  }, [sessionId, practiceWords, currentIndex, submitResultMutation, completeSessionMutation]);
 
   const exitPractice = useCallback(() => {
     setMode('idle');
     setCurrentIndex(0);
     setShowAnswer(false);
     setResults([]);
+    setSessionId(null);
   }, []);
+
+  // Loading State
+  if (isLoadingWords && mode === 'idle') {
+    return (
+      <div className="flex items-center justify-center min-h-[calc(100vh-8rem)]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // Error State
+  if (wordsError && mode === 'idle') {
+    return (
+      <div className="mx-auto max-w-md px-4 py-6 text-center">
+        <p className="text-destructive mb-4">Failed to load your words</p>
+        <Button onClick={() => window.location.reload()}>Try Again</Button>
+      </div>
+    );
+  }
 
   // Practice Session View
   if (mode === 'practicing') {
     const currentWord = practiceWords[currentIndex];
     const progress = ((currentIndex + 1) / practiceWords.length) * 100;
+    const isSubmitting = submitResultMutation.isPending;
 
     return (
       <div className="mx-auto max-w-md px-4 py-6 min-h-[calc(100vh-8rem)] flex flex-col">
@@ -320,16 +269,18 @@ export default function LearnPage() {
             <Button
               variant="outline"
               onClick={() => handleAnswer(false)}
+              disabled={isSubmitting}
               className="flex-1 h-14 gap-2 rounded-xl border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
             >
-              <X className="h-5 w-5" />
+              {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <X className="h-5 w-5" />}
               Didn't know
             </Button>
             <Button
               onClick={() => handleAnswer(true)}
+              disabled={isSubmitting}
               className="flex-1 h-14 gap-2 rounded-xl bg-sage hover:bg-sage/90"
             >
-              <Check className="h-5 w-5" />
+              {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Check className="h-5 w-5" />}
               Got it!
             </Button>
           </div>
@@ -342,12 +293,6 @@ export default function LearnPage() {
   if (mode === 'results') {
     const correctCount = results.filter(r => r.correct).length;
     const percentage = Math.round((correctCount / results.length) * 100);
-
-    // Get updated mastery for each word
-    const resultsWithUpdatedMastery = results.map(result => ({
-      ...result,
-      newMastery: savedWords.find(w => w.id === result.word.id)?.mastery ?? result.word.mastery
-    }));
 
     return (
       <div className="mx-auto max-w-md px-4 py-6 min-h-[calc(100vh-8rem)] flex flex-col">
@@ -363,8 +308,8 @@ export default function LearnPage() {
         </div>
 
         <div className="flex-1 space-y-2 mb-6">
-          {resultsWithUpdatedMastery.map((result, index) => {
-            const masteryChange = result.newMastery - result.word.mastery;
+          {results.map((result, index) => {
+            const masteryChange = result.newMastery - result.oldMastery;
             
             return (
               <div 
@@ -414,9 +359,14 @@ export default function LearnPage() {
           </Button>
           <Button
             onClick={startPractice}
+            disabled={startSessionMutation.isPending}
             className="flex-1 h-12 gap-2 rounded-xl"
           >
-            <RotateCcw className="h-4 w-4" />
+            {startSessionMutation.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <RotateCcw className="h-4 w-4" />
+            )}
             Practice Again
           </Button>
         </div>
@@ -435,7 +385,11 @@ export default function LearnPage() {
             <div className="flex items-center justify-center h-10 w-10 mx-auto rounded-xl bg-primary/10 mb-2">
               <BookOpen className="h-5 w-5 text-primary" />
             </div>
-            <p className="text-2xl font-bold text-foreground">{stats.totalWords}</p>
+            {isLoadingStats ? (
+              <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+            ) : (
+              <p className="text-2xl font-bold text-foreground">{displayStats.totalWords}</p>
+            )}
             <p className="text-xs text-muted-foreground">Words Saved</p>
           </div>
 
@@ -444,7 +398,11 @@ export default function LearnPage() {
             <div className="flex items-center justify-center h-10 w-10 mx-auto rounded-xl bg-sage/10 mb-2">
               <TrendingUp className="h-5 w-5 text-sage" />
             </div>
-            <p className="text-2xl font-bold text-foreground">{stats.avgMastery}%</p>
+            {isLoadingStats ? (
+              <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+            ) : (
+              <p className="text-2xl font-bold text-foreground">{displayStats.avgMastery}%</p>
+            )}
             <p className="text-xs text-muted-foreground">Avg Mastery</p>
           </div>
 
@@ -453,15 +411,19 @@ export default function LearnPage() {
             <div className="flex items-center justify-center h-10 w-10 mx-auto rounded-xl bg-coral/10 mb-2">
               <Globe className="h-5 w-5 text-coral" />
             </div>
-            <p className="text-2xl font-bold text-foreground">{stats.languages.length}</p>
+            {isLoadingStats ? (
+              <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+            ) : (
+              <p className="text-2xl font-bold text-foreground">{displayStats.languages.length}</p>
+            )}
             <p className="text-xs text-muted-foreground">Languages</p>
           </div>
         </div>
 
         {/* Language flags row */}
-        {stats.languages.length > 0 && (
+        {displayStats.languages.length > 0 && (
           <div className="flex items-center justify-center gap-2 mt-3">
-            {stats.languages.map((flag, i) => (
+            {displayStats.languages.map((flag, i) => (
               <span key={i} className="text-xl">{flag}</span>
             ))}
           </div>
@@ -478,22 +440,49 @@ export default function LearnPage() {
             <div>
               <h2 className="font-semibold text-foreground">Ready to practice?</h2>
               <p className="text-sm text-muted-foreground">
-                {stats.masteredWords} of {stats.totalWords} words mastered
+                {displayStats.masteredWords} of {displayStats.totalWords} words mastered
               </p>
             </div>
           </div>
 
-          <p className="text-xs text-muted-foreground mb-3">
+          <p className="text-xs text-muted-foreground mb-4">
             Words you struggle with will appear more often
           </p>
+
+          {/* Session Size Selector */}
+          <div className="flex items-center justify-between mb-4 p-3 rounded-xl bg-background/50 border border-border">
+            <span className="text-sm text-muted-foreground">Words per session</span>
+            <div className="flex gap-2">
+              {SESSION_SIZE_OPTIONS.map((size) => (
+                <button
+                  key={size}
+                  onClick={() => setSessionSize(size)}
+                  disabled={savedWords.length < size}
+                  className={cn(
+                    "h-9 w-12 rounded-lg text-sm font-medium transition-all",
+                    sessionSize === size
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground hover:bg-muted/80",
+                    savedWords.length < size && "opacity-50 cursor-not-allowed"
+                  )}
+                >
+                  {size}
+                </button>
+              ))}
+            </div>
+          </div>
           
           <Button 
             onClick={startPractice}
-            disabled={savedWords.length === 0}
+            disabled={savedWords.length === 0 || startSessionMutation.isPending}
             className="w-full h-12 gap-2 rounded-xl"
           >
-            <Sparkles className="h-5 w-5" />
-            Start Practice
+            {startSessionMutation.isPending ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              <Sparkles className="h-5 w-5" />
+            )}
+            Start Practice ({Math.min(savedWords.length, sessionSize)} words)
           </Button>
         </div>
       </section>
@@ -548,8 +537,8 @@ export default function LearnPage() {
                 <Button variant="outline" size="sm" className="h-8 gap-1.5 rounded-lg text-xs">
                   <ArrowUpDown className="h-3.5 w-3.5" />
                   {sortBy === 'newest' && 'Newest'}
-                  {sortBy === 'mastery-high' && 'Highest'}
-                  {sortBy === 'mastery-low' && 'Lowest'}
+                  {sortBy === 'mastery_high' && 'Highest'}
+                  {sortBy === 'mastery_low' && 'Lowest'}
                   <ChevronDown className="h-3 w-3 opacity-50" />
                 </Button>
               </DropdownMenuTrigger>
@@ -557,10 +546,10 @@ export default function LearnPage() {
                 <DropdownMenuItem onClick={() => setSortBy('newest')}>
                   Newest First
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setSortBy('mastery-high')}>
+                <DropdownMenuItem onClick={() => setSortBy('mastery_high')}>
                   Highest Mastery
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setSortBy('mastery-low')}>
+                <DropdownMenuItem onClick={() => setSortBy('mastery_low')}>
                   Lowest Mastery
                 </DropdownMenuItem>
               </DropdownMenuContent>
