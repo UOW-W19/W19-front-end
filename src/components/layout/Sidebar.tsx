@@ -6,8 +6,7 @@ import {
   BookOpen, 
   User,
   Settings,
-  Globe,
-  Flame
+  Globe
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { NavItem } from "@/types";
@@ -40,17 +39,6 @@ export function Sidebar() {
           <Globe className="h-5 w-5 text-primary-foreground" />
         </div>
         <span className="text-xl font-semibold text-sidebar-foreground">Locale</span>
-      </div>
-
-      {/* Streak badge */}
-      <div className="mx-4 mt-4 flex items-center gap-3 rounded-xl bg-muted/50 p-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-orange-400 to-red-500">
-          <Flame className="h-5 w-5 text-white" />
-        </div>
-        <div>
-          <p className="text-sm font-medium text-sidebar-foreground">5 day streak</p>
-          <p className="text-xs text-muted-foreground">Keep it going!</p>
-        </div>
       </div>
 
       {/* Main navigation */}

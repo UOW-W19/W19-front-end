@@ -78,38 +78,44 @@ const apiRequest = async <T>(
 
 // Backend response types (matching Spring Boot)
 interface BackendAuthResponse {
-  userId: number;
-  accessToken: string;
+  user_id: string;
+  access_token: string;
+  refresh_token: string;
+  expires_in: number;
 }
 
 interface BackendProfile {
-  id: number;
+  id: string;
   username: string;
   email: string;
-  displayName: string;
-  avatarUrl?: string;
-  bio?: string;
-  latitude?: number;
-  longitude?: number;
+  display_name: string;
+  avatar_url?: string | null;
+  bio?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   roles: string[];
+  created_at?: string;
+  followers_count?: number;
+  following_count?: number;
+  posts_count?: number;
 }
 
 // Transform backend profile to frontend UserProfile
 const transformProfile = (profile: BackendProfile): UserProfile => ({
   id: String(profile.id),
   email: profile.email,
-  displayName: profile.displayName,
-  avatarUrl: profile.avatarUrl,
-  bio: profile.bio,
+  displayName: profile.display_name,
+  avatarUrl: profile.avatar_url ?? undefined,
+  bio: profile.bio ?? undefined,
   nativeLanguage: 'en', // Default - backend doesn't have this yet
   learningLanguages: [], // Default - backend doesn't have this yet
   location: profile.latitude && profile.longitude 
     ? `${profile.latitude}, ${profile.longitude}` 
     : undefined,
-  createdAt: new Date().toISOString(), // Backend doesn't return this
-  followersCount: 0, // Backend doesn't have this yet
-  followingCount: 0, // Backend doesn't have this yet
-  postsCount: 0, // Backend doesn't have this yet
+  createdAt: profile.created_at ?? new Date().toISOString(),
+  followersCount: profile.followers_count ?? 0,
+  followingCount: profile.following_count ?? 0,
+  postsCount: profile.posts_count ?? 0,
 });
 
 // Auth API functions
@@ -120,23 +126,23 @@ export const authApi = {
       method: 'POST',
       body: JSON.stringify({
         email: data.email,
-        username: data.displayName.toLowerCase().replace(/\s+/g, '_'),
         password: data.password,
-        displayName: data.displayName,
+        display_name: data.displayName,
+        username: data.displayName.toLowerCase().replace(/\s+/g, '_'),
       }),
     });
     
     // Store token temporarily to fetch profile
-    localStorage.setItem(TOKEN_KEY, authResponse.accessToken);
+    localStorage.setItem(TOKEN_KEY, authResponse.access_token);
     
     // Fetch user profile
-    const profile = await apiRequest<BackendProfile>('/profiles/me');
+    const profile = await apiRequest<BackendProfile>('/users/me');
     const user = transformProfile(profile);
     
     return {
-      accessToken: authResponse.accessToken,
-      refreshToken: '', // Backend doesn't use refresh tokens
-      expiresIn: 86400, // Default 24h
+      accessToken: authResponse.access_token,
+      refreshToken: authResponse.refresh_token,
+      expiresIn: authResponse.expires_in,
       user,
     };
   },
@@ -152,16 +158,16 @@ export const authApi = {
     });
     
     // Store token temporarily to fetch profile
-    localStorage.setItem(TOKEN_KEY, authResponse.accessToken);
+    localStorage.setItem(TOKEN_KEY, authResponse.access_token);
     
     // Fetch user profile
-    const profile = await apiRequest<BackendProfile>('/profiles/me');
+    const profile = await apiRequest<BackendProfile>('/users/me');
     const user = transformProfile(profile);
     
     return {
-      accessToken: authResponse.accessToken,
-      refreshToken: '', // Backend doesn't use refresh tokens
-      expiresIn: 86400, // Default 24h
+      accessToken: authResponse.access_token,
+      refreshToken: authResponse.refresh_token,
+      expiresIn: authResponse.expires_in,
       user,
     };
   },
@@ -171,7 +177,7 @@ export const authApi = {
   },
 
   async getProfile(): Promise<UserProfile> {
-    const profile = await apiRequest<BackendProfile>('/profiles/me');
+    const profile = await apiRequest<BackendProfile>('/users/me');
     return transformProfile(profile);
   },
 

@@ -9,6 +9,7 @@ import ProfilePage from "./pages/ProfilePage";
 import SettingsPage from "./pages/SettingsPage";
 import InstallPage from "./pages/InstallPage";
 import AuthPage from "./pages/AuthPage";
+import ScannerPage from "./pages/ScannerPage";
 
 // Protected route wrapper
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -46,6 +47,7 @@ const AppRoutes = () => (
       <Route path="/profile" element={<ProfilePage />} />
       <Route path="/settings" element={<SettingsPage />} />
       <Route path="/install" element={<InstallPage />} />
+      <Route path="/scanner" element={<ScannerPage />} />
     </Route>
   </Routes>
 );

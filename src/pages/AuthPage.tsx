@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Globe, Mail, Lock, User, Eye, EyeOff, ArrowRight, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -9,7 +9,7 @@ type AuthMode = 'login' | 'register';
 
 export default function AuthPage() {
   const navigate = useNavigate();
-  const { login, register, isAuthenticated } = useAuth();
+  const { login, register, isAuthenticated, isLoading: authLoading } = useAuth();
   
   const [mode, setMode] = useState<AuthMode>('login');
   const [isLoading, setIsLoading] = useState(false);
@@ -23,11 +23,12 @@ export default function AuthPage() {
   const [nativeLanguage, setNativeLanguage] = useState('en');
   const [learningLanguages, setLearningLanguages] = useState<string[]>([]);
 
-  // Redirect if already authenticated
-  if (isAuthenticated) {
-    navigate('/');
-    return null;
-  }
+  // Redirect if already authenticated - use useEffect to avoid state update during render
+  useEffect(() => {
+    if (isAuthenticated && !authLoading) {
+      navigate('/', { replace: true });
+    }
+  }, [isAuthenticated, authLoading, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -10,6 +10,15 @@ export default {
   			ring: 'hsl(var(--ring))',
   			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',
+  			coral: 'hsl(var(--coral))',
+  			'coral-light': 'hsl(var(--coral-light))',
+  			cream: 'hsl(var(--cream))',
+  			'cream-dark': 'hsl(var(--cream-dark))',
+  			sage: 'hsl(var(--sage))',
+  			'sage-light': 'hsl(var(--sage-light))',
+  			lavender: 'hsl(var(--lavender))',
+  			navy: 'hsl(var(--navy))',
+  			'navy-light': 'hsl(var(--navy-light))',
   			primary: {
   				DEFAULT: 'hsl(var(--primary))',
   				foreground: 'hsl(var(--primary-foreground))'

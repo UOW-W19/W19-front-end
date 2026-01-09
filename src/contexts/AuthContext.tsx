@@ -19,17 +19,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Check for existing session on mount
+  // Validate existing session on mount
   useEffect(() => {
     const initAuth = async () => {
       const token = getStoredToken();
-      const storedUser = getStoredUser();
       
-      if (token && storedUser) {
-        setUser(storedUser);
+      if (!token) {
+        setIsLoading(false);
+        return;
       }
       
-      setIsLoading(false);
+      try {
+        // Validate token by calling the backend
+        const profile = await authApi.getProfile();
+        setUser(profile);
+      } catch (error) {
+        // Token is invalid or expired - clear auth
+        console.warn('Session expired or invalid, clearing auth');
+        clearAuth();
+        setUser(null);
+      } finally {
+        setIsLoading(false);
+      }
     };
     
     initAuth();

@@ -1,12 +1,13 @@
-// API Types matching Spring Boot backend contract
+
 
 // ============ AUTH ============
 export interface RegisterRequest {
   email: string;
+  username?: string; // Auto-generated from displayName if not provided
   password: string;
   displayName: string;
-  nativeLanguage: string;
-  learningLanguages: string[];
+  nativeLanguage?: string;
+  learningLanguages?: string[];
 }
 
 export interface LoginRequest {

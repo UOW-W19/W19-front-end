@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, MessageCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import type { Meetup, NearbyLearner, CreateMeetupRequest } from '@/types/meetup';
 import { meetupsApi } from '@/services/api/meetups';
@@ -10,6 +11,7 @@ import MeetupDetailSheet from '@/components/explore/MeetupDetailSheet';
 import CreateMeetupModal from '@/components/explore/CreateMeetupModal';
 import ExploreMap from '@/components/explore/ExploreMap';
 export default function ExplorePage() {
+  const navigate = useNavigate();
   const [meetups, setMeetups] = useState<Meetup[]>([]);
   const [learners, setLearners] = useState<NearbyLearner[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -78,6 +80,19 @@ export default function ExplorePage() {
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-6">
+      {/* Header with Messages button */}
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold">Explore</h1>
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => navigate('/messages')}
+          className="rounded-full"
+        >
+          <MessageCircle className="h-5 w-5" />
+        </Button>
+      </div>
+
       {/* Interactive Map */}
       <div className="mb-6">
         <ExploreMap

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import type { Meetup, NearbyLearner } from '@/types/meetup';
+import { MapPin, Users } from 'lucide-react';
 
 interface ExploreMapProps {
   meetups: Meetup[];
@@ -9,19 +10,42 @@ interface ExploreMapProps {
   onMeetupClick?: (meetup: Meetup) => void;
 }
 
-const MAPBOX_TOKEN = 'pk.eyJ1IjoiYmxhbWVyIiwiYSI6ImNtam8wdHhxOTJ5NTEzZ3F4aDl3ZWo3a3YifQ.eRxSmSDlyopmOasm9-sHMw';
+const MAPBOX_TOKEN =
+  import.meta.env.VITE_MAPBOX_TOKEN ||
+  'pk.eyJ1IjoiYmxhbWVyIiwiYSI6ImNtam8wdHhxOTJ5NTEzZ3F4aDl3ZWo3a3YifQ.eRxSmSDlyopmOasm9-sHMw';
 
 export default function ExploreMap({ meetups, learners, onMeetupClick }: ExploreMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
   const [isMapReady, setIsMapReady] = useState(false);
+  const [mapError, setMapError] = useState<string | null>(null);
 
   // Initialize map
   useEffect(() => {
     if (!mapContainer.current) return;
 
+    if (!MAPBOX_TOKEN) {
+      setMapError('Map token missing. Set VITE_MAPBOX_TOKEN.');
+      return;
+    }
+
+    // Check if WebGL is supported
+    const canvas = document.createElement('canvas');
+    const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+    if (!gl) {
+      setMapError('WebGL is not supported in your browser');
+      return;
+    }
+
     try {
+      // Disable telemetry BEFORE setting token or creating map
+      // This prevents events.mapbox.com calls ad-blockers block
+      const mbgl = mapboxgl as unknown as { setTelemetryEnabled?: (enabled: boolean) => void };
+      if (mbgl.setTelemetryEnabled) {
+        mbgl.setTelemetryEnabled(false);
+      }
+
       mapboxgl.accessToken = MAPBOX_TOKEN;
 
       map.current = new mapboxgl.Map({
@@ -30,6 +54,17 @@ export default function ExploreMap({ meetups, learners, onMeetupClick }: Explore
         center: [-73.98, 40.76], // NYC default
         zoom: 12,
         pitch: 20,
+        collectResourceTiming: false, // Also helps with analytics
+      });
+
+      map.current.on('error', (e) => {
+        // Ignore telemetry/analytics blocked errors - map still works fine
+        const errorMsg = e.error?.message || '';
+        if (errorMsg.includes('events.mapbox.com') || errorMsg.includes('ERR_BLOCKED')) {
+          return;
+        }
+        console.error('Mapbox error:', e);
+        setMapError('Failed to load map resources. Check token or blockers.');
       });
 
       map.current.addControl(
@@ -39,6 +74,7 @@ export default function ExploreMap({ meetups, learners, onMeetupClick }: Explore
 
       map.current.on('load', () => {
         setIsMapReady(true);
+        setMapError(null);
       });
 
       return () => {
@@ -50,6 +86,7 @@ export default function ExploreMap({ meetups, learners, onMeetupClick }: Explore
       };
     } catch (error) {
       console.error('Failed to initialize map:', error);
+      setMapError('Failed to initialize map');
     }
   }, []);
 
@@ -159,9 +196,37 @@ export default function ExploreMap({ meetups, learners, onMeetupClick }: Explore
       map.current.fitBounds(bounds, { padding: 50, maxZoom: 14 });
     }
   }, [meetups, learners, isMapReady, onMeetupClick]);
+
+  // Error fallback UI
+  if (mapError) {
+    return (
+      <div className="relative h-64 rounded-2xl overflow-hidden border border-border bg-muted flex flex-col items-center justify-center gap-3">
+        <MapPin className="w-8 h-8 text-muted-foreground" />
+        <p className="text-sm text-muted-foreground text-center px-4">
+          {mapError}
+        </p>
+        <div className="flex gap-4 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1">
+            <MapPin className="w-3 h-3" /> {meetups.length} meetups
+          </span>
+          <span className="flex items-center gap-1">
+            <Users className="w-3 h-3" /> {learners.length} learners
+          </span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="relative h-64 rounded-2xl overflow-hidden border border-border">
       <div ref={mapContainer} className="absolute inset-0" />
+      
+      {/* Loading state */}
+      {!isMapReady && (
+        <div className="absolute inset-0 bg-muted flex items-center justify-center">
+          <div className="animate-pulse text-muted-foreground text-sm">Loading map...</div>
+        </div>
+      )}
       
       {/* Legend */}
       <div className="absolute bottom-3 left-3 bg-background/90 backdrop-blur-sm rounded-lg px-3 py-2 text-xs space-y-1 border border-border">

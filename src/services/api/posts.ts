@@ -1,166 +1,210 @@
-// Posts API Service - Mock implementation
-import type{ 
+
+import type { 
   ApiPost, 
   CreatePostRequest, 
   FeedResponse,
   ReactionResponse,
   PaginationParams 
 } from '@/types/api';
-import { mockPosts, simulateDelay, getLanguageByCode } from './config';
-import { getStoredUser } from './auth';
+import { API_BASE_URL, getLanguageByCode } from './config';
+import { getStoredToken } from './auth';
+
+// Helper for API requests
+const apiRequest = async <T>(
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<T> => {
+  const token = getStoredToken();
+  
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+    ...options.headers,
+  };
+  
+  if (token) {
+    (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
+  }
+  
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    ...options,
+    headers,
+  });
+  
+  if (!response.ok) {
+    let errorMessage = 'Request failed';
+    try {
+      const errorData = await response.json();
+      errorMessage = errorData.message || errorData.error || errorMessage;
+    } catch {
+      errorMessage = response.statusText || errorMessage;
+    }
+    throw new Error(errorMessage);
+  }
+  
+  if (response.status === 204) {
+    return {} as T;
+  }
+  
+  return response.json();
+};
+
+// Backend response types
+interface BackendPost {
+  id: string;
+  content: string;
+  originalLanguage: string;
+  translation?: string;
+  imageUrl?: string;
+  latitude?: number;
+  longitude?: number;
+  distance?: string; // already formatted by backend
+  location?: string;
+  createdAt: string;
+  author: {
+    id: string;
+    username: string;
+    displayName: string;
+    avatarUrl?: string;
+    language?: string;
+    flagEmoji?: string;
+  };
+  reactions: {
+    likes: number;
+    comments: number;
+  };
+  userReaction?: string | null; // e.g. "LIKE"
+}
+
+interface BackendFeedResponse {
+  content: BackendPost[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+  last: boolean;
+}
+
+// Transform backend post to frontend ApiPost
+const transformPost = (post: BackendPost): ApiPost => {
+  const language = getLanguageByCode(post.originalLanguage);
+
+  return {
+    id: String(post.id),
+    authorId: String(post.author.id),
+    author: {
+      id: String(post.author.id),
+      displayName: post.author.displayName,
+      avatarUrl: post.author.avatarUrl,
+      nativeLanguage: post.author.language || post.originalLanguage,
+    },
+    content: post.content,
+    translation: post.translation,
+    language: post.originalLanguage,
+    imageUrl: post.imageUrl,
+    location: post.location,
+    likesCount: post.reactions?.likes ?? 0,
+    commentsCount: post.reactions?.comments ?? 0,
+    isLiked: (post.userReaction || '').toUpperCase() === 'LIKE',
+    createdAt: post.createdAt,
+    updatedAt: post.createdAt,
+  };
+};
 
 // Posts API functions
 export const postsApi = {
   async getFeed(params?: PaginationParams & { language?: string }): Promise<FeedResponse> {
-    await simulateDelay(600);
+    const queryParams = new URLSearchParams();
     
-    let posts = [...mockPosts];
+    // Pagination (backend uses page/size, not cursor)
+    const page = params?.cursor ? parseInt(params.cursor, 10) : 0;
+    queryParams.set('page', String(page));
+    queryParams.set('size', String(params?.limit || 20));
     
-    // Filter by language if specified
-    if (params?.language) {
-      posts = posts.filter(p => p.language === params.language);
+    // Language filter
+    if (params?.language && params.language !== 'all') {
+      queryParams.set('language', params.language);
     }
     
-    // Sort by date (newest first)
-    posts.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    const response = await apiRequest<BackendFeedResponse>(
+      `/posts?${queryParams.toString()}`
+    );
     
-    // Pagination
-    const limit = params?.limit || 10;
-    const cursorIndex = params?.cursor 
-      ? posts.findIndex(p => p.id === params.cursor) + 1 
-      : 0;
-    
-    const paginatedPosts = posts.slice(cursorIndex, cursorIndex + limit);
-    const hasMore = cursorIndex + limit < posts.length;
-    const nextCursor = hasMore ? paginatedPosts[paginatedPosts.length - 1]?.id : undefined;
+    const posts = response.content.map(transformPost);
     
     return {
-      posts: paginatedPosts,
-      nextCursor,
-      hasMore,
+      posts,
+      nextCursor: response.last ? undefined : String(response.page + 1),
+      hasMore: !response.last,
     };
   },
 
   async getPost(postId: string): Promise<ApiPost> {
-    await simulateDelay(400);
-    
-    const post = mockPosts.find(p => p.id === postId);
-    if (!post) {
-      throw new Error('Post not found');
-    }
-    
-    return post;
+    const post = await apiRequest<BackendPost>(`/posts/${postId}`);
+    return transformPost(post);
   },
 
   async createPost(data: CreatePostRequest): Promise<ApiPost> {
-    await simulateDelay(700);
-    
-    const user = getStoredUser();
-    if (!user) {
-      throw new Error('Not authenticated');
-    }
-    
-    const language = getLanguageByCode(data.language);
-    
-    const newPost: ApiPost = {
-      id: `post-${Date.now()}`,
-      authorId: user.id,
-      author: {
-        id: user.id,
-        displayName: user.displayName,
-        avatarUrl: user.avatarUrl,
-        nativeLanguage: user.nativeLanguage,
-      },
+    const body = {
       content: data.content,
+      originalLanguage: data.language,
       translation: data.translation,
-      language: data.language,
       imageUrl: data.imageUrl,
-      location: data.location || user.location,
-      likesCount: 0,
-      commentsCount: 0,
-      isLiked: false,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      // Location can be added if we have lat/lng
     };
     
-    // Add to mock database
-    mockPosts.unshift(newPost);
+    const post = await apiRequest<BackendPost>('/posts', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
     
-    return newPost;
+    return transformPost(post);
   },
 
   async updatePost(postId: string, data: Partial<CreatePostRequest>): Promise<ApiPost> {
-    await simulateDelay(500);
+    const body: Record<string, unknown> = {};
+    if (data.content !== undefined) body.content = data.content;
+    if (data.language !== undefined) body.originalLanguage = data.language;
+    if (data.translation !== undefined) body.translation = data.translation;
+    if (data.imageUrl !== undefined) body.imageUrl = data.imageUrl;
     
-    const postIndex = mockPosts.findIndex(p => p.id === postId);
-    if (postIndex === -1) {
-      throw new Error('Post not found');
-    }
+    const post = await apiRequest<BackendPost>(`/posts/${postId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    });
     
-    const user = getStoredUser();
-    if (!user || mockPosts[postIndex].authorId !== user.id) {
-      throw new Error('Not authorized to edit this post');
-    }
-    
-    mockPosts[postIndex] = {
-      ...mockPosts[postIndex],
-      ...data,
-      updatedAt: new Date().toISOString(),
-    };
-    
-    return mockPosts[postIndex];
+    return transformPost(post);
   },
 
   async deletePost(postId: string): Promise<void> {
-    await simulateDelay(400);
-    
-    const postIndex = mockPosts.findIndex(p => p.id === postId);
-    if (postIndex === -1) {
-      throw new Error('Post not found');
-    }
-    
-    const user = getStoredUser();
-    if (!user || mockPosts[postIndex].authorId !== user.id) {
-      throw new Error('Not authorized to delete this post');
-    }
-    
-    mockPosts.splice(postIndex, 1);
+    await apiRequest<void>(`/posts/${postId}`, {
+      method: 'DELETE',
+    });
   },
 
   async likePost(postId: string): Promise<ReactionResponse> {
-    await simulateDelay(300);
+    await apiRequest<void>(`/posts/${postId}/reactions`, {
+      method: 'POST',
+      body: JSON.stringify({ reaction: 'LIKE' }),
+    });
     
-    const post = mockPosts.find(p => p.id === postId);
-    if (!post) {
-      throw new Error('Post not found');
-    }
-    
-    post.isLiked = true;
-    post.likesCount += 1;
-    
+    // Backend may not return count, so we return optimistic response
     return {
       postId,
       type: 'like',
-      count: post.likesCount,
+      count: 0, // Will be updated on next fetch
       isReacted: true,
     };
   },
 
   async unlikePost(postId: string): Promise<ReactionResponse> {
-    await simulateDelay(300);
-    
-    const post = mockPosts.find(p => p.id === postId);
-    if (!post) {
-      throw new Error('Post not found');
-    }
-    
-    post.isLiked = false;
-    post.likesCount = Math.max(0, post.likesCount - 1);
+    await apiRequest<void>(`/posts/${postId}/reactions`, {
+      method: 'DELETE',
+    });
     
     return {
       postId,
       type: 'like',
-      count: post.likesCount,
+      count: 0,
       isReacted: false,
     };
   },

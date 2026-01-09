@@ -1,139 +1,138 @@
-import { useState, useCallback } from "react";
-import { Globe, Plus, MessageCircle, ChevronDown, Check } from "lucide-react";
+import { useState, useCallback, useEffect } from "react";
+import { Globe, Plus, MessageCircle, ChevronDown, Check, Loader2 } from "lucide-react";
 import { PostCard } from "@/components/feed/PostCard";
 import { ComposeModal } from "@/components/feed/ComposeModal";
 import { Button } from "@/components/ui/button";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
-import type { Post } from "@/types";
+import { postsApi, LANGUAGES, getLanguageByCode } from "@/services/api";
+import type { ApiPost, Post } from "@/types";
 
-// Placeholder post data
-const initialPosts: Post[] = [
-  {
-    id: "1",
+// Convert API post to UI post format
+const toUiPost = (apiPost: ApiPost): Post => {
+  const lang = getLanguageByCode(apiPost.language);
+  return {
+    id: apiPost.id,
     author: {
-      name: "Maria Garcia",
-      avatar: "M",
-      language: "Spanish",
-      flag: "🇪🇸",
+      name: apiPost.author.displayName,
+      avatar: apiPost.author.displayName.charAt(0).toUpperCase(),
+      language: lang?.name || apiPost.language,
+      flag: lang?.flag || '🌍',
     },
-    content: "¡Hola amigos! Hoy visité un café nuevo en el centro. El café con leche estaba delicioso.",
-    translation: "Hello friends! Today I visited a new café downtown. The café con leche was delicious.",
-    location: "Madrid, Spain",
-    distance: "2.5 km",
-    reactions: { likes: 24, comments: 8 },
-    time: "2h ago",
-  },
-  {
-    id: "2",
-    author: {
-      name: "Yuki Tanaka",
-      avatar: "Y",
-      language: "Japanese",
-      flag: "🇯🇵",
+    content: apiPost.content,
+    translation: apiPost.translation || '',
+    location: apiPost.location || '',
+    distance: '', // Would need geo calculation
+    image: apiPost.imageUrl,
+    reactions: { 
+      likes: apiPost.likesCount, 
+      comments: apiPost.commentsCount 
     },
-    content: "今日は公園で桜を見ました。とても綺麗でした！",
-    translation: "Today I saw cherry blossoms in the park. They were very beautiful!",
-    location: "Tokyo, Japan",
-    distance: "4.8 km",
-    reactions: { likes: 56, comments: 12 },
-    time: "4h ago",
-  },
-  {
-    id: "3",
-    author: {
-      name: "Pierre Dubois",
-      avatar: "P",
-      language: "French",
-      flag: "🇫🇷",
-    },
-    content: "Le marché aux fleurs ce matin était magnifique. J'ai acheté des tulipes pour ma mère.",
-    translation: "The flower market this morning was beautiful. I bought tulips for my mother.",
-    location: "Paris, France",
-    distance: "1.2 km",
-    reactions: { likes: 18, comments: 3 },
-    time: "5h ago",
-  },
-];
+    time: formatRelativeTime(apiPost.createdAt),
+    isLiked: apiPost.isLiked,
+  };
+};
 
-// Simulated new posts for refresh
-const newPostsPool: Post[] = [
-  {
-    id: "new1",
-    author: {
-      name: "Kim Soo-yeon",
-      avatar: "K",
-      language: "Korean",
-      flag: "🇰🇷",
-    },
-    content: "오늘 한강에서 자전거를 탔어요. 날씨가 너무 좋았어요!",
-    translation: "I rode a bike at Han River today. The weather was so nice!",
-    location: "Seoul, Korea",
-    distance: "3.2 km",
-    reactions: { likes: 42, comments: 6 },
-    time: "Just now",
-  },
-  {
-    id: "new2",
-    author: {
-      name: "Luca Bianchi",
-      avatar: "L",
-      language: "Italian",
-      flag: "🇮🇹",
-    },
-    content: "Ho fatto la pizza margherita per la prima volta. Era deliziosa!",
-    translation: "I made margherita pizza for the first time. It was delicious!",
-    location: "Rome, Italy",
-    distance: "5.1 km",
-    reactions: { likes: 38, comments: 15 },
-    time: "Just now",
-  },
-];
+// Format relative time
+const formatRelativeTime = (dateStr: string): string => {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-const languages = ["Spanish", "Japanese", "French", "German", "Korean", "Italian"];
-const languageFlags: Record<string, string> = {
-  Spanish: "🇪🇸",
-  Japanese: "🇯🇵",
-  French: "🇫🇷",
-  German: "🇩🇪",
-  Korean: "🇰🇷",
-  Italian: "🇮🇹",
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString();
 };
 
 export default function FeedPage() {
-  const [posts, setPosts] = useState<Post[]>(initialPosts);
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isComposeOpen, setIsComposeOpen] = useState(false);
-  const [refreshIndex, setRefreshIndex] = useState(0);
   const [selectedLanguage, setSelectedLanguage] = useState<string | null>(null);
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
 
-  const filteredPosts = selectedLanguage
-    ? posts.filter((post) => post.author.language === selectedLanguage)
-    : posts;
+  useEffect(() => {
+    console.log("[FeedPage] isComposeOpen:", isComposeOpen);
+  }, [isComposeOpen]);
+
+  // Fetch posts on mount and when language filter changes
+  const fetchPosts = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const langCode = selectedLanguage
+        ? LANGUAGES.find((l) => l.name === selectedLanguage)?.code
+        : undefined;
+      const response = await postsApi.getFeed({ language: langCode });
+      console.log("[FeedPage] getFeed response:", response);
+      setPosts(response.posts.map(toUiPost));
+    } catch (error) {
+      console.error("Failed to fetch posts:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [selectedLanguage]);
+
+  useEffect(() => {
+    fetchPosts();
+  }, [fetchPosts]);
 
   const handleRefresh = useCallback(async () => {
-    // Simulate network delay
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    
-    // Add a new post from the pool
-    const newPost = {
-      ...newPostsPool[refreshIndex % newPostsPool.length],
-      id: Date.now().toString(),
-      time: "Just now",
-    };
-    
-    setPosts((prev) => [newPost, ...prev]);
-    setRefreshIndex((prev) => prev + 1);
-  }, [refreshIndex]);
+    await fetchPosts();
+  }, [fetchPosts]);
 
-  const handleCreatePost = (newPostData: Omit<Post, "id" | "time" | "reactions">) => {
-    const newPost: Post = {
-      ...newPostData,
-      id: Date.now().toString(),
-      time: "Just now",
-      reactions: { likes: 0, comments: 0 },
+  const handleCreatePost = async (newPostData: Omit<Post, "id" | "time" | "reactions">) => {
+    const langCode = LANGUAGES.find(l => l.name === newPostData.author.language)?.code || 'en';
+    const payload = {
+      content: newPostData.content,
+      translation: newPostData.translation,
+      language: langCode,
+      imageUrl: newPostData.image,
+      location: newPostData.location,
     };
-    setPosts([newPost, ...posts]);
+    console.log('[FeedPage] Creating post:', payload);
+    try {
+      const apiPost = await postsApi.createPost(payload);
+      console.log('[FeedPage] Post created:', apiPost);
+      setPosts(prev => [toUiPost(apiPost), ...prev]);
+    } catch (error) {
+      console.error('[FeedPage] Failed to create post:', error);
+    }
   };
+
+  const handleLikeToggle = async (postId: string, isLiked: boolean) => {
+    try {
+      if (isLiked) {
+        await postsApi.unlikePost(postId);
+      } else {
+        await postsApi.likePost(postId);
+      }
+      setPosts(prev => prev.map(post => 
+        post.id === postId 
+          ? { 
+              ...post, 
+              isLiked: !isLiked,
+              reactions: { 
+                ...post.reactions, 
+                likes: post.reactions.likes + (isLiked ? -1 : 1) 
+              }
+            }
+          : post
+      ));
+    } catch (error) {
+      console.error('Failed to toggle like:', error);
+    }
+  };
+
+  const filteredPosts = posts;
+
+  const languageOptions = LANGUAGES.map(l => l.name);
+  const languageFlags: Record<string, string> = Object.fromEntries(
+    LANGUAGES.map(l => [l.name, l.flag])
+  );
 
   return (
     <PullToRefresh onRefresh={handleRefresh} className="h-full">
@@ -175,7 +174,7 @@ export default function FeedPage() {
                     </div>
                     {selectedLanguage === null && <Check className="h-4 w-4 text-primary" />}
                   </button>
-                  {languages.map((lang) => (
+                  {languageOptions.map((lang) => (
                     <button
                       key={lang}
                       onClick={() => {
@@ -207,25 +206,38 @@ export default function FeedPage() {
           </Button>
         </div>
 
-        {/* Posts */}
-        <div className="space-y-4">
-          {filteredPosts.length > 0 ? (
-            filteredPosts.map((post) => (
-              <PostCard key={post.id} post={post} />
-            ))
-          ) : (
-            <div className="flex flex-col items-center justify-center py-16 text-center">
-              <div className="rounded-full bg-muted p-4 mb-4">
-                <MessageCircle className="h-8 w-8 text-muted-foreground" />
+        {/* Loading state */}
+        {isLoading ? (
+          <div className="flex items-center justify-center py-16">
+            <Loader2 className="h-8 w-8 text-primary animate-spin" />
+          </div>
+        ) : (
+          /* Posts */
+          <div className="space-y-4">
+            {filteredPosts.length > 0 ? (
+              filteredPosts.map((post) => (
+                <PostCard 
+                  key={post.id} 
+                  post={post} 
+                  onLikeToggle={handleLikeToggle}
+                />
+              ))
+            ) : (
+              <div className="flex flex-col items-center justify-center py-16 text-center">
+                <div className="rounded-full bg-muted p-4 mb-4">
+                  <MessageCircle className="h-8 w-8 text-muted-foreground" />
+                </div>
+                <h3 className="text-lg font-semibold text-foreground mb-1">No posts yet</h3>
+                <p className="text-sm text-muted-foreground max-w-xs">
+                  {selectedLanguage 
+                    ? `No posts in ${selectedLanguage} yet. Be the first to share something!`
+                    : 'Be the first to share something!'
+                  }
+                </p>
               </div>
-              <h3 className="text-lg font-semibold text-foreground mb-1">No posts yet</h3>
-              <p className="text-sm text-muted-foreground max-w-xs">
-                No posts in {selectedLanguage} yet. Be the first to share something!
-              </p>
-            </div>
-          )}
-        </div>
-
+            )}
+          </div>
+        )}
 
         {/* Compose modal */}
         <ComposeModal 

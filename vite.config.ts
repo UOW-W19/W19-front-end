@@ -4,11 +4,15 @@ import path from "path";
 import { VitePWA } from "vite-plugin-pwa";
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => ({
-  server: {
-    host: "::",
-    port: 3000,
-  },
+export default defineConfig(({ mode }) => {
+  const devPortRaw = Number(process.env.VITE_DEV_PORT);
+  const devPort = Number.isFinite(devPortRaw) ? devPortRaw : 8080;
+
+  return {
+    server: {
+      host: "::",
+      port: devPort,
+    },
   plugins: [
     react(),
     VitePWA({
@@ -45,6 +49,7 @@ export default defineConfig(({ mode }) => ({
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5 MB limit
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
@@ -66,4 +71,5 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
-}));
+  };
+});

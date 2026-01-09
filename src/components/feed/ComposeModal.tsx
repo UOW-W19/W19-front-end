@@ -1,4 +1,5 @@
-import { useState, useRef, type ChangeEvent } from "react";
+import { useEffect, useState, useRef, type ChangeEvent } from "react";
+import { createPortal } from "react-dom";
 import { X, Globe, MapPin, Sparkles, Send, ImagePlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Post } from "@/types";
@@ -25,6 +26,12 @@ export function ComposeModal({ isOpen, onClose, onSubmit }: ComposeModalProps) {
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      console.log("[ComposeModal] open (using createPortal)");
+    }
+  }, [isOpen]);
 
   const handleImageSelect = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -68,15 +75,18 @@ export function ComposeModal({ isOpen, onClose, onSubmit }: ComposeModalProps) {
   };
 
   if (!isOpen) return null;
+  if (typeof document === "undefined") return null;
 
-  return (
-    <div className="fixed inset-0 z-[100] flex items-end justify-center">
-      {/* Backdrop */}
-      <div 
+  const modal = (
+    <div
+      style={{ position: "fixed", inset: 0, zIndex: 100 }}
+      className="flex items-end justify-center"
+    >
+      <div
         className="absolute inset-0 bg-foreground/40 backdrop-blur-sm animate-fade-in"
         onClick={onClose}
       />
-      
+
       {/* Modal - full width on mobile, slides up from bottom */}
       <div className="relative w-full bg-card rounded-t-3xl shadow-soft animate-slide-up max-h-[85vh] overflow-hidden pb-[env(safe-area-inset-bottom)]">
         {/* Drag handle for mobile */}
@@ -86,15 +96,15 @@ export function ComposeModal({ isOpen, onClose, onSubmit }: ComposeModalProps) {
 
         {/* Header */}
         <div className="flex items-center justify-between px-4 pb-3 border-b border-border">
-          <button 
+          <button
             onClick={onClose}
             className="p-2 -m-2 text-muted-foreground active:text-foreground transition-colors"
           >
             <X className="h-6 w-6" />
           </button>
           <h2 className="font-semibold text-foreground text-lg">Create Post</h2>
-          <Button 
-            size="sm" 
+          <Button
+            size="sm"
             onClick={handleSubmit}
             disabled={!content.trim()}
             className="gap-1.5 h-9 px-4 active:scale-95 transition-transform"
@@ -148,9 +158,7 @@ export function ComposeModal({ isOpen, onClose, onSubmit }: ComposeModalProps) {
               placeholder={`Share something in ${selectedLanguage.name}...`}
               className="w-full min-h-[120px] p-4 rounded-2xl bg-muted border-0 text-foreground text-base placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
             />
-            <div className="text-right text-xs text-muted-foreground">
-              {content.length} characters
-            </div>
+            <div className="text-right text-xs text-muted-foreground">{content.length} characters</div>
           </div>
 
           {/* Image upload */}
@@ -163,7 +171,7 @@ export function ComposeModal({ isOpen, onClose, onSubmit }: ComposeModalProps) {
               className="hidden"
               id="image-upload"
             />
-            
+
             {selectedImage ? (
               <div className="relative rounded-2xl overflow-hidden">
                 <img src={selectedImage} alt="Selected" className="w-full h-40 object-cover" />
@@ -208,6 +216,9 @@ export function ComposeModal({ isOpen, onClose, onSubmit }: ComposeModalProps) {
       </div>
     </div>
   );
+
+  return createPortal(modal, document.body);
+
 }
 
 export default ComposeModal;

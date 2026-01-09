@@ -1,105 +1,122 @@
-// Comments API Service - Mock implementation
+
 import type { 
   ApiComment, 
   CreateCommentRequest, 
   CommentsResponse,
   PaginationParams 
 } from '@/types/api';
-import { mockComments, mockPosts, simulateDelay } from './config';
-import { getStoredUser } from './auth';
+import { API_BASE_URL } from './config';
+import { getStoredToken } from './auth';
+
+// Helper for API requests
+const apiRequest = async <T>(
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<T> => {
+  const token = getStoredToken();
+  
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+    ...options.headers,
+  };
+  
+  if (token) {
+    (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
+  }
+  
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    ...options,
+    headers,
+  });
+  
+  if (!response.ok) {
+    let errorMessage = 'Request failed';
+    try {
+      const errorData = await response.json();
+      errorMessage = errorData.message || errorData.error || errorMessage;
+    } catch {
+      errorMessage = response.statusText || errorMessage;
+    }
+    throw new Error(errorMessage);
+  }
+  
+  if (response.status === 204) {
+    return {} as T;
+  }
+  
+  return response.json();
+};
+
+// Backend response types
+interface BackendComment {
+  id: number;
+  postId: number;
+  content: string;
+  createdAt: string;
+  author: {
+    id: number;
+    displayName: string;
+    avatarUrl?: string;
+  };
+}
+
+interface BackendCommentsResponse {
+  content: BackendComment[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+  last: boolean;
+}
+
+// Transform backend comment to frontend ApiComment
+const transformComment = (comment: BackendComment): ApiComment => ({
+  id: String(comment.id),
+  postId: String(comment.postId),
+  authorId: String(comment.author.id),
+  author: {
+    id: String(comment.author.id),
+    displayName: comment.author.displayName,
+    avatarUrl: comment.author.avatarUrl,
+    nativeLanguage: 'en', // Backend doesn't return this
+  },
+  content: comment.content,
+  createdAt: comment.createdAt,
+});
 
 export const commentsApi = {
   async getComments(postId: string, params?: PaginationParams): Promise<CommentsResponse> {
-    await simulateDelay(400);
+    const queryParams = new URLSearchParams();
     
-    const comments = mockComments.get(postId) || [];
+    const page = params?.cursor ? parseInt(params.cursor, 10) : 0;
+    queryParams.set('page', String(page));
+    queryParams.set('size', String(params?.limit || 20));
     
-    // Sort by date (newest first)
-    const sorted = [...comments].sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    const response = await apiRequest<BackendCommentsResponse>(
+      `/posts/${postId}/comments?${queryParams.toString()}`
     );
     
-    const limit = params?.limit || 20;
-    const cursorIndex = params?.cursor 
-      ? sorted.findIndex(c => c.id === params.cursor) + 1 
-      : 0;
-    
-    const paginated = sorted.slice(cursorIndex, cursorIndex + limit);
-    const hasMore = cursorIndex + limit < sorted.length;
+    const comments = response.content.map(transformComment);
     
     return {
-      comments: paginated,
-      nextCursor: hasMore ? paginated[paginated.length - 1]?.id : undefined,
-      hasMore,
+      comments,
+      nextCursor: response.last ? undefined : String(response.page + 1),
+      hasMore: !response.last,
     };
   },
 
   async createComment(postId: string, data: CreateCommentRequest): Promise<ApiComment> {
-    await simulateDelay(500);
+    const comment = await apiRequest<BackendComment>(`/posts/${postId}/comments`, {
+      method: 'POST',
+      body: JSON.stringify({ content: data.content }),
+    });
     
-    const user = getStoredUser();
-    if (!user) {
-      throw new Error('Not authenticated');
-    }
-    
-    const post = mockPosts.find(p => p.id === postId);
-    if (!post) {
-      throw new Error('Post not found');
-    }
-    
-    const newComment: ApiComment = {
-      id: `comment-${Date.now()}`,
-      postId,
-      authorId: user.id,
-      author: {
-        id: user.id,
-        displayName: user.displayName,
-        avatarUrl: user.avatarUrl,
-        nativeLanguage: user.nativeLanguage,
-      },
-      content: data.content,
-      createdAt: new Date().toISOString(),
-    };
-    
-    // Add to mock database
-    const existing = mockComments.get(postId) || [];
-    existing.push(newComment);
-    mockComments.set(postId, existing);
-    
-    // Update post comment count
-    post.commentsCount += 1;
-    
-    return newComment;
+    return transformComment(comment);
   },
 
   async deleteComment(postId: string, commentId: string): Promise<void> {
-    await simulateDelay(300);
-    
-    const user = getStoredUser();
-    if (!user) {
-      throw new Error('Not authenticated');
-    }
-    
-    const comments = mockComments.get(postId);
-    if (!comments) {
-      throw new Error('Comment not found');
-    }
-    
-    const commentIndex = comments.findIndex(c => c.id === commentId);
-    if (commentIndex === -1) {
-      throw new Error('Comment not found');
-    }
-    
-    if (comments[commentIndex].authorId !== user.id) {
-      throw new Error('Not authorized to delete this comment');
-    }
-    
-    comments.splice(commentIndex, 1);
-    
-    // Update post comment count
-    const post = mockPosts.find(p => p.id === postId);
-    if (post) {
-      post.commentsCount = Math.max(0, post.commentsCount - 1);
-    }
+    await apiRequest<void>(`/posts/${postId}/comments/${commentId}`, {
+      method: 'DELETE',
+    });
   },
 };
