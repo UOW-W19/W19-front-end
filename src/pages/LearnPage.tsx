@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback, useRef } from "react";
 import { Sparkles, RotateCcw, Check, X, ChevronLeft, BookOpen, Camera, TrendingUp, Globe, Zap, ArrowUpDown, ChevronDown, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { SavedWord } from "@/types";
+import { SavedWord } from "@/types";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,8 +16,8 @@ import {
   useSubmitPracticeResult,
   useCompletePracticeSession,
   transformSessionWord,
+  PracticeResult,
 } from "@/hooks/useLearnApi";
-import type { PracticeResult } from "@/hooks/useLearnApi";
 
 type PracticeMode = 'idle' | 'practicing' | 'results';
 type SortOption = 'newest' | 'mastery_high' | 'mastery_low';
@@ -60,7 +60,7 @@ export default function LearnPage() {
   
   // Get unique languages for filter
   const uniqueLanguages = useMemo(() => {
-    const langs = savedWords.map(w => ({ flag: w.languageFlag, name: w.language }));
+    const langs = savedWords.map(w => ({ flag: w.languageFlag, name: w.languageName }));
     return langs.filter((lang, index, self) => 
       index === self.findIndex(l => l.flag === lang.flag)
     );
@@ -85,10 +85,10 @@ export default function LearnPage() {
     // Fallback to local computation
     const totalWords = savedWords.length;
     const avgMastery = totalWords > 0 
-      ? Math.round(savedWords.reduce((acc, w) => acc + w.mastery, 0) / totalWords) 
+      ? Math.round(savedWords.reduce((acc, w) => acc + w.masteryLevel, 0) / totalWords) 
       : 0;
     const languages = [...new Set(savedWords.map(w => w.languageFlag))];
-    const masteredWords = savedWords.filter(w => w.mastery >= 76).length;
+    const masteredWords = savedWords.filter(w => w.masteryLevel >= 76).length;
     return { totalWords, avgMastery, languages, masteredWords };
   }, [stats, savedWords]);
 
@@ -97,7 +97,7 @@ export default function LearnPage() {
       const session = await startSessionMutation.mutateAsync({
         session_size: sessionSize,
         language_code: languageFilter !== 'all' 
-          ? savedWords.find(w => w.languageFlag === languageFilter)?.language 
+          ? savedWords.find(w => w.languageFlag === languageFilter)?.languageCode 
           : null,
       });
       
@@ -224,7 +224,7 @@ export default function LearnPage() {
               {currentWord.word}
             </p>
             <p className="text-sm text-muted-foreground mb-4">
-              {currentWord.language}
+              {currentWord.languageName}
             </p>
 
             {showAnswer ? (
@@ -232,14 +232,14 @@ export default function LearnPage() {
                 <p className="text-xl font-medium text-primary">
                   {currentWord.translation}
                 </p>
-                {currentWord.sourceContext && (
+                {currentWord.context && (
                   <p className="mt-2 text-xs text-muted-foreground flex items-center justify-center gap-1">
-                    {currentWord.source === 'post' ? (
+                    {currentWord.source === 'POST' ? (
                       <BookOpen className="h-3 w-3" />
                     ) : (
                       <Camera className="h-3 w-3" />
                     )}
-                    {currentWord.sourceContext}
+                    {currentWord.context}
                   </p>
                 )}
               </div>
@@ -256,10 +256,10 @@ export default function LearnPage() {
             <div className="h-1.5 w-16 rounded-full bg-muted overflow-hidden">
               <div
                 className="h-full rounded-full bg-sage transition-all"
-                style={{ width: `${currentWord.mastery}%` }}
+                style={{ width: `${currentWord.masteryLevel}%` }}
               />
             </div>
-            <span>{currentWord.mastery}%</span>
+            <span>{currentWord.masteryLevel}%</span>
           </div>
         </div>
 
@@ -462,7 +462,7 @@ export default function LearnPage() {
                     "h-9 w-12 rounded-lg text-sm font-medium transition-all",
                     sessionSize === size
                       ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-muted-foreground hover:bg-muted/80",
+                      : "bg-muted text-foreground hover:bg-muted/80",
                     savedWords.length < size && "opacity-50 cursor-not-allowed"
                   )}
                 >
@@ -471,10 +471,10 @@ export default function LearnPage() {
               ))}
             </div>
           </div>
-          
-          <Button 
+
+          <Button
             onClick={startPractice}
-            disabled={savedWords.length === 0 || startSessionMutation.isPending}
+            disabled={savedWords.length < sessionSize || startSessionMutation.isPending}
             className="w-full h-12 gap-2 rounded-xl"
           >
             {startSessionMutation.isPending ? (
@@ -482,67 +482,57 @@ export default function LearnPage() {
             ) : (
               <Sparkles className="h-5 w-5" />
             )}
-            Start Practice ({Math.min(savedWords.length, sessionSize)} words)
+            Start Practice ({sessionSize} words)
           </Button>
+
+          {savedWords.length < sessionSize && (
+            <p className="text-xs text-muted-foreground text-center mt-2">
+              Save at least {sessionSize} words to start practicing
+            </p>
+          )}
         </div>
       </section>
 
-      {/* Saved Words List */}
+      {/* My Words Section */}
       <section>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="font-semibold text-foreground">Your Words</h2>
-          <span className="text-sm text-muted-foreground">
-            {filteredWords.length}{languageFilter !== 'all' ? ` of ${savedWords.length}` : ''} saved
-          </span>
-        </div>
-        
-        {/* Filters */}
-        {savedWords.length > 0 && (
-          <div className="flex items-center gap-2 mb-3">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-foreground">My Words</h2>
+          
+          <div className="flex items-center gap-2">
             {/* Language Filter */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="h-8 gap-1.5 rounded-lg text-xs">
-                  {languageFilter === 'all' ? (
-                    <>
-                      <Globe className="h-3.5 w-3.5" />
-                      All Languages
-                    </>
-                  ) : (
-                    <>
-                      <span>{languageFilter}</span>
-                      {uniqueLanguages.find(l => l.flag === languageFilter)?.name}
-                    </>
-                  )}
-                  <ChevronDown className="h-3 w-3 opacity-50" />
+                <Button variant="outline" size="sm" className="h-8 gap-1.5">
+                  <Globe className="h-3.5 w-3.5" />
+                  {languageFilter === 'all' ? 'All' : languageFilter}
+                  <ChevronDown className="h-3 w-3" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="min-w-[140px]">
+              <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={() => setLanguageFilter('all')}>
-                  <Globe className="h-4 w-4 mr-2" />
                   All Languages
                 </DropdownMenuItem>
                 {uniqueLanguages.map((lang) => (
-                  <DropdownMenuItem key={lang.flag} onClick={() => setLanguageFilter(lang.flag)}>
-                    <span className="mr-2">{lang.flag}</span>
-                    {lang.name}
+                  <DropdownMenuItem 
+                    key={lang.flag}
+                    onClick={() => setLanguageFilter(lang.flag)}
+                  >
+                    {lang.flag} {lang.name}
                   </DropdownMenuItem>
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* Sort */}
+            {/* Sort Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="h-8 gap-1.5 rounded-lg text-xs">
+                <Button variant="outline" size="sm" className="h-8 gap-1.5">
                   <ArrowUpDown className="h-3.5 w-3.5" />
-                  {sortBy === 'newest' && 'Newest'}
-                  {sortBy === 'mastery_high' && 'Highest'}
-                  {sortBy === 'mastery_low' && 'Lowest'}
-                  <ChevronDown className="h-3 w-3 opacity-50" />
+                  Sort
+                  <ChevronDown className="h-3 w-3" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="min-w-[140px]">
+              <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={() => setSortBy('newest')}>
                   Newest First
                 </DropdownMenuItem>
@@ -555,27 +545,15 @@ export default function LearnPage() {
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-        )}
-        
-        {savedWords.length === 0 ? (
-          <div className="text-center py-12 rounded-xl border border-dashed border-border">
-            <BookOpen className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3" />
-            <p className="text-muted-foreground">No saved words yet</p>
-            <p className="text-sm text-muted-foreground/70">
-              Save words from posts or use the scanner
+        </div>
+
+        {filteredWords.length === 0 ? (
+          <div className="text-center py-12 rounded-2xl border border-dashed border-border">
+            <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+            <h3 className="font-medium text-foreground mb-1">No words saved yet</h3>
+            <p className="text-sm text-muted-foreground max-w-xs mx-auto">
+              Save words from posts or use the scanner to build your vocabulary
             </p>
-          </div>
-        ) : filteredWords.length === 0 ? (
-          <div className="text-center py-8 rounded-xl border border-dashed border-border">
-            <p className="text-muted-foreground">No words match this filter</p>
-            <Button 
-              variant="link" 
-              size="sm" 
-              onClick={() => setLanguageFilter('all')}
-              className="mt-1"
-            >
-              Clear filter
-            </Button>
           </div>
         ) : (
           <div className="space-y-2">
@@ -588,7 +566,7 @@ export default function LearnPage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">
                     <p className="font-medium text-foreground text-sm truncate">{word.word}</p>
-                    {word.source === 'scan' && (
+                    {word.source === 'MANUAL' && (
                       <Camera className="h-3 w-3 text-muted-foreground flex-shrink-0" />
                     )}
                   </div>
@@ -598,10 +576,10 @@ export default function LearnPage() {
                   <div className="h-1.5 w-12 rounded-full bg-muted overflow-hidden">
                     <div
                       className="h-full rounded-full bg-sage transition-all"
-                      style={{ width: `${word.mastery}%` }}
+                      style={{ width: `${word.masteryLevel}%` }}
                     />
                   </div>
-                  <span className="text-xs text-muted-foreground w-7 text-right">{word.mastery}%</span>
+                  <span className="text-xs text-muted-foreground w-7 text-right">{word.masteryLevel}%</span>
                 </div>
               </div>
             ))}

@@ -2,7 +2,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
   fetchSavedWords,
-  fetchLearningStats,
   createSavedWord,
   updateSavedWord,
   deleteSavedWord,
@@ -32,21 +31,27 @@ export const transformSavedWord = (word: SavedWordResponse): SavedWord => ({
   id: word.id,
   word: word.word,
   translation: word.translation,
-  language: word.language_name,
+  languageCode: word.language_code,
+  languageName: word.language_name,
   languageFlag: word.language_flag,
-  mastery: word.mastery_level,
-  source: word.source === 'POST' ? 'post' : 'scan',
-  sourceContext: word.source_context,
+  masteryLevel: word.mastery_level,
+  source: word.source === 'POST' ? 'POST' : 'MANUAL',
+  sourceId: word.source_id,
+  context: word.context,
+  nextReview: word.next_review,
+  createdAt: word.created_at,
 });
 
 export const transformSessionWord = (word: SessionWord): SavedWord => ({
   id: word.id,
   word: word.word,
   translation: word.translation,
-  language: word.language_name,
+  languageCode: word.language_code,
+  languageName: word.language_name,
   languageFlag: word.language_flag,
-  mastery: word.mastery_level,
-  source: 'post', // Default, not tracked in sessions
+  masteryLevel: word.mastery_level,
+  source: 'POST', // Default, not tracked in sessions
+  createdAt: new Date().toISOString(),
 });
 
 // ============================================
@@ -80,7 +85,12 @@ export const useSavedWords = (params?: {
 export const useLearningStats = () => {
   return useQuery({
     queryKey: learnKeys.stats(),
-    queryFn: fetchLearningStats,
+    // NOTE: dynamic import avoids a runtime ReferenceError when the named import
+    // gets elided/invalidated during HMR.
+    queryFn: async () => {
+      const mod = await import('@/services/api/learn');
+      return mod.fetchLearningStats();
+    },
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 };

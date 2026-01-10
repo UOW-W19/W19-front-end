@@ -121,29 +121,30 @@ interface BackendProfile {
 
 // Transform backend profile to frontend UserProfile
 const transformProfile = (profile: BackendProfile): UserProfile => {
-  const nativeLanguage = profile.languages?.find(l => 
-    l.proficiency === 'NATIVE' || !l.is_learning
-  )?.code ?? 'en';
-  
-  const learningLanguages = profile.languages
-    ?.filter(l => l.is_learning)
-    ?.map(l => l.code) ?? [];
+  // Transform backend languages array to frontend format
+  const languages = profile.languages?.map(l => ({
+    code: l.code,
+    name: l.name ?? l.code.toUpperCase(),
+    flagEmoji: l.flag_emoji ?? '🏳️',
+    proficiency: l.proficiency as 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED' | 'NATIVE',
+    isLearning: l.is_learning ?? false,
+  })) ?? [];
 
   return {
     id: String(profile.id),
     email: profile.email,
-    username: profile.username,
+    username: profile.username ?? profile.display_name?.toLowerCase().replace(/\s+/g, '_') ?? 'user',
     displayName: profile.display_name ?? profile.username ?? 'User',
     avatarUrl: profile.avatar_url,
     bio: profile.bio,
-    nativeLanguage,
-    learningLanguages,
     latitude: profile.latitude,
     longitude: profile.longitude,
     location: profile.latitude && profile.longitude 
       ? `${profile.latitude}, ${profile.longitude}` 
       : undefined,
     createdAt: profile.created_at ?? new Date().toISOString(),
+    languages,
+    roles: profile.roles ?? [],
     followersCount: profile.followers_count ?? 0,
     followingCount: profile.following_count ?? 0,
     postsCount: profile.posts_count ?? 0,

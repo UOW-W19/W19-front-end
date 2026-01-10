@@ -1,18 +1,6 @@
-export interface UserLanguage {
-  code: string;
-  name: string;
-  flag: string;
-  level: string;
-  isLearning: boolean;
-}
+// Legacy language types - these are now defined in api.ts
+// This file is kept for backward compatibility with existing imports
+// New code should use types from api.ts
 
-export interface SavedWord {
-  id: string;
-  word: string;
-  translation: string;
-  language: string;
-  languageFlag: string;
-  mastery: number;
-  source: 'post' | 'scan';
-  sourceContext?: string;
-}
+// Re-export from api.ts to maintain backward compatibility
+export type { UserLanguage, SavedWord } from './api';

@@ -116,6 +116,12 @@ const transformPost = (post: BackendPost): ApiPost => {
     comments: post.reactions?.comments ?? 0,
   };
 
+  // Validate and cast user_reaction to ReactionType or null
+  const validReactions = ['LIKE', 'LOVE', 'HELPFUL', 'FUNNY'];
+  const userReaction = post.user_reaction && validReactions.includes(post.user_reaction)
+    ? (post.user_reaction as 'LIKE' | 'LOVE' | 'HELPFUL' | 'FUNNY')
+    : null;
+
   return {
     id: String(post.id),
     content: post.content,
@@ -127,7 +133,7 @@ const transformPost = (post: BackendPost): ApiPost => {
     location: post.location,
     author: transformAuthor(post.author),
     reactions,
-    userReaction: post.user_reaction ?? null,
+    userReaction,
     createdAt: post.created_at ?? new Date().toISOString(),
   };
 };

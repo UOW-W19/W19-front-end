@@ -49,8 +49,7 @@ export default function AuthPage() {
           email,
           password,
           displayName: displayName.trim(),
-          nativeLanguage,
-          learningLanguages,
+          // Note: Language preferences are set up after registration in the profile
         });
       }
       navigate('/');

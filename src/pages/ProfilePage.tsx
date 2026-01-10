@@ -195,47 +195,34 @@ export default function ProfilePage() {
           <h2 className="font-semibold text-foreground">Languages</h2>
         </div>
         <div className="space-y-2">
-          {/* Native Language */}
-          {user.nativeLanguage && languageData[user.nativeLanguage] && (
-            <div className="flex items-center justify-between rounded-xl border border-border bg-card p-3">
+          {user.languages?.map((lang) => (
+            <div
+              key={lang.code}
+              className="flex items-center justify-between rounded-xl border border-border bg-card p-3"
+            >
               <div className="flex items-center gap-3">
-                <span className="text-xl">
-                  {languageData[user.nativeLanguage].flag}
-                </span>
+                <span className="text-xl">{lang.flagEmoji}</span>
                 <div>
-                  <p className="font-medium text-foreground">
-                    {languageData[user.nativeLanguage].name}
+                  <p className="font-medium text-foreground">{lang.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {lang.proficiency === 'NATIVE' ? 'Native' : lang.isLearning ? 'Learning' : lang.proficiency}
                   </p>
-                  <p className="text-xs text-muted-foreground">Native</p>
                 </div>
               </div>
-              <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
-                Native
+              <span className={`rounded-full px-3 py-1 text-xs font-medium ${
+                lang.proficiency === 'NATIVE' 
+                  ? 'bg-primary/10 text-primary' 
+                  : 'bg-accent/10 text-accent-foreground'
+              }`}>
+                {lang.proficiency === 'NATIVE' ? 'Native' : lang.proficiency}
               </span>
             </div>
+          ))}
+          {(!user.languages || user.languages.length === 0) && (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              No languages configured yet
+            </p>
           )}
-          {/* Learning Languages */}
-          {user.learningLanguages.map((langCode) => {
-            const lang = languageData[langCode];
-            if (!lang) return null;
-            return (
-              <div
-                key={langCode}
-                className="flex items-center justify-between rounded-xl border border-border bg-card p-3"
-              >
-                <div className="flex items-center gap-3">
-                  <span className="text-xl">{lang.flag}</span>
-                  <div>
-                    <p className="font-medium text-foreground">{lang.name}</p>
-                    <p className="text-xs text-muted-foreground">Learning</p>
-                  </div>
-                </div>
-                <span className="rounded-full bg-accent/10 px-3 py-1 text-xs font-medium text-accent-foreground">
-                  Learning
-                </span>
-              </div>
-            );
-          })}
         </div>
       </section>
 
