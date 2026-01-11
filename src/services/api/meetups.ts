@@ -160,6 +160,7 @@ export const meetupsApi = {
       throw new Error('Not authenticated');
     }
 
+    // ✅ Issue 3 Fix: Generate random coordinates near NYC for new meetups
     const newMeetup: Meetup = {
       id: `meetup-${Date.now()}`,
       title: data.title,
@@ -167,6 +168,10 @@ export const meetupsApi = {
       language: data.language,
       languageFlag: '🌐',
       location: data.location,
+      coordinates: {
+        lat: 40.7128 + (Math.random() - 0.5) * 0.1, // Random NYC Lat
+        lng: -74.0060 + (Math.random() - 0.5) * 0.1, // Random NYC Lng
+      },
       date: data.date,
       time: data.time,
       hostId: user.id,
