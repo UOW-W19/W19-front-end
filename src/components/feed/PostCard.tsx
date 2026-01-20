@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { MapPin, Heart, MessageCircle, Share2, Send, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Post, Comment } from "@/types";
@@ -73,12 +74,24 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
       {/* Author header */}
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-primary to-coral-light text-sm font-semibold text-primary-foreground">
-            {post.author.avatar}
-          </div>
+          {post.author.id ? (
+            <Link to={`/user/${post.author.id}`} className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-primary to-coral-light text-sm font-semibold text-primary-foreground hover:ring-2 hover:ring-primary/50 transition-all">
+              {post.author.avatar}
+            </Link>
+          ) : (
+            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-primary to-coral-light text-sm font-semibold text-primary-foreground">
+              {post.author.avatar}
+            </div>
+          )}
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-medium text-foreground">{post.author.name}</span>
+              {post.author.id ? (
+                <Link to={`/user/${post.author.id}`} className="font-medium text-foreground hover:underline">
+                  {post.author.name}
+                </Link>
+              ) : (
+                <span className="font-medium text-foreground">{post.author.name}</span>
+              )}
               <span className="text-base">{post.author.flag}</span>
             </div>
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">

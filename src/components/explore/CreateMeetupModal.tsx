@@ -28,19 +28,21 @@ export function CreateMeetupModal({ isOpen, onClose, onSubmit }: CreateMeetupMod
   const [location, setLocation] = useState("");
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
-  const [maxParticipants, setMaxParticipants] = useState(10);
+  const [maxAttendees, setMaxAttendees] = useState(10);
 
   const handleSubmit = () => {
     if (!title.trim() || !location.trim() || !date || !time) return;
 
+    // Combine date and time into ISO 8601 format
+    const meetupDate = `${date}T${time}:00`;
+
     onSubmit({
       title: title.trim(),
-      description: description.trim(),
-      language: selectedLanguage.name,
+      description: description.trim() || undefined,
+      languageCode: selectedLanguage.code,
       location: location.trim(),
-      date,
-      time,
-      maxParticipants,
+      meetupDate,
+      maxAttendees,
     });
 
     // Reset form
@@ -50,7 +52,7 @@ export function CreateMeetupModal({ isOpen, onClose, onSubmit }: CreateMeetupMod
     setLocation("");
     setDate("");
     setTime("");
-    setMaxParticipants(10);
+    setMaxAttendees(10);
     onClose();
   };
 
@@ -208,7 +210,7 @@ export function CreateMeetupModal({ isOpen, onClose, onSubmit }: CreateMeetupMod
             </div>
           </div>
 
-          {/* Max Participants */}
+          {/* Max Attendees */}
           <div className="space-y-2">
             <label className="flex items-center gap-2 text-sm font-medium text-foreground">
               <Users className="h-4 w-4 text-primary" />
@@ -216,16 +218,16 @@ export function CreateMeetupModal({ isOpen, onClose, onSubmit }: CreateMeetupMod
             </label>
             <div className="flex items-center gap-4 px-4 py-3 rounded-xl bg-muted">
               <button
-                onClick={() => setMaxParticipants(Math.max(2, maxParticipants - 1))}
+                onClick={() => setMaxAttendees(Math.max(2, maxAttendees - 1))}
                 className="w-10 h-10 rounded-full bg-background flex items-center justify-center text-foreground font-bold active:scale-95 transition-transform"
               >
                 -
               </button>
               <span className="flex-1 text-center text-lg font-semibold text-foreground">
-                {maxParticipants}
+                {maxAttendees}
               </span>
               <button
-                onClick={() => setMaxParticipants(Math.min(50, maxParticipants + 1))}
+                onClick={() => setMaxAttendees(Math.min(50, maxAttendees + 1))}
                 className="w-10 h-10 rounded-full bg-background flex items-center justify-center text-foreground font-bold active:scale-95 transition-transform"
               >
                 +

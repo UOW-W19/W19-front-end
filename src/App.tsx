@@ -7,6 +7,7 @@ import ExplorePage from "./pages/ExplorePage";
 import MessagesPage from "./pages/MessagesPage";
 import LearnPage from "./pages/LearnPage";
 import ProfilePage from "./pages/ProfilePage";
+import UserProfilePage from "./pages/UserProfilePage";
 import SettingsPage from "./pages/SettingsPage";
 import InstallPage from "./pages/InstallPage";
 import AuthPage from "./pages/AuthPage";
@@ -55,6 +56,7 @@ const AppRoutes = () => (
       <Route path="/messages" element={<MessagesPage />} />
       <Route path="/learn" element={<LearnPage />} />
       <Route path="/profile" element={<ProfilePage />} />
+      <Route path="/user/:userId" element={<UserProfilePage />} />
       <Route path="/settings" element={<SettingsPage />} />
       <Route path="/install" element={<InstallPage />} />
       <Route path="/scanner" element={<ScannerPage />} />

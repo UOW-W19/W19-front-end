@@ -1,6 +1,7 @@
 export interface Post {
   id: string;
   author: {
+    id: string;
     name: string;
     avatar: string;
     language: string;

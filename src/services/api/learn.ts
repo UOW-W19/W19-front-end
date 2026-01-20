@@ -241,7 +241,7 @@ export const deleteSavedWord = async (wordId: string): Promise<void> => {
 export const startPracticeSession = async (
   data: StartSessionRequest
 ): Promise<PracticeSessionResponse> => {
-  const response = await fetch(`${API_BASE_URL}/practice/sessions`, {
+  const response = await fetch(`${API_BASE_URL}/learn/sessions/start`, {
     method: 'POST',
     headers: getAuthHeaders(),
     body: JSON.stringify(data),
@@ -264,7 +264,7 @@ export const submitPracticeResult = async (
   sessionId: string,
   data: SubmitResultRequest
 ): Promise<SubmitResultResponse> => {
-  const response = await fetch(`${API_BASE_URL}/practice/sessions/${sessionId}/results`, {
+  const response = await fetch(`${API_BASE_URL}/learn/sessions/${sessionId}/submit`, {
     method: 'POST',
     headers: getAuthHeaders(),
     body: JSON.stringify(data),
@@ -285,7 +285,7 @@ export const submitPracticeResult = async (
 export const completePracticeSession = async (
   sessionId: string
 ): Promise<CompleteSessionResponse> => {
-  const response = await fetch(`${API_BASE_URL}/practice/sessions/${sessionId}/complete`, {
+  const response = await fetch(`${API_BASE_URL}/learn/sessions/${sessionId}/complete`, {
     method: 'POST',
     headers: getAuthHeaders(),
   });
@@ -311,7 +311,7 @@ export const fetchPracticeHistory = async (params?: {
   if (params?.size) searchParams.set('size', params.size.toString());
   
   const queryString = searchParams.toString();
-  const url = `${API_BASE_URL}/practice/sessions${queryString ? `?${queryString}` : ''}`;
+  const url = `${API_BASE_URL}/learn/sessions${queryString ? `?${queryString}` : ''}`;
   
   const response = await fetch(url, {
     method: 'GET',

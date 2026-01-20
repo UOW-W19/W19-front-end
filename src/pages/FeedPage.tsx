@@ -13,6 +13,7 @@ const toUiPost = (apiPost: ApiPost): Post => {
   return {
     id: apiPost.id,
     author: {
+      id: apiPost.author.id,
       name: apiPost.author.displayName,
       avatar: apiPost.author.avatarUrl 
         ? apiPost.author.displayName.charAt(0).toUpperCase()

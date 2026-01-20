@@ -1,12 +1,12 @@
 // Posts API Service - Real backend integration
-import type {
-  ApiPost,
+import type { 
+  ApiPost, 
   AuthorDto,
   PostReactionSummary,
-  CreatePostRequest,
+  CreatePostRequest, 
   FeedResponse,
   ReactionResponse,
-  PaginationParams
+  PaginationParams 
 } from '@/types/api';
 import { API_BASE_URL } from './config';
 import { getStoredToken } from './auth';
@@ -17,22 +17,22 @@ const apiRequest = async <T>(
   options: RequestInit = {}
 ): Promise<T> => {
   const token = getStoredToken();
-
+  
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
     'ngrok-skip-browser-warning': 'true',
     ...options.headers,
   };
-
+  
   if (token) {
     (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
   }
-
+  
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     ...options,
     headers,
   });
-
+  
   if (!response.ok) {
     let errorMessage = 'Request failed';
     try {
@@ -43,11 +43,11 @@ const apiRequest = async <T>(
     }
     throw new Error(errorMessage);
   }
-
+  
   if (response.status === 204) {
     return {} as T;
   }
-
+  
   return response.json();
 };
 
@@ -66,13 +66,13 @@ interface BackendPost {
   content: string;
   original_language?: string;
   image_url?: string;
-
+  
   // Location
   latitude?: number;
   longitude?: number;
   distance?: string;
   location?: string;
-
+  
   // Metadata
   author: BackendAuthor;
   reactions?: {
@@ -192,12 +192,12 @@ export const postsApi = {
       latitude: data.latitude,
       longitude: data.longitude,
     };
-
+    
     const post = await apiRequest<BackendPost>('/posts', {
       method: 'POST',
       body: JSON.stringify(body),
     });
-
+    
     return transformPost(post);
   },
 
@@ -207,12 +207,12 @@ export const postsApi = {
     if (data.content !== undefined) body.content = data.content;
     if (data.originalLanguage !== undefined) body.original_language = data.originalLanguage;
     if (data.imageUrl !== undefined) body.image_url = data.imageUrl;
-
+    
     const post = await apiRequest<BackendPost>(`/posts/${postId}`, {
       method: 'PATCH',
       body: JSON.stringify(body),
     });
-
+    
     return transformPost(post);
   },
 
@@ -227,7 +227,7 @@ export const postsApi = {
       method: 'POST',
       body: JSON.stringify({ reaction: 'LIKE' }),
     });
-
+    
     return {
       postId: response.post_id,
       profileId: response.profile_id,
@@ -239,11 +239,29 @@ export const postsApi = {
     const response = await apiRequest<BackendReactionResponse>(`/posts/${postId}/reactions`, {
       method: 'DELETE',
     });
-
+    
     return {
       postId: response.post_id,
       profileId: response.profile_id,
       reaction: response.reaction,
     };
+  },
+
+  async getTranslation(postId: string, targetLanguage: string): Promise<{ languageCode: string; translatedContent: string }> {
+    const response = await apiRequest<{ language_code: string; translated_content: string }>(
+      `/posts/${postId}/translations?target_language=${targetLanguage}`
+    );
+    
+    return {
+      languageCode: response.language_code,
+      translatedContent: response.translated_content,
+    };
+  },
+
+  async reportPost(postId: string, reason: 'SPAM' | 'HARASSMENT' | 'INAPPROPRIATE' | 'MISINFORMATION' | 'OTHER', details?: string): Promise<void> {
+    await apiRequest<void>(`/posts/${postId}/reports`, {
+      method: 'POST',
+      body: JSON.stringify({ reason, details }),
+    });
   },
 };

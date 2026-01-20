@@ -8,11 +8,11 @@ interface MeetupCardProps {
 }
 
 export default function MeetupCard({ meetup, onClick }: MeetupCardProps) {
-  const spotsLeft = meetup.maxParticipants - meetup.participants.length;
-  const isFull = spotsLeft === 0;
+  const spotsLeft = meetup.maxAttendees ? meetup.maxAttendees - meetup.attendeeCount : null;
+  const isFull = spotsLeft !== null && spotsLeft === 0;
 
-  const formattedDate = format(parseISO(meetup.date), 'EEE, MMM d');
-  const formattedTime = meetup.time;
+  const formattedDate = format(parseISO(meetup.meetupDate), 'EEE, MMM d');
+  const formattedTime = format(parseISO(meetup.meetupDate), 'h:mm a');
 
   return (
     <button
@@ -23,18 +23,20 @@ export default function MeetupCard({ meetup, onClick }: MeetupCardProps) {
         <div className="flex-1 min-w-0">
           <h3 className="font-medium text-foreground truncate">{meetup.title}</h3>
           <span className="text-sm">
-            {meetup.languageFlag} {meetup.language}
+            {meetup.language.flagEmoji} {meetup.language.name}
           </span>
         </div>
-        <span
-          className={`ml-2 shrink-0 rounded-full px-3 py-1 text-xs font-medium ${
-            isFull
-              ? 'bg-muted text-muted-foreground'
-              : 'bg-primary/10 text-primary'
-          }`}
-        >
-          {isFull ? 'Full' : `${spotsLeft} spots left`}
-        </span>
+        {spotsLeft !== null && (
+          <span
+            className={`ml-2 shrink-0 rounded-full px-3 py-1 text-xs font-medium ${
+              isFull
+                ? 'bg-muted text-muted-foreground'
+                : 'bg-primary/10 text-primary'
+            }`}
+          >
+            {isFull ? 'Full' : `${spotsLeft} spots left`}
+          </span>
+        )}
       </div>
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
@@ -48,7 +50,7 @@ export default function MeetupCard({ meetup, onClick }: MeetupCardProps) {
         </span>
         <span className="flex items-center gap-1">
           <Users className="h-3.5 w-3.5 shrink-0" />
-          {meetup.participants.length}/{meetup.maxParticipants}
+          {meetup.attendeeCount}{meetup.maxAttendees ? `/${meetup.maxAttendees}` : ''}
         </span>
       </div>
     </button>

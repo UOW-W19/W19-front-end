@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { X, Globe, MapPin, Sparkles, Send, ImagePlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Post } from "@/types";
+import { useAuth } from "@/contexts/AuthContext";
 
 export interface ComposeModalProps {
   isOpen: boolean;
@@ -20,6 +21,7 @@ const languages = [
 ];
 
 export function ComposeModal({ isOpen, onClose, onSubmit }: ComposeModalProps) {
+  const { user } = useAuth();
   const [content, setContent] = useState("");
   const [translation, setTranslation] = useState("");
   const [selectedLanguage, setSelectedLanguage] = useState(languages[0]);
@@ -56,8 +58,9 @@ export function ComposeModal({ isOpen, onClose, onSubmit }: ComposeModalProps) {
 
     onSubmit({
       author: {
-        name: "You",
-        avatar: "Y",
+        id: user?.id || '',
+        name: user?.displayName || "You",
+        avatar: user?.avatarUrl || user?.displayName?.charAt(0).toUpperCase() || "Y",
         language: selectedLanguage.name,
         flag: selectedLanguage.flag,
       },

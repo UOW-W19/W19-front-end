@@ -10,6 +10,7 @@ import MeetupCard from '@/components/explore/MeetupCard';
 import MeetupDetailSheet from '@/components/explore/MeetupDetailSheet';
 import CreateMeetupModal from '@/components/explore/CreateMeetupModal';
 import ExploreMap from '@/components/explore/ExploreMap';
+
 export default function ExplorePage() {
   const navigate = useNavigate();
   const [meetups, setMeetups] = useState<Meetup[]>([]);
@@ -19,17 +20,24 @@ export default function ExplorePage() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
 
+  // Default to NYC coordinates (will be replaced with user's location)
+  const [userLocation] = useState({ latitude: 40.7128, longitude: -74.0060 });
+
   useEffect(() => {
     loadData();
-  }, []);
+  }, [userLocation]);
 
   const loadData = async () => {
     try {
-      const [meetupsData, learnersData] = await Promise.all([
+      const [meetupsResponse, learnersData] = await Promise.all([
         meetupsApi.getMeetups(),
-        learnersApi.getNearbyLearners(),
+        learnersApi.getNearbyLearners({
+          latitude: userLocation.latitude,
+          longitude: userLocation.longitude,
+          radiusKm: 10,
+        }),
       ]);
-      setMeetups(meetupsData);
+      setMeetups(meetupsResponse.meetups);
       setLearners(learnersData);
     } catch (error) {
       console.error('Failed to load data:', error);
