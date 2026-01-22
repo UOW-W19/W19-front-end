@@ -10,10 +10,12 @@ interface ExploreMapProps {
   meetups: Meetup[];
   learners: NearbyLearner[];
   onMeetupClick?: (meetup: Meetup) => void;
+  userLocation?: { latitude: number; longitude: number };
 }
 
 const MAPBOX_TOKEN_STORAGE_KEY = 'locale_mapbox_token';
 
+// Priority: 1) env var, 2) localStorage override, 3) fallback
 const FALLBACK_MAPBOX_TOKEN =
   'pk.eyJ1IjoiYmxhbWVyIiwiYSI6ImNtam8wdHhxOTJ5NTEzZ3F4aDl3ZWo3a3YifQ.eRxSmSDlyopmOasm9-sHMw';
 
@@ -21,22 +23,66 @@ type LngLat = { lng: number; lat: number };
 
 const DEFAULT_CENTER: LngLat = { lng: -73.98, lat: 40.76 };
 const DEFAULT_ZOOM = 12;
+const USER_FOCUS_ZOOM = 13;
+
+const isValidLngLat = (lng: unknown, lat: unknown): boolean => {
+  if (!Number.isFinite(lng) || !Number.isFinite(lat)) return false;
+  const Lng = lng as number;
+  const Lat = lat as number;
+  // Mapbox GL expects valid WGS84 ranges; clamp out clearly invalid values
+  return Lng >= -180 && Lng <= 180 && Lat >= -85 && Lat <= 85;
+};
 
 const getInitialMapboxToken = (): string => {
+  // Check environment variable first (Vite exposes VITE_* vars)
   const envToken = import.meta.env.VITE_MAPBOX_TOKEN as string | undefined;
+  if (envToken && envToken.startsWith('pk.')) {
+    return envToken;
+  }
+
+  // Check localStorage for user-provided override
   const storedToken = typeof window !== 'undefined'
     ? localStorage.getItem(MAPBOX_TOKEN_STORAGE_KEY)
     : null;
+  if (storedToken && storedToken.startsWith('pk.')) {
+    return storedToken;
+  }
 
-  return envToken || storedToken || FALLBACK_MAPBOX_TOKEN;
+  return FALLBACK_MAPBOX_TOKEN;
 };
 
-const isWebGLSupported = (): boolean => {
+type WebGLDiagnostics = {
+  mapboxSupported: boolean | null;
+  webgl2: boolean;
+  webgl1: boolean;
+};
+
+const detectWebGLSupport = (): { supported: boolean; diagnostics: WebGLDiagnostics } => {
+  let mapboxSupported: boolean | null = null;
   try {
-    return typeof mapboxgl.supported === 'function' ? mapboxgl.supported() : true;
+    mapboxSupported = typeof mapboxgl.supported === 'function' ? mapboxgl.supported() : null;
   } catch {
-    return false;
+    mapboxSupported = null;
   }
+
+  let webgl2 = false;
+  let webgl1 = false;
+  try {
+    const canvas = document.createElement('canvas');
+    webgl2 = !!canvas.getContext('webgl2');
+    webgl1 = !!(canvas.getContext('webgl') || canvas.getContext('experimental-webgl'));
+  } catch {
+    webgl2 = false;
+    webgl1 = false;
+  }
+
+  // Mapbox GL JS requires WebGL (v2 can run on WebGL1; v3 requires WebGL2).
+  const supported = mapboxSupported === true || webgl1 || webgl2;
+
+  return {
+    supported,
+    diagnostics: { mapboxSupported, webgl2, webgl1 },
+  };
 };
 
 const getAllCoordinates = (meetups: Meetup[], learners: NearbyLearner[]): LngLat[] => {
@@ -73,12 +119,12 @@ const computeCenterAndZoom = (coords: LngLat[]): { center: LngLat; zoom: number 
 
   const zoom =
     span < 0.01 ? 14 :
-    span < 0.03 ? 13 :
-    span < 0.08 ? 12 :
-    span < 0.2 ? 11 :
-    span < 0.5 ? 10 :
-    span < 1.0 ? 9 :
-    8;
+      span < 0.03 ? 13 :
+        span < 0.08 ? 12 :
+          span < 0.2 ? 11 :
+            span < 0.5 ? 10 :
+              span < 1.0 ? 9 :
+                8;
 
   return { center, zoom };
 };
@@ -118,12 +164,17 @@ const buildStaticMapUrl = ({
   return `https://api.mapbox.com/styles/v1/${style}/static/${overlay}${center.lng.toFixed(5)},${center.lat.toFixed(5)},${zoom},0,0/${width}x${height}@2x?access_token=${encodeURIComponent(token)}`;
 };
 
-export default function ExploreMap({ meetups, learners, onMeetupClick }: ExploreMapProps) {
+export default function ExploreMap({ meetups, learners, onMeetupClick, userLocation }: ExploreMapProps) {
   const mapContainer = useRef<HTMLDivElement | null>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
+  const userMarkerRef = useRef<mapboxgl.Marker | null>(null);
+  const hasCenteredOnUserRef = useRef(false);
+  const userInteractedRef = useRef(false);
+  const lastUserLngLatRef = useRef<LngLat | null>(null);
   const [isMapReady, setIsMapReady] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
+  const [webglDiagnostics, setWebglDiagnostics] = useState<WebGLDiagnostics | null>(null);
 
   const origin = useMemo(() => {
     if (typeof window === 'undefined') return '';
@@ -183,16 +234,20 @@ export default function ExploreMap({ meetups, learners, onMeetupClick }: Explore
   // Initialize map (re-runs when token changes)
   useEffect(() => {
     setIsMapReady(false);
+    userInteractedRef.current = false;
+    hasCenteredOnUserRef.current = false;
+    lastUserLngLatRef.current = null;
 
     if (!mapboxToken) {
       setMapError('Map token missing. Set VITE_MAPBOX_TOKEN or paste a token below.');
       return;
     }
 
-    if (!isWebGLSupported()) {
-      setMapError('WebGL is not supported by your browser/device.');
-      return;
-    }
+    // Collect diagnostics but do NOT block map initialization.
+    // In some embedded/preview environments, pre-checks can be false negatives.
+    // We'll attempt to initialize Mapbox and rely on runtime errors if WebGL is truly unavailable.
+    const { diagnostics } = detectWebGLSupport();
+    setWebglDiagnostics(diagnostics);
 
     // Clear any previous map instance (helps with hot-reload + StrictMode)
     if (map.current) {
@@ -207,23 +262,63 @@ export default function ExploreMap({ meetups, learners, onMeetupClick }: Explore
     }
 
     let isCancelled = false;
+    let mapInstance: mapboxgl.Map | null = null;
+
+    // If the user starts interacting (zoom/pan), stop any pending camera animation
+    // Only stop animations ONCE when user first interacts, not continuously
+    const markUserInteracted = () => {
+      if (!userInteractedRef.current) {
+        userInteractedRef.current = true;
+        try {
+          mapInstance?.stop();
+        } catch {
+          // noop
+        }
+      }
+    };
 
     try {
       // Clean container before initialization to prevent duplicates
       container.innerHTML = '';
 
       // Disable telemetry to prevent ad-blocker interference
-      (mapboxgl as any).config = (mapboxgl as any).config || {};
-      (mapboxgl as any).config.EVENTS_URL = '';
+      // Use try-catch as some properties may be read-only in newer versions
+      try {
+        const mbgl = mapboxgl as any;
 
-      const mbgl = mapboxgl as unknown as { setTelemetryEnabled?: (enabled: boolean) => void };
-      if (mbgl.setTelemetryEnabled) {
-        mbgl.setTelemetryEnabled(false);
+        // Try to disable telemetry via the API method first (most reliable)
+        if (typeof mbgl.setTelemetryEnabled === 'function') {
+          mbgl.setTelemetryEnabled(false);
+        }
+
+        // Attempt to override EVENTS_URL (helps avoid ad-blocker interference)
+        // In newer versions, config properties may be read-only getters
+        if (mbgl?.config && typeof mbgl.config === 'object') {
+          try {
+            // Try direct assignment first
+            mbgl.config.EVENTS_URL = '';
+          } catch (configError) {
+            // If that fails (read-only property), try Object.defineProperty
+            try {
+              Object.defineProperty(mbgl.config, 'EVENTS_URL', {
+                value: '',
+                writable: true,
+                configurable: true
+              });
+            } catch {
+              // If both fail, telemetry may still work via setTelemetryEnabled
+              // This is not critical for map functionality
+            }
+          }
+        }
+      } catch (e) {
+        // Telemetry configuration is optional; don't let it block map initialization
+        console.warn('[ExploreMap] Could not fully disable telemetry (non-critical):', e);
       }
 
       mapboxgl.accessToken = mapboxToken;
 
-      const mapInstance = new mapboxgl.Map({
+      mapInstance = new mapboxgl.Map({
         container,
         style: 'mapbox://styles/mapbox/streets-v12',
         center: [-73.98, 40.76],
@@ -249,10 +344,18 @@ export default function ExploreMap({ meetups, learners, onMeetupClick }: Explore
       mapInstance.on('load', () => {
         window.clearTimeout(timeoutId);
         if (isCancelled) return;
-        mapInstance.resize();
+        if (mapInstance) {
+          mapInstance.resize();
+        }
         setIsMapReady(true);
         setMapError(null);
       });
+
+      mapInstance.on('wheel', markUserInteracted);
+      mapInstance.on('mousedown', markUserInteracted);
+      mapInstance.on('touchstart', markUserInteracted);
+      mapInstance.on('dragstart', markUserInteracted);
+      mapInstance.on('zoomstart', markUserInteracted);
 
       mapInstance.on('error', (evt) => {
         // Ignore telemetry noise
@@ -272,10 +375,44 @@ export default function ExploreMap({ meetups, learners, onMeetupClick }: Explore
       }
     }
 
+    // Resize handler for container size changes
+    const handleResize = () => {
+      if (map.current) {
+        map.current.resize();
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+
+    // Use ResizeObserver for container-specific size changes
+    let resizeObserver: ResizeObserver | null = null;
+    if (container && typeof ResizeObserver !== 'undefined') {
+      resizeObserver = new ResizeObserver(() => {
+        if (map.current) {
+          // Small delay to ensure layout has settled
+          requestAnimationFrame(() => {
+            map.current?.resize();
+          });
+        }
+      });
+      resizeObserver.observe(container);
+    }
+
     return () => {
       isCancelled = true;
-      if (map.current) {
-        map.current.remove();
+      window.removeEventListener('resize', handleResize);
+      resizeObserver?.disconnect();
+      try {
+        mapInstance?.off('wheel', markUserInteracted);
+        mapInstance?.off('mousedown', markUserInteracted);
+        mapInstance?.off('touchstart', markUserInteracted);
+        mapInstance?.off('dragstart', markUserInteracted);
+        mapInstance?.off('zoomstart', markUserInteracted);
+      } catch {
+        // noop
+      }
+      mapInstance?.remove();
+      if (map.current === mapInstance) {
         map.current = null;
       }
       setIsMapReady(false);
@@ -294,6 +431,7 @@ export default function ExploreMap({ meetups, learners, onMeetupClick }: Explore
     // Add meetup markers
     meetups.forEach((meetup) => {
       if (!meetup.coordinates) return;
+      if (!isValidLngLat(meetup.coordinates.lng, meetup.coordinates.lat)) return;
 
       const el = document.createElement('div');
       el.className = 'meetup-marker w-9 h-9 bg-gradient-to-br from-primary to-primary/80 rounded-full flex items-center justify-center shadow-lg border-2 border-white text-base cursor-pointer';
@@ -310,6 +448,8 @@ export default function ExploreMap({ meetups, learners, onMeetupClick }: Explore
 
     // Add learner markers
     learners.forEach((learner) => {
+      if (!learner.coordinates) return;
+      if (!isValidLngLat(learner.coordinates.lng, learner.coordinates.lat)) return;
       const el = document.createElement('div');
       el.className = 'learner-marker w-8 h-8 bg-gradient-to-br from-accent to-accent/80 rounded-full flex items-center justify-center shadow-md border-2 border-white text-white text-xs font-semibold';
       el.innerHTML = `<span>${learner.displayName[0]}</span>`;
@@ -321,16 +461,84 @@ export default function ExploreMap({ meetups, learners, onMeetupClick }: Explore
       markersRef.current.push(marker);
     });
 
-    // Fit bounds only if we have valid coordinates
-    const bounds = new mapboxgl.LngLatBounds();
-    meetups.forEach(m => m.coordinates && bounds.extend([m.coordinates.lng, m.coordinates.lat]));
-    learners.forEach(l => l.coordinates && bounds.extend([l.coordinates.lng, l.coordinates.lat]));
-    
-    // Only fit bounds if they are valid (not empty)
-    if (!bounds.isEmpty()) {
-      map.current.fitBounds(bounds, { padding: 50, maxZoom: 14 });
+    // NOTE: We intentionally do NOT call fitBounds here when userLocation exists.
+    // fitBounds will often zoom way out ("whole globe") if any marker has bad coords
+    // or if markers are geographically far apart.
+    // User centering is handled by the userLocation effect below.
+    if (!userLocation) {
+      const bounds = new mapboxgl.LngLatBounds();
+
+      meetups.forEach((m) => {
+        const c = m.coordinates;
+        if (!c) return;
+        if (!isValidLngLat(c.lng, c.lat)) return;
+        bounds.extend([c.lng, c.lat]);
+      });
+
+      learners.forEach((l) => {
+        const c = l.coordinates;
+        if (!c) return;
+        if (!isValidLngLat(c.lng, c.lat)) return;
+        bounds.extend([c.lng, c.lat]);
+      });
+
+      if (!bounds.isEmpty()) {
+        map.current.fitBounds(bounds, { padding: 50, maxZoom: 14 });
+      }
     }
-  }, [meetups, learners, isMapReady, onMeetupClick]);
+  }, [meetups, learners, isMapReady, onMeetupClick, userLocation]);
+
+  // Add/update user location marker
+  useEffect(() => {
+    if (!map.current || !isMapReady) return;
+
+    if (!userLocation) {
+      hasCenteredOnUserRef.current = false;
+      lastUserLngLatRef.current = null;
+      if (userMarkerRef.current) {
+        userMarkerRef.current.remove();
+        userMarkerRef.current = null;
+      }
+      return;
+    }
+    if (!isValidLngLat(userLocation.longitude, userLocation.latitude)) return;
+
+    const next: LngLat = { lng: userLocation.longitude, lat: userLocation.latitude };
+    const prev = lastUserLngLatRef.current;
+    const changed =
+      !prev ||
+      Math.abs(prev.lng - next.lng) > 1e-7 ||
+      Math.abs(prev.lat - next.lat) > 1e-7;
+    lastUserLngLatRef.current = next;
+
+    // Create user location marker with pulsing effect
+    if (!userMarkerRef.current) {
+      const el = document.createElement('div');
+      el.className = 'user-location-marker relative';
+      el.innerHTML = `
+        <div class="absolute inset-0 w-6 h-6 bg-blue-500/30 rounded-full animate-ping"></div>
+        <div class="relative w-6 h-6 bg-blue-500 rounded-full border-2 border-background shadow-lg flex items-center justify-center">
+          <div class="w-2 h-2 bg-background rounded-full"></div>
+        </div>
+      `;
+
+      userMarkerRef.current = new mapboxgl.Marker(el)
+        .setLngLat([next.lng, next.lat])
+        .addTo(map.current);
+    } else if (changed) {
+      userMarkerRef.current.setLngLat([next.lng, next.lat]);
+    }
+
+    // Only center on user ONCE when location first becomes available
+    if (!hasCenteredOnUserRef.current && !userInteractedRef.current) {
+      hasCenteredOnUserRef.current = true;
+      map.current.easeTo({
+        center: [next.lng, next.lat],
+        zoom: Math.max(map.current.getZoom(), USER_FOCUS_ZOOM),
+        duration: 650,
+      });
+    }
+  }, [userLocation, isMapReady]);
 
   if (mapError) {
     return (
@@ -338,6 +546,37 @@ export default function ExploreMap({ meetups, learners, onMeetupClick }: Explore
         <div className="text-center p-4 w-full max-w-md">
           <MapPin className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
           <p className="text-sm text-muted-foreground">{mapError}</p>
+
+          {(mapError.toLowerCase().includes('webgl') || mapError.toLowerCase().includes('context')) &&
+            webglDiagnostics && (
+              <div className="mt-3 rounded-lg border border-border bg-background/70 px-3 py-2 text-left text-xs text-muted-foreground">
+                <p className="font-medium text-foreground">Diagnostics</p>
+                <p className="mt-1 font-mono">
+                  mapboxSupported: {String(webglDiagnostics.mapboxSupported)}
+                  <br />
+                  webgl2: {String(webglDiagnostics.webgl2)}
+                  <br />
+                  webgl1: {String(webglDiagnostics.webgl1)}
+                </p>
+                {!webglDiagnostics.webgl1 && !webglDiagnostics.webgl2 && (
+                  <p className="mt-2">
+                    Note: Interactive maps require <span className="font-medium">WebGL</span>. If WebGL stays
+                    false, enable hardware acceleration in your browser.
+                  </p>
+                )}
+                <p className="mt-2">
+                  Test here:{' '}
+                  <a
+                    href="https://get.webgl.org"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="underline"
+                  >
+                    get.webgl.org
+                  </a>
+                </p>
+              </div>
+            )}
 
           {staticFallbackUrl && (
             <div className="mt-4">
@@ -389,7 +628,7 @@ export default function ExploreMap({ meetups, learners, onMeetupClick }: Explore
 
   return (
     <div className="relative h-80 w-full rounded-2xl overflow-hidden border border-border">
-      <div ref={mapContainer} className="absolute inset-0" />
+      <div ref={mapContainer} className="absolute inset-0" style={{ width: '100%', height: '100%' }} />
 
       {!isMapReady && (
         <div className="absolute inset-0 bg-muted flex items-center justify-center">
@@ -398,14 +637,22 @@ export default function ExploreMap({ meetups, learners, onMeetupClick }: Explore
       )}
 
       {/* Legend */}
-      <div className="absolute bottom-3 left-3 bg-background/90 backdrop-blur-sm rounded-lg px-3 py-2 flex gap-4 text-xs">
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded-full bg-primary" />
-          <span>Meetups</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded-full bg-accent" />
-          <span>Learners</span>
+      <div className="absolute bottom-3 left-3 pointer-events-none">
+        <div className="bg-background/90 backdrop-blur-sm rounded-lg px-3 py-2 flex gap-4 text-xs pointer-events-auto">
+          {userLocation && (
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-3 rounded-full bg-blue-500" />
+              <span>You</span>
+            </div>
+          )}
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded-full bg-primary" />
+            <span>Meetups</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded-full bg-accent" />
+            <span>Learners</span>
+          </div>
         </div>
       </div>
     </div>
