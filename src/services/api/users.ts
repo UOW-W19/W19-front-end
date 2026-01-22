@@ -102,22 +102,22 @@ const apiRequest = async <T>(
   options: RequestInit = {}
 ): Promise<T> => {
   const token = getStoredToken();
-  
+
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
     'ngrok-skip-browser-warning': 'true',
     ...options.headers,
   };
-  
+
   if (token) {
     (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
   }
-  
+
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     ...options,
     headers,
   });
-  
+
   if (!response.ok) {
     let errorMessage = 'Request failed';
     try {
@@ -128,11 +128,11 @@ const apiRequest = async <T>(
     }
     throw new Error(errorMessage);
   }
-  
+
   if (response.status === 204) {
     return {} as T;
   }
-  
+
   return response.json();
 };
 
@@ -341,11 +341,11 @@ export const usersApi = {
           is_following: mockFollowState[userId] ?? false,
         });
       }
-      
+
       // Try to get basic profile from /users/me if it's the current user's ID
       // Otherwise, return a minimal profile based on available data
       console.warn('[usersApi] Profile endpoint not available, returning minimal profile');
-      
+
       // Return a minimal "unknown user" profile when endpoint doesn't exist
       // The UI will show basic info, and full profile will work once backend implements the endpoint
       return {
@@ -373,13 +373,13 @@ export const usersApi = {
   // Get user's posts
   async getUserPosts(userId: string, cursor?: string): Promise<UserPostsResponse> {
     const page = cursor ? parseInt(cursor, 10) : 0;
-    
+
     // Try real API first
     try {
       const response = await apiRequest<BackendUserPostsResponse>(
         `/users/${userId}/posts?page=${page}&size=10`
       );
-      
+
       return {
         posts: response.content.map(transformPost),
         hasMore: !response.last,
@@ -401,7 +401,7 @@ export const usersApi = {
     }
   },
 
-  // Follow a user - uses POST /follow with body { following_id }
+  // Follow a user - RESTful pattern: POST /users/{id}/follow
   async followUser(userId: string): Promise<void> {
     // MOCK: Remove this block when backend is ready
     if (MOCK_PROFILES[userId]) {
@@ -412,13 +412,12 @@ export const usersApi = {
     }
     // END MOCK
 
-    await apiRequest<void>('/follow', {
+    await apiRequest<void>(`/users/${userId}/follow`, {
       method: 'POST',
-      body: JSON.stringify({ following_id: userId }),
     });
   },
 
-  // Unfollow a user - uses DELETE /follow with body { following_id }
+  // Unfollow a user - RESTful pattern: DELETE /users/{id}/follow
   async unfollowUser(userId: string): Promise<void> {
     // MOCK: Remove this block when backend is ready
     if (MOCK_PROFILES[userId]) {
@@ -429,9 +428,174 @@ export const usersApi = {
     }
     // END MOCK
 
-    await apiRequest<void>('/follow', {
+    await apiRequest<void>(`/users/${userId}/follow`, {
       method: 'DELETE',
-      body: JSON.stringify({ following_id: userId }),
+    });
+  },
+
+  // ============ SETTINGS MANAGEMENT ============
+
+  /**
+   * Get current user's settings
+   * @returns User settings including theme, notifications, and privacy
+   */
+  async getSettings(): Promise<import('@/types/api').UserSettingsDTO> {
+    const response = await apiRequest<{
+      theme?: string;
+      notification_prefs: {
+        push_enabled: boolean;
+        email_enabled: boolean;
+        like_notifications: boolean;
+        comment_notifications: boolean;
+        meetup_notifications: boolean;
+      };
+      privacy_settings: {
+        show_location: boolean;
+        allow_messages: 'everyone' | 'friends' | 'none';
+      };
+    }>('/users/me/settings');
+
+    return {
+      theme: response.theme,
+      notificationPrefs: {
+        pushEnabled: response.notification_prefs.push_enabled,
+        emailEnabled: response.notification_prefs.email_enabled,
+        likeNotifications: response.notification_prefs.like_notifications,
+        commentNotifications: response.notification_prefs.comment_notifications,
+        meetupNotifications: response.notification_prefs.meetup_notifications,
+      },
+      privacySettings: {
+        showLocation: response.privacy_settings.show_location,
+        allowMessages: response.privacy_settings.allow_messages,
+      },
+    };
+  },
+
+  /**
+   * Update current user's settings
+   * @param settings - Settings to update (partial)
+   * @returns Updated settings
+   */
+  async updateSettings(settings: Partial<import('@/types/api').UserSettingsDTO>): Promise<import('@/types/api').UserSettingsDTO> {
+    const body: Record<string, unknown> = {};
+
+    if (settings.theme !== undefined) {
+      body.theme = settings.theme;
+    }
+    if (settings.notificationPrefs) {
+      body.notification_prefs = {
+        push_enabled: settings.notificationPrefs.pushEnabled,
+        email_enabled: settings.notificationPrefs.emailEnabled,
+        like_notifications: settings.notificationPrefs.likeNotifications,
+        comment_notifications: settings.notificationPrefs.commentNotifications,
+        meetup_notifications: settings.notificationPrefs.meetupNotifications,
+      };
+    }
+    if (settings.privacySettings) {
+      body.privacy_settings = {
+        show_location: settings.privacySettings.showLocation,
+        allow_messages: settings.privacySettings.allowMessages,
+      };
+    }
+
+    const response = await apiRequest<{
+      theme?: string;
+      notification_prefs: {
+        push_enabled: boolean;
+        email_enabled: boolean;
+        like_notifications: boolean;
+        comment_notifications: boolean;
+        meetup_notifications: boolean;
+      };
+      privacy_settings: {
+        show_location: boolean;
+        allow_messages: 'everyone' | 'friends' | 'none';
+      };
+    }>('/users/me/settings', {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    });
+
+    return {
+      theme: response.theme,
+      notificationPrefs: {
+        pushEnabled: response.notification_prefs.push_enabled,
+        emailEnabled: response.notification_prefs.email_enabled,
+        likeNotifications: response.notification_prefs.like_notifications,
+        commentNotifications: response.notification_prefs.comment_notifications,
+        meetupNotifications: response.notification_prefs.meetup_notifications,
+      },
+      privacySettings: {
+        showLocation: response.privacy_settings.show_location,
+        allowMessages: response.privacy_settings.allow_messages,
+      },
+    };
+  },
+
+  // ============ LANGUAGE MANAGEMENT ============
+
+  /**
+   * Update user's native and learning languages
+   * @param languages - Array of language preferences
+   */
+  async updateLanguages(languages: Array<{
+    code: string;
+    proficiency: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED' | 'NATIVE';
+    isLearning: boolean;
+  }>): Promise<void> {
+    const body = languages.map(lang => ({
+      code: lang.code,
+      proficiency: lang.proficiency,
+      is_learning: lang.isLearning,
+    }));
+
+    await apiRequest<void>('/users/me/languages', {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    });
+  },
+
+  // ============ SOCIAL FEATURES ============
+
+  /**
+   * Get list of user's followers
+   * @param userId - User ID
+   * @returns Array of follower profiles
+   */
+  async getFollowers(userId: string): Promise<PublicUserProfile[]> {
+    const response = await apiRequest<BackendPublicProfile[]>(`/users/${userId}/followers`);
+    return response.map(transformPublicProfile);
+  },
+
+  /**
+   * Get list of users that a user is following
+   * @param userId - User ID
+   * @returns Array of following profiles
+   */
+  async getFollowing(userId: string): Promise<PublicUserProfile[]> {
+    const response = await apiRequest<BackendPublicProfile[]>(`/users/${userId}/following`);
+    return response.map(transformPublicProfile);
+  },
+
+  // ============ USER SAFETY ============
+
+  /**
+   * Block a user
+   * @param userId - User ID to block
+   */
+  async blockUser(userId: string): Promise<void> {
+    await apiRequest<void>(`/users/${userId}/block`, {
+      method: 'POST',
+    });
+  },
+
+  /**
+   * Unblock a user
+   * @param userId - User ID to unblock
+   */
+  async unblockUser(userId: string): Promise<void> {
+    await apiRequest<void>(`/users/${userId}/block`, {
+      method: 'DELETE',
     });
   },
 };

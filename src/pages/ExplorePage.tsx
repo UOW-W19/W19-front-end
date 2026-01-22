@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Plus, MessageCircle } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Plus, MessageCircle, MapPin, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import type { Meetup, NearbyLearner, CreateMeetupRequest } from '@/types/meetup';
@@ -11,6 +11,15 @@ import MeetupDetailSheet from '@/components/explore/MeetupDetailSheet';
 import CreateMeetupModal from '@/components/explore/CreateMeetupModal';
 import ExploreMap from '@/components/explore/ExploreMap';
 
+type LocationState =
+  | { status: 'loading' }
+  | { status: 'granted'; latitude: number; longitude: number }
+  | { status: 'denied'; message: string }
+  | { status: 'unavailable'; message: string };
+
+// Default fallback (NYC)
+const DEFAULT_LOCATION = { latitude: 40.7128, longitude: -74.0060 };
+
 export default function ExplorePage() {
   const navigate = useNavigate();
   const [meetups, setMeetups] = useState<Meetup[]>([]);
@@ -20,31 +29,86 @@ export default function ExplorePage() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
 
-  // Default to NYC coordinates (will be replaced with user's location)
-  const [userLocation] = useState({ latitude: 40.7128, longitude: -74.0060 });
+  const [locationState, setLocationState] = useState<LocationState>({ status: 'loading' });
 
-  useEffect(() => {
-    loadData();
-  }, [userLocation]);
-
-  const loadData = async () => {
-    try {
-      const [meetupsResponse, learnersData] = await Promise.all([
-        meetupsApi.getMeetups(),
-        learnersApi.getNearbyLearners({
-          latitude: userLocation.latitude,
-          longitude: userLocation.longitude,
-          radiusKm: 10,
-        }),
-      ]);
-      setMeetups(meetupsResponse.meetups);
-      setLearners(learnersData);
-    } catch (error) {
-      console.error('Failed to load data:', error);
-    } finally {
-      setIsLoading(false);
+  // Get user's real location
+  const requestLocation = useCallback(() => {
+    if (!navigator.geolocation) {
+      setLocationState({
+        status: 'unavailable',
+        message: 'Geolocation is not supported by your browser'
+      });
+      return;
     }
-  };
+
+    setLocationState({ status: 'loading' });
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLocationState({
+          status: 'granted',
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        });
+        toast.success('Location found!', {
+          description: 'Showing nearby learners and meetups.',
+        });
+      },
+      (error) => {
+        let message = 'Could not get your location';
+        if (error.code === error.PERMISSION_DENIED) {
+          message = 'Location access denied. Enable location in your browser settings.';
+        } else if (error.code === error.POSITION_UNAVAILABLE) {
+          message = 'Location unavailable. Please try again.';
+        } else if (error.code === error.TIMEOUT) {
+          message = 'Location request timed out. Please try again.';
+        }
+        setLocationState({ status: 'denied', message });
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 15000, // Increased from 10s to 15s for slower connections
+        maximumAge: 300000, // Cache for 5 minutes
+      }
+    );
+  }, []);
+
+  // Request location on mount
+  useEffect(() => {
+    requestLocation();
+  }, [requestLocation]);
+
+  // Get current coordinates (real or fallback)
+  const currentLocation = locationState.status === 'granted'
+    ? { latitude: locationState.latitude, longitude: locationState.longitude }
+    : DEFAULT_LOCATION;
+
+  // Load data when location changes
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [meetupsResponse, learnersData] = await Promise.all([
+          meetupsApi.getMeetups(),
+          learnersApi.getNearbyLearners({
+            latitude: currentLocation.latitude,
+            longitude: currentLocation.longitude,
+            radiusKm: 10,
+          }),
+        ]);
+        setMeetups(meetupsResponse.meetups);
+        setLearners(learnersData);
+      } catch (error) {
+        console.error('Failed to load data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    // Only load data once we have location (or fallback)
+    if (locationState.status !== 'loading') {
+      loadData();
+    }
+  }, [currentLocation.latitude, currentLocation.longitude, locationState.status]);
 
   const handleMeetupClick = (meetup: Meetup) => {
     setSelectedMeetup(meetup);
@@ -89,7 +153,7 @@ export default function ExplorePage() {
   return (
     <div className="mx-auto max-w-4xl px-4 py-6">
       {/* Header with Messages button */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold">Explore</h1>
         <Button
           variant="outline"
@@ -101,12 +165,40 @@ export default function ExplorePage() {
         </Button>
       </div>
 
+      {/* Location status */}
+      <div className="mb-4">
+        {locationState.status === 'loading' && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span>Getting your location...</span>
+          </div>
+        )}
+        {locationState.status === 'granted' && (
+          <div className="flex items-center gap-2 text-sm text-primary">
+            <MapPin className="h-4 w-4" />
+            <span>Showing results near you</span>
+          </div>
+        )}
+        {(locationState.status === 'denied' || locationState.status === 'unavailable') && (
+          <div className="flex items-center justify-between gap-2 rounded-lg bg-muted p-3">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <MapPin className="h-4 w-4" />
+              <span>{locationState.message}</span>
+            </div>
+            <Button size="sm" variant="outline" onClick={requestLocation}>
+              Retry
+            </Button>
+          </div>
+        )}
+      </div>
+
       {/* Interactive Map */}
       <div className="mb-6">
         <ExploreMap
           meetups={meetups}
           learners={learners}
           onMeetupClick={handleMeetupClick}
+          userLocation={locationState.status === 'granted' ? currentLocation : undefined}
         />
       </div>
 

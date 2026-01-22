@@ -43,10 +43,45 @@ export const clearAuth = () => {
   localStorage.removeItem(USER_KEY);
 };
 
-// Helper for API requests
+// Track if we're currently refreshing to avoid infinite loops
+let isRefreshing = false;
+let refreshPromise: Promise<string> | null = null;
+
+// Refresh token and return new access token
+const performTokenRefresh = async (): Promise<string> => {
+  const refreshToken = getStoredRefreshToken();
+  if (!refreshToken) {
+    throw new Error('No refresh token available');
+  }
+
+  const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'ngrok-skip-browser-warning': 'true',
+    },
+    body: JSON.stringify({ refresh_token: refreshToken }),
+  });
+
+  if (!response.ok) {
+    clearAuth();
+    throw new Error('Token refresh failed');
+  }
+
+  const data = await response.json();
+  localStorage.setItem(TOKEN_KEY, data.access_token);
+  if (data.refresh_token) {
+    localStorage.setItem(REFRESH_TOKEN_KEY, data.refresh_token);
+  }
+  
+  return data.access_token;
+};
+
+// Helper for API requests with automatic token refresh
 const apiRequest = async <T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  isRetry = false
 ): Promise<T> => {
   const token = getStoredToken();
   
@@ -64,6 +99,29 @@ const apiRequest = async <T>(
     ...options,
     headers,
   });
+  
+  // Handle 401 - try to refresh token and retry once
+  if (response.status === 401 && !isRetry) {
+    try {
+      // Use a single refresh promise to avoid multiple simultaneous refreshes
+      if (!isRefreshing) {
+        isRefreshing = true;
+        refreshPromise = performTokenRefresh();
+      }
+      
+      await refreshPromise;
+      isRefreshing = false;
+      refreshPromise = null;
+      
+      // Retry the original request with the new token
+      return apiRequest<T>(endpoint, options, true);
+    } catch {
+      isRefreshing = false;
+      refreshPromise = null;
+      clearAuth();
+      throw new Error('Session expired. Please log in again.');
+    }
+  }
   
   if (!response.ok) {
     if (response.status === 401 || response.status === 403) {
@@ -212,26 +270,15 @@ export const authApi = {
   },
 
   async refreshToken(): Promise<AuthResponse> {
-    const refreshToken = getStoredRefreshToken();
-    if (!refreshToken) {
-      throw new Error('No refresh token available');
-    }
-
-    const authResponse = await apiRequest<BackendAuthResponse>('/auth/refresh', {
-      method: 'POST',
-      body: JSON.stringify({ refresh_token: refreshToken }),
-    });
-
-    localStorage.setItem(TOKEN_KEY, authResponse.access_token);
-    if (authResponse.refresh_token) {
-      localStorage.setItem(REFRESH_TOKEN_KEY, authResponse.refresh_token);
-    }
-
+    const newToken = await performTokenRefresh();
+    const storedUser = getStoredUser();
+    
     return {
-      userId: authResponse.user_id,
-      accessToken: authResponse.access_token,
-      refreshToken: authResponse.refresh_token,
-      expiresIn: authResponse.expires_in,
+      userId: storedUser?.id ?? '',
+      accessToken: newToken,
+      refreshToken: getStoredRefreshToken() ?? '',
+      expiresIn: 3600,
+      user: storedUser ?? undefined,
     };
   },
 
