@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { MapPin, Calendar, Clock, Users, User, LogOut, UserPlus } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
-import type { Meetup } from '@/types/meetup';
+import type { Meetup, MeetupAttendee } from '@/types/meetup';
+import { meetupsApi } from '@/services/api/meetups';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import {
@@ -30,15 +31,32 @@ export default function MeetupDetailSheet({
 }: MeetupDetailSheetProps) {
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const [attendees, setAttendees] = useState<MeetupAttendee[]>([]);
+  const [loadingAttendees, setLoadingAttendees] = useState(false);
+
+  useEffect(() => {
+    if (meetup && open) {
+      setLoadingAttendees(true);
+      meetupsApi.getAttendees(meetup.id)
+        .then(setAttendees)
+        .catch((err) => console.error('Failed to load attendees:', err))
+        .finally(() => setLoadingAttendees(false));
+    } else {
+      setAttendees([]);
+    }
+  }, [meetup, open]);
 
   if (!meetup) return null;
 
-  const isHost = user?.id === meetup.hostId;
-  const isParticipant = meetup.participants.some((p) => p.id === user?.id);
-  const isFull = meetup.participants.length >= meetup.maxParticipants;
-  const spotsLeft = meetup.maxParticipants - meetup.participants.length;
+  const isHost = user?.id === meetup.organizer.id;
+  const isParticipant = meetup.isAttending; // Use the boolean flag from backend
+  const maxAttendees = meetup.maxAttendees || Infinity;
+  const isFull = meetup.attendeeCount >= maxAttendees;
+  const spotsLeft = maxAttendees === Infinity ? Infinity : maxAttendees - meetup.attendeeCount;
 
-  const formattedDate = format(parseISO(meetup.date), 'EEEE, MMMM d, yyyy');
+  const parsedDate = parseISO(meetup.meetupDate);
+  const formattedDate = format(parsedDate, 'EEEE, MMMM d, yyyy');
+  const formattedTime = format(parsedDate, 'h:mm a');
 
   const handleJoin = async () => {
     if (!user) {
@@ -50,6 +68,8 @@ export default function MeetupDetailSheet({
     try {
       await onJoin(meetup.id);
       toast.success('You joined the meetup!');
+      // Refresh attendees
+      meetupsApi.getAttendees(meetup.id).then(setAttendees);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to join');
     } finally {
@@ -62,6 +82,8 @@ export default function MeetupDetailSheet({
     try {
       await onLeave(meetup.id);
       toast.success('You left the meetup');
+      // Refresh attendees
+      meetupsApi.getAttendees(meetup.id).then(setAttendees);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to leave');
     } finally {
@@ -74,8 +96,8 @@ export default function MeetupDetailSheet({
       <SheetContent side="bottom" className="h-[85vh] rounded-t-3xl px-4 pb-8">
         <SheetHeader className="pb-4">
           <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
-            <span>{meetup.languageFlag}</span>
-            <span>{meetup.language}</span>
+            <span className="text-xl">{meetup.language.flagEmoji}</span>
+            <span>{meetup.language.name}</span>
           </div>
           <SheetTitle className="text-xl text-left">{meetup.title}</SheetTitle>
         </SheetHeader>
@@ -98,7 +120,7 @@ export default function MeetupDetailSheet({
                 <Clock className="h-4 w-4 text-primary" />
               </div>
               <div>
-                <p className="font-medium text-foreground">{meetup.time}</p>
+                <p className="font-medium text-foreground">{formattedTime}</p>
                 <p className="text-muted-foreground">Time</p>
               </div>
             </div>
@@ -119,48 +141,52 @@ export default function MeetupDetailSheet({
               </div>
               <div>
                 <p className="font-medium text-foreground">
-                  {meetup.participants.length} / {meetup.maxParticipants} participants
+                  {meetup.attendeeCount} {meetup.maxAttendees ? `/ ${meetup.maxAttendees}` : ''} participants
                 </p>
                 <p className="text-muted-foreground">
-                  {isFull ? 'Meetup is full' : `${spotsLeft} spots available`}
+                  {isFull ? 'Meetup is full' : spotsLeft === Infinity ? 'Open to all' : `${spotsLeft} spots available`}
                 </p>
               </div>
             </div>
           </div>
 
           {/* Description */}
-          <div>
-            <h3 className="font-semibold text-foreground mb-2">About</h3>
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              {meetup.description}
-            </p>
-          </div>
+          {meetup.description && (
+            <div>
+              <h3 className="font-semibold text-foreground mb-2">About</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                {meetup.description}
+              </p>
+            </div>
+          )}
 
           {/* Host */}
           <div>
             <h3 className="font-semibold text-foreground mb-3">Host</h3>
             <div className="flex items-center gap-3">
               <Avatar className="h-10 w-10">
-                <AvatarImage src={meetup.host.avatarUrl} />
+                <AvatarImage src={meetup.organizer.avatarUrl} />
                 <AvatarFallback className="bg-gradient-to-br from-lavender to-accent text-accent-foreground">
-                  {meetup.host.displayName[0]}
+                  {meetup.organizer.displayName[0]}
                 </AvatarFallback>
               </Avatar>
               <div>
-                <p className="font-medium text-foreground">{meetup.host.displayName}</p>
+                <p className="font-medium text-foreground">{meetup.organizer.displayName}</p>
                 <p className="text-xs text-muted-foreground">Organizer</p>
               </div>
             </div>
           </div>
 
           {/* Participants */}
-          {meetup.participants.length > 0 && (
-            <div>
-              <h3 className="font-semibold text-foreground mb-3">
-                Participants ({meetup.participants.length})
-              </h3>
+          <div>
+            <h3 className="font-semibold text-foreground mb-3 flex items-center gap-2">
+              Participants ({attendees.length})
+              {loadingAttendees && <span className="text-xs font-normal text-muted-foreground animate-pulse">Loading...</span>}
+            </h3>
+
+            {attendees.length > 0 ? (
               <div className="flex flex-wrap gap-2">
-                {meetup.participants.map((participant) => (
+                {attendees.map((participant) => (
                   <div
                     key={participant.id}
                     className="flex items-center gap-2 rounded-full bg-muted px-3 py-1.5"
@@ -177,8 +203,10 @@ export default function MeetupDetailSheet({
                   </div>
                 ))}
               </div>
-            </div>
-          )}
+            ) : (
+              !loadingAttendees && <p className="text-sm text-muted-foreground">No participants yet.</p>
+            )}
+          </div>
         </div>
 
         {/* Action Button */}

@@ -7,5 +7,6 @@ export * from './learn';
 export * from './users';
 export * from './languages';
 export * from './learners';
+export * from './places';
 export { LANGUAGES, getLanguageByCode, getLanguageByName, API_BASE_URL } from './config';
 

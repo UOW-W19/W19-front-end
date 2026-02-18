@@ -87,8 +87,11 @@ export interface NearbyLearner {
     lng: number;
   };
   languages: {
-    learning: string[];
-    native: string[];
-  };
+    code: string;
+    name: string;
+    flagEmoji: string;
+    proficiency: string; // Required as per backend guide
+    isLearning: boolean; // Required as per backend guide
+  }[];
   distanceKm?: number;
 }

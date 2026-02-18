@@ -86,19 +86,51 @@ export default function ExplorePage() {
   // Load data when location changes
   useEffect(() => {
     const loadData = async () => {
+      console.log('🔍 [ExplorePage] Starting to load data...');
+      console.log('📍 Current location:', currentLocation);
+
       try {
-        const [meetupsResponse, learnersData] = await Promise.all([
-          meetupsApi.getMeetups(),
-          learnersApi.getNearbyLearners({
+        // Try to load meetups, but don't fail if endpoint doesn't exist
+        let meetupsResponse;
+        try {
+          meetupsResponse = await meetupsApi.getMeetups({
             latitude: currentLocation.latitude,
             longitude: currentLocation.longitude,
-            radiusKm: 10,
-          }),
-        ]);
+            radiusKm: 50, // 50km radius for meetups (wider than learners)
+          });
+        } catch (meetupsError) {
+          console.warn('⚠️ [ExplorePage] Meetups API failed (endpoint may not be implemented yet):', meetupsError);
+          meetupsResponse = { meetups: [], totalPages: 0, totalElements: 0, currentPage: 0 };
+        }
+
+        const learnersData = await learnersApi.getNearbyLearners({
+          latitude: currentLocation.latitude,
+          longitude: currentLocation.longitude,
+          radiusKm: 10, // 10km radius for nearby learners
+        });
+
+        console.log('✅ [ExplorePage] Data loaded successfully!');
+        console.log('📅 Meetups response:', meetupsResponse);
+        console.log('📊 Meetups count:', meetupsResponse.meetups.length);
+        console.log('👥 Learners response:', learnersData);
+        console.log('📊 Learners count:', learnersData.length);
+
         setMeetups(meetupsResponse.meetups);
         setLearners(learnersData);
+
+        if (meetupsResponse.meetups.length === 0 && learnersData.length === 0) {
+          console.warn('⚠️ [ExplorePage] No data found! Check:');
+          console.warn('  1. Is backend running?');
+          console.warn('  2. Are you logged in?');
+          console.warn('  3. Does database have data with coordinates?');
+          console.warn('  4. Are coordinates near your location?');
+          console.warn('  5. Do users have show_location=true?');
+        }
       } catch (error) {
-        console.error('Failed to load data:', error);
+        console.error('❌ [ExplorePage] Failed to load data:', error);
+        toast.error('Failed to load nearby data', {
+          description: error instanceof Error ? error.message : 'Please try again.',
+        });
       } finally {
         setIsLoading(false);
       }
@@ -141,14 +173,7 @@ export default function ExplorePage() {
     }
   };
 
-  // Helper to get language flags
-  const getLanguageFlags = (languages: string[]) => {
-    const flagMap: Record<string, string> = {
-      Spanish: '🇪🇸', French: '🇫🇷', Japanese: '🇯🇵', Korean: '🇰🇷',
-      German: '🇩🇪', Italian: '🇮🇹', English: '🇬🇧', Portuguese: '🇧🇷',
-    };
-    return languages.map(l => flagMap[l] || '🌐');
-  };
+
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-6">
@@ -216,9 +241,13 @@ export default function ExplorePage() {
               </div>
               <p className="font-medium text-foreground text-sm">{learner.displayName}</p>
               <div className="flex gap-1 mt-1">
-                {getLanguageFlags(learner.languages.learning).map((flag, i) => (
-                  <span key={i} className="text-sm">{flag}</span>
-                ))}
+                {learner.languages
+                  .filter((l) => l.isLearning)
+                  .map((l, i) => (
+                    <span key={i} className="text-sm" title={l.name}>
+                      {l.flagEmoji}
+                    </span>
+                  ))}
               </div>
             </div>
           ))}

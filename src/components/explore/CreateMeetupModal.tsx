@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { X, Globe, MapPin, Calendar, Clock, Users, Send } from "lucide-react";
+import { X, Globe, Calendar, Clock, Users, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { CreateMeetupRequest } from "@/types/meetup";
+import LocationPicker from "./LocationPicker";
 
 export interface CreateMeetupModalProps {
   isOpen: boolean;
@@ -25,13 +26,14 @@ export function CreateMeetupModal({ isOpen, onClose, onSubmit }: CreateMeetupMod
   const [description, setDescription] = useState("");
   const [selectedLanguage, setSelectedLanguage] = useState(languages[0]);
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
-  const [location, setLocation] = useState("");
+  const [locationName, setLocationName] = useState("");
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [maxAttendees, setMaxAttendees] = useState(10);
 
   const handleSubmit = () => {
-    if (!title.trim() || !location.trim() || !date || !time) return;
+    if (!title.trim() || !locationName.trim() || !date || !time) return;
 
     // Combine date and time into ISO 8601 format
     const meetupDate = `${date}T${time}:00`;
@@ -40,34 +42,37 @@ export function CreateMeetupModal({ isOpen, onClose, onSubmit }: CreateMeetupMod
       title: title.trim(),
       description: description.trim() || undefined,
       languageCode: selectedLanguage.code,
-      location: location.trim(),
+      location: locationName.trim(),
       meetupDate,
       maxAttendees,
+      latitude: coords?.lat,
+      longitude: coords?.lng,
     });
 
     // Reset form
     setTitle("");
     setDescription("");
     setSelectedLanguage(languages[0]);
-    setLocation("");
+    setLocationName("");
+    setCoords(null);
     setDate("");
     setTime("");
     setMaxAttendees(10);
     onClose();
   };
 
-  const isFormValid = title.trim() && location.trim() && date && time;
+  const isFormValid = title.trim() && locationName.trim() && date && time;
 
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-[100] flex items-end justify-center">
       {/* Backdrop */}
-      <div 
+      <div
         className="absolute inset-0 bg-foreground/40 backdrop-blur-sm animate-fade-in"
         onClick={onClose}
       />
-      
+
       {/* Modal */}
       <div className="relative w-full bg-card rounded-t-3xl shadow-soft animate-slide-up max-h-[90vh] overflow-hidden pb-[env(safe-area-inset-bottom)]">
         {/* Drag handle */}
@@ -77,15 +82,15 @@ export function CreateMeetupModal({ isOpen, onClose, onSubmit }: CreateMeetupMod
 
         {/* Header */}
         <div className="flex items-center justify-between px-4 pb-3 border-b border-border">
-          <button 
+          <button
             onClick={onClose}
             className="p-2 -m-2 text-muted-foreground active:text-foreground transition-colors"
           >
             <X className="h-6 w-6" />
           </button>
           <h2 className="font-semibold text-foreground text-lg">Create Meetup</h2>
-          <Button 
-            size="sm" 
+          <Button
+            size="sm"
             onClick={handleSubmit}
             disabled={!isFormValid}
             className="gap-1.5 h-9 px-4 active:scale-95 transition-transform"
@@ -165,21 +170,13 @@ export function CreateMeetupModal({ isOpen, onClose, onSubmit }: CreateMeetupMod
             </div>
           </div>
 
-          {/* Location */}
-          <div className="space-y-2">
-            <label className="flex items-center gap-2 text-sm font-medium text-foreground">
-              <MapPin className="h-4 w-4 text-primary" />
-              Location *
-            </label>
-            <input
-              type="text"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              placeholder="e.g., Central Park Cafe, NYC"
-              maxLength={200}
-              className="w-full p-4 rounded-2xl bg-muted border-0 text-foreground text-base placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
-            />
-          </div>
+          {/* Location Picker */}
+          <LocationPicker
+            onLocationSelect={(loc) => {
+              setLocationName(loc.name);
+              setCoords({ lat: loc.lat, lng: loc.lng });
+            }}
+          />
 
           {/* Date & Time */}
           <div className="grid grid-cols-2 gap-3">
