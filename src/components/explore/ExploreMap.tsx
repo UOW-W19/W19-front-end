@@ -10,6 +10,7 @@ interface ExploreMapProps {
   meetups: Meetup[];
   learners: NearbyLearner[];
   onMeetupClick?: (meetup: Meetup) => void;
+  onLearnerClick?: (learner: NearbyLearner) => void;
   userLocation?: { latitude: number; longitude: number };
 }
 
@@ -164,7 +165,7 @@ const buildStaticMapUrl = ({
   return `https://api.mapbox.com/styles/v1/${style}/static/${overlay}${center.lng.toFixed(5)},${center.lat.toFixed(5)},${zoom},0,0/${width}x${height}@2x?access_token=${encodeURIComponent(token)}`;
 };
 
-export default function ExploreMap({ meetups, learners, onMeetupClick, userLocation }: ExploreMapProps) {
+export default function ExploreMap({ meetups, learners, onMeetupClick, onLearnerClick, userLocation }: ExploreMapProps) {
   const mapContainer = useRef<HTMLDivElement | null>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
@@ -450,9 +451,12 @@ export default function ExploreMap({ meetups, learners, onMeetupClick, userLocat
     learners.forEach((learner) => {
       if (!learner.coordinates) return;
       if (!isValidLngLat(learner.coordinates.lng, learner.coordinates.lat)) return;
+
       const el = document.createElement('div');
       el.className = 'learner-marker w-8 h-8 bg-gradient-to-br from-accent to-accent/80 rounded-full flex items-center justify-center shadow-md border-2 border-white text-white text-xs font-semibold';
       el.innerHTML = `<span>${learner.displayName[0]}</span>`;
+
+      el.addEventListener('click', () => onLearnerClick?.(learner));
 
       const marker = new mapboxgl.Marker(el)
         .setLngLat([learner.coordinates.lng, learner.coordinates.lat])

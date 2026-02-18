@@ -90,8 +90,9 @@ export interface NearbyLearner {
     code: string;
     name: string;
     flagEmoji: string;
-    proficiency: string; // Required as per backend guide
-    isLearning: boolean; // Required as per backend guide
+    proficiency: string;
+    isLearning: boolean;
   }[];
+  learningLanguages?: string[]; // New field from backend for quick flag rendering
   distanceKm?: number;
 }

@@ -10,12 +10,12 @@ type AuthMode = 'login' | 'register';
 export default function AuthPage() {
   const navigate = useNavigate();
   const { login, register, isAuthenticated, isLoading: authLoading } = useAuth();
-  
+
   const [mode, setMode] = useState<AuthMode>('login');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
-  
+
   // Form state
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -61,8 +61,8 @@ export default function AuthPage() {
   };
 
   const toggleLearningLanguage = (code: string) => {
-    setLearningLanguages(prev => 
-      prev.includes(code) 
+    setLearningLanguages(prev =>
+      prev.includes(code)
         ? prev.filter(l => l !== code)
         : [...prev, code]
     );
@@ -89,7 +89,7 @@ export default function AuthPage() {
               {mode === 'login' ? 'Welcome back!' : 'Join Locale'}
             </h1>
             <p className="text-muted-foreground">
-              {mode === 'login' 
+              {mode === 'login'
                 ? 'Sign in to continue your language journey'
                 : 'Connect with language learners worldwide'
               }
@@ -170,8 +170,20 @@ export default function AuthPage() {
                         {lang.flag} {lang.name}
                       </option>
                     ))}
+                    <option value="other">Other...</option>
                   </select>
                 </div>
+
+                {nativeLanguage === 'other' && (
+                  <div className="animate-fade-in">
+                    <input
+                      type="text"
+                      placeholder="Type your native language..."
+                      className="w-full px-4 py-3.5 rounded-xl bg-muted border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all text-foreground"
+                      autoFocus
+                    />
+                  </div>
+                )}
 
                 {/* Learning languages */}
                 <div>
@@ -184,11 +196,10 @@ export default function AuthPage() {
                         key={lang.code}
                         type="button"
                         onClick={() => toggleLearningLanguage(lang.code)}
-                        className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                          learningLanguages.includes(lang.code)
-                            ? 'bg-primary text-primary-foreground'
-                            : 'bg-muted text-foreground hover:bg-muted/80'
-                        }`}
+                        className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${learningLanguages.includes(lang.code)
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-muted text-foreground hover:bg-muted/80'
+                          }`}
                       >
                         {lang.flag} {lang.name}
                       </button>

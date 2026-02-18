@@ -142,6 +142,10 @@ export default function ExplorePage() {
     }
   }, [currentLocation.latitude, currentLocation.longitude, locationState.status]);
 
+  const handleLearnerClick = (learner: NearbyLearner) => {
+    navigate(`/user/${learner.id}`);
+  };
+
   const handleMeetupClick = (meetup: Meetup) => {
     setSelectedMeetup(meetup);
     setSheetOpen(true);
@@ -176,7 +180,7 @@ export default function ExplorePage() {
 
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-6">
+    <div className="h-full overflow-y-auto pb-24 scrollbar-hide mx-auto max-w-4xl px-4 py-6">
       {/* Header with Messages button */}
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold">Explore</h1>
@@ -223,6 +227,7 @@ export default function ExplorePage() {
           meetups={meetups}
           learners={learners}
           onMeetupClick={handleMeetupClick}
+          onLearnerClick={handleLearnerClick}
           userLocation={locationState.status === 'granted' ? currentLocation : undefined}
         />
       </div>
@@ -234,7 +239,8 @@ export default function ExplorePage() {
           {learners.map((learner) => (
             <div
               key={learner.id}
-              className="flex flex-col items-center rounded-2xl border border-border bg-card p-4 text-center transition-all hover:shadow-soft"
+              onClick={() => handleLearnerClick(learner)}
+              className="flex flex-col items-center rounded-2xl border border-border bg-card p-4 text-center transition-all hover:shadow-soft cursor-pointer active:scale-95"
             >
               <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-lavender to-accent text-lg font-semibold text-accent-foreground">
                 {learner.displayName[0]}

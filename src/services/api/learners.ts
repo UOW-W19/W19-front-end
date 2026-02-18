@@ -18,6 +18,7 @@ interface BackendLearner {
     proficiency: string;
     is_learning: boolean;
   }>;
+  learning_languages?: string[]; // New field from backend
 }
 
 interface BackendLearnersResponse {
@@ -40,6 +41,7 @@ const transformLearner = (learner: BackendLearner): NearbyLearner => ({
     proficiency: l.proficiency,
     isLearning: l.is_learning
   })),
+  learningLanguages: learner.learning_languages,
   distanceKm: learner.distance_km,
 });
 

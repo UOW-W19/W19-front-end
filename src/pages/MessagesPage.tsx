@@ -1,99 +1,144 @@
-import { Search, Check, CheckCheck } from "lucide-react";
-
-const mockConversations = [
-  {
-    id: "1",
-    name: "Maria Garcia",
-    avatar: "M",
-    lastMessage: "¡Perfecto! See you tomorrow then 😊",
-    time: "2m ago",
-    unread: 2,
-    online: true,
-  },
-  {
-    id: "2",
-    name: "Japanese Study Group",
-    avatar: "日",
-    lastMessage: "Yuki: Does anyone know a good kanji app?",
-    time: "1h ago",
-    unread: 0,
-    isGroup: true,
-  },
-  {
-    id: "3",
-    name: "Pierre Dubois",
-    avatar: "P",
-    lastMessage: "Thanks for the correction!",
-    time: "3h ago",
-    unread: 0,
-    online: false,
-  },
-  {
-    id: "4",
-    name: "Alex Chen",
-    avatar: "A",
-    lastMessage: "You: That's a great question about...",
-    time: "1d ago",
-    unread: 0,
-    online: true,
-  },
-];
+import { useState, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Loader2 } from "lucide-react";
+import { ConversationList } from "@/components/messages/ConversationList";
+import { ChatWindow } from "@/components/messages/ChatWindow";
+import { messagesApi } from "@/services/api/messages";
+import type { Message } from "@/types/message";
 
 export default function MessagesPage() {
+  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
+  const [isStartingChat, setIsStartingChat] = useState(false);
+  const queryClient = useQueryClient();
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Fetch conversations
+  const { data: conversations = [], isLoading: loadingConversations } = useQuery({
+    queryKey: ['conversations'],
+    queryFn: () => messagesApi.getConversations(),
+    refetchInterval: 10000,
+  });
+
+  // Fetch messages for selected conversation
+  const { data: messages = [] } = useQuery({
+    queryKey: ['messages', selectedConversationId],
+    queryFn: () => selectedConversationId ? messagesApi.getMessages(selectedConversationId) : Promise.resolve([]),
+    enabled: !!selectedConversationId,
+    refetchInterval: 5000,
+  });
+
+  // Send message mutation
+  const sendMessageMutation = useMutation({
+    mutationFn: (content: string) => {
+      if (!selectedConversationId) throw new Error("No conversation selected");
+      return messagesApi.sendMessage({ conversationId: selectedConversationId, content });
+    },
+    onSuccess: (newMessage) => {
+      queryClient.setQueryData(['messages', selectedConversationId], (old: Message[] = []) => {
+        return [...old, newMessage];
+      });
+      queryClient.invalidateQueries({ queryKey: ['conversations'] });
+    },
+  });
+
+  // Handle starting a conversation from profile page (?user=userId)
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const userId = params.get('user');
+
+    if (userId && !loadingConversations && !isStartingChat) {
+      // Check if conversation already exists
+      const existing = conversations.find(c =>
+        c.participants.some(p => p.id === userId)
+      );
+
+      if (existing) {
+        setSelectedConversationId(existing.id);
+        navigate('/messages', { replace: true });
+      } else {
+        // Start new conversation
+        setIsStartingChat(true);
+        messagesApi.startConversation(userId)
+          .then(async (newMsg) => {
+            // Force a refetch and wait for it to finish so the new conversation is in the list
+            await queryClient.refetchQueries({ queryKey: ['conversations'] });
+            setSelectedConversationId(newMsg.conversationId);
+          })
+          .catch(err => {
+            console.error("Failed to start conversation:", err);
+          })
+          .finally(() => {
+            setIsStartingChat(false);
+            navigate('/messages', { replace: true });
+          });
+      }
+    }
+  }, [location.search, conversations, loadingConversations, isStartingChat, queryClient, navigate]);
+
+  // Mark as read when selecting a conversation
+  useEffect(() => {
+    if (selectedConversationId) {
+      messagesApi.markAsRead(selectedConversationId);
+      queryClient.invalidateQueries({ queryKey: ['conversations'] });
+    }
+  }, [selectedConversationId, queryClient]);
+
+  const selectedConversation = conversations.find(c => c.id === selectedConversationId);
+
+  // Determine view state for mobile
+  const showChat = !!selectedConversationId;
+  const isChatLoading = isStartingChat || (!!selectedConversationId && !selectedConversation);
+
   return (
-    <div className="mx-auto max-w-2xl">
-      {/* Search */}
-      <div className="sticky top-0 z-10 bg-background px-4 py-4">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <input
-            type="text"
-            placeholder="Search conversations..."
-            className="w-full rounded-xl border border-input bg-muted/50 py-2.5 pl-10 pr-4 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+    <div className="h-full flex overflow-hidden bg-background">
+      {/* Sidebar - Conversation List */}
+      <div className={`
+        ${showChat ? 'hidden lg:flex' : 'flex'} 
+        w-full lg:w-80 xl:w-96 flex-col border-r border-border shrink-0 h-full overflow-y-auto scrollbar-thin
+      `}>
+        {loadingConversations ? (
+          <div className="flex-1 flex items-center justify-center">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : (
+          <ConversationList
+            conversations={conversations}
+            selectedId={selectedConversationId || undefined}
+            onSelect={(conversation) => setSelectedConversationId(conversation.id)}
+          />
+        )}
+      </div>
+
+      {/* Main Area - Chat Window */}
+      {/* Mobile: Full screen fixed overlay. Desktop: Normal flex child. */}
+      {isChatLoading ? (
+        <div className="flex-1 flex flex-col items-center justify-center p-8">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+          <p className="text-muted-foreground">Opening conversation...</p>
+        </div>
+      ) : selectedConversation && showChat ? (
+        <div className="fixed inset-0 z-[100] bg-background lg:static lg:flex-1 lg:flex lg:flex-col lg:h-full lg:z-auto">
+          <ChatWindow
+            conversation={selectedConversation}
+            messages={messages}
+            isLoading={sendMessageMutation.isPending}
+            onSendMessage={(content) => sendMessageMutation.mutate(content)}
+            onBack={() => setSelectedConversationId(null)}
           />
         </div>
-      </div>
-
-      {/* Conversations list */}
-      <div className="divide-y divide-border">
-        {mockConversations.map((convo) => (
-          <button
-            key={convo.id}
-            className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50"
-          >
-            {/* Avatar */}
-            <div className="relative">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-primary to-coral-light text-sm font-semibold text-primary-foreground">
-                {convo.avatar}
-              </div>
-              {convo.online && (
-                <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-background bg-sage" />
-              )}
-            </div>
-
-            {/* Content */}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between mb-0.5">
-                <span className="font-medium text-foreground truncate">{convo.name}</span>
-                <span className="text-xs text-muted-foreground shrink-0 ml-2">{convo.time}</span>
-              </div>
-              <div className="flex items-center gap-1">
-                {convo.lastMessage.startsWith("You:") && (
-                  <CheckCheck className="h-3.5 w-3.5 text-primary shrink-0" />
-                )}
-                <p className="text-sm text-muted-foreground truncate">{convo.lastMessage}</p>
-              </div>
-            </div>
-
-            {/* Unread badge */}
-            {convo.unread > 0 && (
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground">
-                {convo.unread}
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
+      ) : (
+        <div className="hidden lg:flex flex-1 flex-col items-center justify-center text-muted-foreground p-8 bg-muted/10">
+          <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center mb-4">
+            <span className="text-3xl">💬</span>
+          </div>
+          <h3 className="text-lg font-medium text-foreground">Your Messages</h3>
+          <p className="max-w-xs text-center mt-2">
+            Select a conversation from the list to start chatting.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

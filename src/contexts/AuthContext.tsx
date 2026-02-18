@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import type { UserProfile, LoginRequest, RegisterRequest, UpdateProfileRequest } from '@/types/api';
-import { authApi, getStoredToken, getStoredUser, storeAuth, clearAuth } from '@/services/api';
+import { authApi, getStoredToken, storeAuth, clearAuth } from '@/services/api';
 
 interface AuthContextType {
   user: UserProfile | null;
@@ -23,12 +23,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const initAuth = async () => {
       const token = getStoredToken();
-      
+
       if (!token) {
         setIsLoading(false);
         return;
       }
-      
+
       try {
         // Validate token by calling the backend
         const profile = await authApi.getProfile();
@@ -42,7 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setIsLoading(false);
       }
     };
-    
+
     initAuth();
   }, []);
 

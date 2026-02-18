@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback, useRef } from "react";
 import { Sparkles, RotateCcw, Check, X, ChevronLeft, BookOpen, Camera, TrendingUp, Globe, Zap, ArrowUpDown, ChevronDown, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { SavedWord } from "@/types";
+import type { SavedWord } from "@/types";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,7 +16,7 @@ import {
   useSubmitPracticeResult,
   useCompletePracticeSession,
   transformSessionWord,
-  PracticeResult,
+  type PracticeResult,
 } from "@/hooks/useLearnApi";
 
 type PracticeMode = 'idle' | 'practicing' | 'results';
@@ -32,24 +32,24 @@ export default function LearnPage() {
   const [results, setResults] = useState<PracticeResult[]>([]);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const startTimeRef = useRef<number>(0);
-  
+
   // Filtering & Sorting
   const [languageFilter, setLanguageFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<SortOption>('newest');
-  
+
   // Session size options
   const [sessionSize, setSessionSize] = useState<5 | 10 | 15>(10);
 
   // API Hooks
-  const { 
-    data: savedWords = [], 
+  const {
+    data: savedWords = [],
     isLoading: isLoadingWords,
     error: wordsError,
   } = useSavedWords({
     sort: sortBy,
   });
 
-  const { 
+  const {
     data: stats,
     isLoading: isLoadingStats,
   } = useLearningStats();
@@ -57,11 +57,11 @@ export default function LearnPage() {
   const startSessionMutation = useStartPracticeSession();
   const submitResultMutation = useSubmitPracticeResult();
   const completeSessionMutation = useCompletePracticeSession();
-  
+
   // Get unique languages for filter
   const uniqueLanguages = useMemo(() => {
     const langs = savedWords.map(w => ({ flag: w.languageFlag, name: w.languageName }));
-    return langs.filter((lang, index, self) => 
+    return langs.filter((lang, index, self) =>
       index === self.findIndex(l => l.flag === lang.flag)
     );
   }, [savedWords]);
@@ -84,8 +84,8 @@ export default function LearnPage() {
     }
     // Fallback to local computation
     const totalWords = savedWords.length;
-    const avgMastery = totalWords > 0 
-      ? Math.round(savedWords.reduce((acc, w) => acc + w.masteryLevel, 0) / totalWords) 
+    const avgMastery = totalWords > 0
+      ? Math.round(savedWords.reduce((acc, w) => acc + w.masteryLevel, 0) / totalWords)
       : 0;
     const languages = [...new Set(savedWords.map(w => w.languageFlag))];
     const masteredWords = savedWords.filter(w => w.masteryLevel >= 76).length;
@@ -96,11 +96,11 @@ export default function LearnPage() {
     try {
       const session = await startSessionMutation.mutateAsync({
         session_size: sessionSize,
-        language_code: languageFilter !== 'all' 
-          ? savedWords.find(w => w.languageFlag === languageFilter)?.languageCode 
+        language_code: languageFilter !== 'all'
+          ? savedWords.find(w => w.languageFlag === languageFilter)?.languageCode
           : null,
       });
-      
+
       setSessionId(session.session_id);
       setPracticeWords(session.words.map(transformSessionWord));
       setCurrentIndex(0);
@@ -115,10 +115,10 @@ export default function LearnPage() {
 
   const handleAnswer = useCallback(async (correct: boolean) => {
     if (!sessionId) return;
-    
+
     const currentWord = practiceWords[currentIndex];
     const responseTimeMs = Date.now() - startTimeRef.current;
-    
+
     try {
       const result = await submitResultMutation.mutateAsync({
         sessionId,
@@ -128,16 +128,16 @@ export default function LearnPage() {
           response_time_ms: responseTimeMs,
         },
       });
-      
+
       const newResult: PracticeResult = {
         word: currentWord,
         correct,
         oldMastery: result.old_mastery,
         newMastery: result.new_mastery,
       };
-      
+
       setResults(prev => [...prev, newResult]);
-      
+
       if (currentIndex < practiceWords.length - 1) {
         setCurrentIndex(currentIndex + 1);
         setShowAnswer(false);
@@ -189,7 +189,7 @@ export default function LearnPage() {
       <div className="mx-auto max-w-md px-4 py-6 min-h-[calc(100vh-8rem)] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
-          <button 
+          <button
             onClick={exitPractice}
             className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
           >
@@ -203,7 +203,7 @@ export default function LearnPage() {
 
         {/* Progress bar */}
         <div className="h-1.5 rounded-full bg-muted mb-8 overflow-hidden">
-          <div 
+          <div
             className="h-full rounded-full bg-primary transition-all duration-300"
             style={{ width: `${progress}%` }}
           />
@@ -211,7 +211,7 @@ export default function LearnPage() {
 
         {/* Flashcard */}
         <div className="flex-1 flex flex-col items-center justify-center">
-          <div 
+          <div
             onClick={() => !showAnswer && setShowAnswer(true)}
             className={cn(
               "w-full aspect-[4/3] rounded-2xl border-2 border-border bg-card p-6 flex flex-col items-center justify-center cursor-pointer transition-all duration-300",
@@ -310,14 +310,14 @@ export default function LearnPage() {
         <div className="flex-1 space-y-2 mb-6">
           {results.map((result, index) => {
             const masteryChange = result.newMastery - result.oldMastery;
-            
+
             return (
-              <div 
+              <div
                 key={index}
                 className={cn(
                   "flex items-center gap-3 rounded-xl border p-4 transition-all",
-                  result.correct 
-                    ? "border-sage/30 bg-sage/5" 
+                  result.correct
+                    ? "border-sage/30 bg-sage/5"
                     : "border-destructive/30 bg-destructive/5"
                 )}
               >
@@ -376,7 +376,7 @@ export default function LearnPage() {
 
   // Idle View - Stats Dashboard Layout
   return (
-    <div className="mx-auto max-w-2xl px-4 py-6">
+    <div className="h-full overflow-y-auto pb-24 scrollbar-hide mx-auto max-w-2xl px-4 py-6">
       {/* Stats Dashboard */}
       <section className="mb-6">
         <div className="grid grid-cols-3 gap-3">
@@ -497,7 +497,7 @@ export default function LearnPage() {
       <section>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-foreground">My Words</h2>
-          
+
           <div className="flex items-center gap-2">
             {/* Language Filter */}
             <DropdownMenu>
@@ -513,7 +513,7 @@ export default function LearnPage() {
                   All Languages
                 </DropdownMenuItem>
                 {uniqueLanguages.map((lang) => (
-                  <DropdownMenuItem 
+                  <DropdownMenuItem
                     key={lang.flag}
                     onClick={() => setLanguageFilter(lang.flag)}
                   >

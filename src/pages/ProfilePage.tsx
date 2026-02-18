@@ -4,24 +4,13 @@ import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 
-const languageData: Record<string, { name: string; flag: string }> = {
-  en: { name: "English", flag: "🇺🇸" },
-  es: { name: "Spanish", flag: "🇪🇸" },
-  ja: { name: "Japanese", flag: "🇯🇵" },
-  fr: { name: "French", flag: "🇫🇷" },
-  de: { name: "German", flag: "🇩🇪" },
-  zh: { name: "Chinese", flag: "🇨🇳" },
-  ko: { name: "Korean", flag: "🇰🇷" },
-  pt: { name: "Portuguese", flag: "🇧🇷" },
-  it: { name: "Italian", flag: "🇮🇹" },
-  ru: { name: "Russian", flag: "🇷🇺" },
-};
+
 
 export default function ProfilePage() {
   const { user, updateProfile } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  
+
   const [editForm, setEditForm] = useState({
     displayName: user?.displayName || "",
     bio: user?.bio || "",
@@ -81,7 +70,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-6">
+    <div className="h-full overflow-y-auto pb-24 scrollbar-hide mx-auto max-w-2xl px-4 py-6">
       {/* Profile header */}
       <div className="mb-6 text-center">
         <div className="relative mx-auto mb-4 w-fit">
@@ -209,11 +198,10 @@ export default function ProfilePage() {
                   </p>
                 </div>
               </div>
-              <span className={`rounded-full px-3 py-1 text-xs font-medium ${
-                lang.proficiency === 'NATIVE' 
-                  ? 'bg-primary/10 text-primary' 
-                  : 'bg-accent/10 text-accent-foreground'
-              }`}>
+              <span className={`rounded-full px-3 py-1 text-xs font-medium ${lang.proficiency === 'NATIVE'
+                ? 'bg-primary/10 text-primary'
+                : 'bg-accent/10 text-accent-foreground'
+                }`}>
                 {lang.proficiency === 'NATIVE' ? 'Native' : lang.proficiency}
               </span>
             </div>

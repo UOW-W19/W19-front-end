@@ -1,11 +1,11 @@
 import { useNavigate } from "react-router-dom";
-import { 
-  User, 
-  Bell, 
-  Shield, 
-  Palette, 
-  Globe, 
-  HelpCircle, 
+import {
+  User,
+  Bell,
+  Shield,
+  Palette,
+  Globe,
+  HelpCircle,
   LogOut,
   ChevronRight,
   Moon,
@@ -47,7 +47,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-6">
+    <div className="h-full overflow-y-auto pb-24 scrollbar-hide mx-auto max-w-2xl px-4 py-6">
       {/* User info card */}
       {user && (
         <div className="mb-6 rounded-2xl border border-border bg-card p-4">
@@ -105,7 +105,7 @@ export default function SettingsPage() {
       ))}
 
       {/* Logout */}
-      <button 
+      <button
         onClick={handleLogout}
         className="flex w-full items-center justify-center gap-2 rounded-2xl border border-destructive/30 bg-destructive/5 p-4 text-destructive hover:bg-destructive/10 transition-colors"
       >

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Camera, Upload, X, ArrowLeft, Languages, Loader2 } from "lucide-react";
+import { Camera, Upload, X, ArrowLeft, Languages } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 type ScannerStep = "select" | "preview" | "result";
@@ -41,7 +41,7 @@ export default function ScannerPage() {
   };
 
   return (
-    <div className="mx-auto max-w-md px-4 py-6 min-h-[80vh] flex flex-col">
+    <div className="h-full overflow-y-auto pb-24 scrollbar-hide mx-auto max-w-md px-4 py-6 flex flex-col">
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         {step !== "select" && (
@@ -74,15 +74,15 @@ export default function ScannerPage() {
 
           {/* Action buttons */}
           <div className="w-full space-y-3">
-            <Button 
-              className="w-full h-14 text-lg gap-3" 
+            <Button
+              className="w-full h-14 text-lg gap-3"
               onClick={handleCapture}
             >
               <Camera className="h-5 w-5" />
               Open Camera
             </Button>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               className="w-full h-14 text-lg gap-3"
               onClick={handleUpload}
             >
@@ -98,14 +98,14 @@ export default function ScannerPage() {
         <div className="flex-1 flex flex-col gap-6">
           {/* Image preview */}
           <div className="relative w-full aspect-square rounded-3xl bg-muted overflow-hidden">
-            <img 
-              src={capturedImage || ""} 
+            <img
+              src={capturedImage || ""}
               alt="Captured object"
               className="w-full h-full object-cover"
             />
-            <Button 
-              variant="secondary" 
-              size="icon" 
+            <Button
+              variant="secondary"
+              size="icon"
               className="absolute top-3 right-3"
               onClick={handleReset}
             >
@@ -115,15 +115,15 @@ export default function ScannerPage() {
 
           {/* Analyze button */}
           <div className="mt-auto space-y-3">
-            <Button 
-              className="w-full h-14 text-lg gap-3" 
+            <Button
+              className="w-full h-14 text-lg gap-3"
               onClick={handleAnalyze}
             >
               <Languages className="h-5 w-5" />
               Identify & Translate
             </Button>
-            <Button 
-              variant="ghost" 
+            <Button
+              variant="ghost"
               className="w-full"
               onClick={handleReset}
             >
@@ -146,7 +146,7 @@ export default function ScannerPage() {
           <div className="space-y-3">
             <h3 className="font-semibold text-lg">Translations</h3>
             {mockResult.translations.map((t, i) => (
-              <div 
+              <div
                 key={i}
                 className="rounded-xl border bg-card p-4 flex items-center justify-between"
               >
@@ -167,8 +167,8 @@ export default function ScannerPage() {
             <Button variant="outline" className="w-full">
               Save to Vocabulary
             </Button>
-            <Button 
-              className="w-full" 
+            <Button
+              className="w-full"
               onClick={handleReset}
             >
               Scan Another Object

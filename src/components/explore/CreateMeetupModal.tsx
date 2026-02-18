@@ -3,6 +3,7 @@ import { X, Globe, Calendar, Clock, Users, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { CreateMeetupRequest } from "@/types/meetup";
 import LocationPicker from "./LocationPicker";
+import { LANGUAGES } from "@/services/api/config";
 
 export interface CreateMeetupModalProps {
   isOpen: boolean;
@@ -10,21 +11,10 @@ export interface CreateMeetupModalProps {
   onSubmit: (data: CreateMeetupRequest) => void;
 }
 
-const languages = [
-  { code: "es", name: "Spanish", flag: "🇪🇸" },
-  { code: "ja", name: "Japanese", flag: "🇯🇵" },
-  { code: "fr", name: "French", flag: "🇫🇷" },
-  { code: "de", name: "German", flag: "🇩🇪" },
-  { code: "pt", name: "Portuguese", flag: "🇧🇷" },
-  { code: "ko", name: "Korean", flag: "🇰🇷" },
-  { code: "zh", name: "Chinese", flag: "🇨🇳" },
-  { code: "it", name: "Italian", flag: "🇮🇹" },
-];
-
 export function CreateMeetupModal({ isOpen, onClose, onSubmit }: CreateMeetupModalProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [selectedLanguage, setSelectedLanguage] = useState(languages[0]);
+  const [selectedLanguage, setSelectedLanguage] = useState(LANGUAGES[0]);
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
   const [locationName, setLocationName] = useState("");
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
@@ -52,7 +42,7 @@ export function CreateMeetupModal({ isOpen, onClose, onSubmit }: CreateMeetupMod
     // Reset form
     setTitle("");
     setDescription("");
-    setSelectedLanguage(languages[0]);
+    setSelectedLanguage(LANGUAGES[0]);
     setLocationName("");
     setCoords(null);
     setDate("");
@@ -61,7 +51,10 @@ export function CreateMeetupModal({ isOpen, onClose, onSubmit }: CreateMeetupMod
     onClose();
   };
 
-  const isFormValid = title.trim() && locationName.trim() && date && time;
+  const isFormValid = title.trim() &&
+    locationName.trim() &&
+    date &&
+    time;
 
   if (!isOpen) return null;
 
@@ -129,13 +122,15 @@ export function CreateMeetupModal({ isOpen, onClose, onSubmit }: CreateMeetupMod
                 className="flex items-center gap-2 px-4 py-3 rounded-xl bg-muted active:bg-muted/70 transition-colors w-full"
               >
                 <span className="text-xl">{selectedLanguage.flag}</span>
-                <span className="text-base font-medium text-foreground flex-1 text-left">{selectedLanguage.name}</span>
+                <span className="text-base font-medium text-foreground flex-1 text-left">
+                  {selectedLanguage.name}
+                </span>
                 <Globe className="h-5 w-5 text-muted-foreground" />
               </button>
 
               {showLanguageDropdown && (
-                <div className="absolute top-full left-0 right-0 mt-2 bg-popover rounded-2xl border border-border shadow-soft z-10 py-2 animate-scale-in max-h-48 overflow-y-auto">
-                  {languages.map((lang) => (
+                <div className="absolute top-full left-0 right-0 mt-2 bg-popover rounded-2xl border border-border shadow-soft z-[110] py-2 animate-scale-in max-h-60 overflow-y-auto">
+                  {LANGUAGES.map((lang) => (
                     <button
                       key={lang.code}
                       onClick={() => {

@@ -15,7 +15,7 @@ const toUiPost = (apiPost: ApiPost): Post => {
     author: {
       id: apiPost.author.id,
       name: apiPost.author.displayName,
-      avatar: apiPost.author.avatarUrl 
+      avatar: apiPost.author.avatarUrl
         ? apiPost.author.displayName.charAt(0).toUpperCase()
         : apiPost.author.displayName.charAt(0).toUpperCase(),
       language: apiPost.author.language ?? lang?.name ?? apiPost.originalLanguage,
@@ -26,9 +26,9 @@ const toUiPost = (apiPost: ApiPost): Post => {
     location: apiPost.location || '',
     distance: apiPost.distance || '',
     image: apiPost.imageUrl,
-    reactions: { 
-      likes: apiPost.reactions.likes, 
-      comments: apiPost.reactions.comments 
+    reactions: {
+      likes: apiPost.reactions.likes,
+      comments: apiPost.reactions.comments
     },
     time: formatRelativeTime(apiPost.createdAt),
     isLiked: apiPost.userReaction === 'LIKE',
@@ -108,16 +108,16 @@ export default function FeedPage() {
       } else {
         await postsApi.likePost(postId);
       }
-      setPosts(prev => prev.map(post => 
-        post.id === postId 
-          ? { 
-              ...post, 
-              isLiked: !isLiked,
-              reactions: { 
-                ...post.reactions, 
-                likes: post.reactions.likes + (isLiked ? -1 : 1) 
-              }
+      setPosts(prev => prev.map(post =>
+        post.id === postId
+          ? {
+            ...post,
+            isLiked: !isLiked,
+            reactions: {
+              ...post.reactions,
+              likes: post.reactions.likes + (isLiked ? -1 : 1)
             }
+          }
           : post
       ));
     } catch (error) {
@@ -134,7 +134,7 @@ export default function FeedPage() {
 
   return (
     <PullToRefresh onRefresh={handleRefresh} className="h-full">
-      <div className="w-full max-w-2xl mx-auto px-4 py-4 overflow-x-hidden">
+      <div className="h-full overflow-y-auto pb-24 scrollbar-hide w-full max-w-2xl mx-auto px-4 py-4 overflow-x-hidden">
         {/* Header with filters and post button */}
         <div className="mb-4 flex items-center justify-between gap-3">
           {/* Language dropdown */}
@@ -154,9 +154,9 @@ export default function FeedPage() {
 
             {showLanguageDropdown && (
               <>
-                <div 
-                  className="fixed inset-0 z-40" 
-                  onClick={() => setShowLanguageDropdown(false)} 
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setShowLanguageDropdown(false)}
                 />
                 <div className="absolute top-full left-0 mt-2 w-48 bg-card border border-border rounded-xl shadow-lg py-1 z-50 max-h-64 overflow-y-auto">
                   <button
@@ -214,9 +214,9 @@ export default function FeedPage() {
           <div className="space-y-4">
             {filteredPosts.length > 0 ? (
               filteredPosts.map((post) => (
-                <PostCard 
-                  key={post.id} 
-                  post={post} 
+                <PostCard
+                  key={post.id}
+                  post={post}
                   onLikeToggle={handleLikeToggle}
                 />
               ))
@@ -227,7 +227,7 @@ export default function FeedPage() {
                 </div>
                 <h3 className="text-lg font-semibold text-foreground mb-1">No posts yet</h3>
                 <p className="text-sm text-muted-foreground max-w-xs">
-                  {selectedLanguage 
+                  {selectedLanguage
                     ? `No posts in ${selectedLanguage} yet. Be the first to share something!`
                     : 'Be the first to share something!'
                   }
@@ -238,10 +238,10 @@ export default function FeedPage() {
         )}
 
         {/* Compose modal */}
-        <ComposeModal 
-          isOpen={isComposeOpen} 
-          onClose={() => setIsComposeOpen(false)} 
-          onSubmit={handleCreatePost} 
+        <ComposeModal
+          isOpen={isComposeOpen}
+          onClose={() => setIsComposeOpen(false)}
+          onSubmit={handleCreatePost}
         />
       </div>
     </PullToRefresh>

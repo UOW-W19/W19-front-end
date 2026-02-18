@@ -1,12 +1,13 @@
 import { NavLink, useLocation } from "react-router-dom";
-import { 
-  Home, 
-  Compass, 
-  MessageCircle, 
-  BookOpen, 
+import {
+  Home,
+  Compass,
+  MessageCircle,
+  BookOpen,
   User,
   Settings,
-  Globe
+  Globe,
+  Camera
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { NavItem } from "@/types";
@@ -14,6 +15,7 @@ import type { NavItem } from "@/types";
 const mainNavItems: NavItem[] = [
   { to: "/", icon: Home, label: "Feed" },
   { to: "/explore", icon: Compass, label: "Explore" },
+  { to: "/scanner", icon: Camera, label: "Scan" },
   { to: "/messages", icon: MessageCircle, label: "Messages" },
   { to: "/learn", icon: BookOpen, label: "Learn" },
   { to: "/profile", icon: User, label: "Profile" },

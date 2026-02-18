@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { 
-  ArrowLeft, 
-  MapPin, 
-  Calendar, 
-  UserPlus, 
-  UserMinus, 
+import {
+  ArrowLeft,
+  MapPin,
+  Calendar,
+  UserPlus,
+  UserMinus,
   Loader2,
   Lock,
   MessageCircle,
@@ -14,7 +14,7 @@ import {
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
-import { usersApi} from "@/services/api/users";
+import { usersApi } from "@/services/api/users";
 import type { PublicUserProfile, UserPostsResponse } from "@/services/api/users";
 import { PostCard } from "@/components/feed/PostCard";
 import type { Post } from "@/types/post";
@@ -29,7 +29,7 @@ export default function UserProfilePage() {
   const { userId } = useParams<{ userId: string }>();
   const navigate = useNavigate();
   const { user: currentUser } = useAuth();
-  
+
   const [profile, setProfile] = useState<PublicUserProfile | null>(null);
   const [posts, setPosts] = useState<UserPostsResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -50,15 +50,15 @@ export default function UserProfilePage() {
 
     const fetchProfile = async () => {
       if (!userId) return;
-      
+
       setIsLoading(true);
       setError(null);
-      
+
       try {
         const profileData = await usersApi.getProfile(userId);
         setProfile(profileData);
         setIsFollowing(profileData.isFollowing);
-        
+
         // Fetch posts if activity is public
         if (profileData.privacySettings.showActivity) {
           setIsLoadingPosts(true);
@@ -79,7 +79,7 @@ export default function UserProfilePage() {
 
   const handleFollow = async () => {
     if (!userId) return;
-    
+
     setIsFollowLoading(true);
     try {
       if (isFollowing) {
@@ -104,7 +104,7 @@ export default function UserProfilePage() {
 
   const loadMorePosts = async () => {
     if (!userId || !posts?.hasMore) return;
-    
+
     setIsLoadingPosts(true);
     try {
       const morePosts = await usersApi.getUserPosts(userId, posts.nextCursor);
@@ -155,7 +155,7 @@ export default function UserProfilePage() {
   ];
 
   return (
-    <div className="mx-auto max-w-2xl">
+    <div className="h-full overflow-y-auto pb-24 scrollbar-hide mx-auto max-w-2xl">
       {/* Header */}
       <div className="sticky top-0 z-10 flex items-center gap-3 bg-background/95 backdrop-blur-sm px-4 py-3 border-b border-border">
         <button
@@ -202,14 +202,14 @@ export default function UserProfilePage() {
             {profile.displayName}
           </h2>
           <p className="text-muted-foreground">@{profile.username}</p>
-          
+
           {profile.location && (
             <div className="mt-2 flex items-center justify-center gap-1.5 text-sm text-muted-foreground">
               <MapPin className="h-3.5 w-3.5" />
               <span>{profile.location}</span>
             </div>
           )}
-          
+
           {profile.bio && (
             <p className="mt-3 text-sm text-foreground/80 max-w-sm mx-auto">
               {profile.bio}
@@ -269,11 +269,10 @@ export default function UserProfilePage() {
                 >
                   <span className="text-base">{lang.flagEmoji}</span>
                   <span className="text-sm font-medium text-foreground">{lang.name}</span>
-                  <span className={`text-xs px-1.5 py-0.5 rounded ${
-                    lang.proficiency === 'NATIVE' 
-                      ? 'bg-primary/10 text-primary' 
+                  <span className={`text-xs px-1.5 py-0.5 rounded ${lang.proficiency === 'NATIVE'
+                      ? 'bg-primary/10 text-primary'
                       : 'bg-muted text-muted-foreground'
-                  }`}>
+                    }`}>
                     {lang.proficiency === 'NATIVE' ? 'Native' : lang.isLearning ? 'Learning' : lang.proficiency}
                   </span>
                 </div>
@@ -286,21 +285,19 @@ export default function UserProfilePage() {
         <div className="flex border-b border-border mb-4">
           <button
             onClick={() => setActiveTab('posts')}
-            className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === 'posts'
+            className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'posts'
                 ? 'border-primary text-primary'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
-            }`}
+              }`}
           >
             Posts
           </button>
           <button
             onClick={() => setActiveTab('activity')}
-            className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === 'activity'
+            className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'activity'
                 ? 'border-primary text-primary'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
-            }`}
+              }`}
           >
             Activity
           </button>
@@ -311,7 +308,7 @@ export default function UserProfilePage() {
           <>
             {profile.privacySettings.showActivity ? (
               <div className="space-y-4">
-              {posts?.posts.map((apiPost) => {
+                {posts?.posts.map((apiPost) => {
                   // Transform ApiPost to Post format for PostCard
                   const post: Post = {
                     id: apiPost.id,
@@ -333,7 +330,7 @@ export default function UserProfilePage() {
                   };
                   return <PostCard key={post.id} post={post} />;
                 })}
-                
+
                 {posts?.hasMore && (
                   <div className="text-center py-4">
                     <Button

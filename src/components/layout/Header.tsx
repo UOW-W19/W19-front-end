@@ -1,4 +1,5 @@
 import { Globe, Bell, Search } from "lucide-react";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 
 interface HeaderProps {
@@ -31,6 +32,13 @@ export function Header({ title = "Feed" }: HeaderProps) {
             <Bell className="h-5 w-5 text-muted-foreground" />
             <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-primary" />
           </Button>
+
+          {/* Mobile Profile Link (since removed from BottomNav) */}
+          <Link to="/profile" className="ml-1 lg:hidden">
+            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center text-xs font-bold text-primary-foreground shadow-sm">
+              MP
+            </div>
+          </Link>
         </div>
       </div>
     </header>

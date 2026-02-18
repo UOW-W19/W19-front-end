@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from "react-router-dom";
-import { Home, Compass, Camera, BookOpen, User } from "lucide-react";
+import { Home, Compass, Camera, BookOpen, MessageCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { NavItem } from "@/types";
 
@@ -7,21 +7,21 @@ const navItems: NavItem[] = [
   { to: "/", icon: Home, label: "Feed" },
   { to: "/explore", icon: Compass, label: "Explore" },
   { to: "/scanner", icon: Camera, label: "Scan" },
+  { to: "/messages", icon: MessageCircle, label: "Messages" },
   { to: "/learn", icon: BookOpen, label: "Learn" },
-  { to: "/profile", icon: User, label: "Profile" },
 ];
 
 export function BottomNav() {
   const location = useLocation();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-card/95 backdrop-blur-md lg:hidden">
-      <div className="flex h-16 items-center justify-around px-2 pb-[env(safe-area-inset-bottom)]">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-card/95 backdrop-blur-md safe-area-bottom">
+      <div className="flex h-16 items-center justify-around px-2">
         {navItems.map((item) => {
-          const isActive = location.pathname === item.to || 
+          const isActive = location.pathname === item.to ||
             (item.to !== "/" && location.pathname.startsWith(item.to));
           const isScanner = item.to === "/scanner";
-          
+
           if (isScanner) {
             return (
               <NavLink
@@ -34,8 +34,8 @@ export function BottomNav() {
               >
                 <div className={cn(
                   "flex items-center justify-center h-12 w-12 rounded-full -mt-6 shadow-lg transition-all",
-                  isActive 
-                    ? "bg-primary text-primary-foreground" 
+                  isActive
+                    ? "bg-primary text-primary-foreground"
                     : "bg-primary/90 text-primary-foreground"
                 )}>
                   <item.icon className="h-6 w-6 stroke-[2px]" />
@@ -49,7 +49,7 @@ export function BottomNav() {
               </NavLink>
             );
           }
-          
+
           return (
             <NavLink
               key={item.to}
