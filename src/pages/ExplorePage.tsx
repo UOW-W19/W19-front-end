@@ -96,7 +96,7 @@ export default function ExplorePage() {
           meetupsResponse = await meetupsApi.getMeetups({
             latitude: currentLocation.latitude,
             longitude: currentLocation.longitude,
-            radiusKm: 50, // 50km radius for meetups (wider than learners)
+            radiusKm: 40000, // 40000km radius to cover the entire world
           });
         } catch (meetupsError) {
           console.warn('⚠️ [ExplorePage] Meetups API failed (endpoint may not be implemented yet):', meetupsError);
@@ -106,7 +106,7 @@ export default function ExplorePage() {
         const learnersData = await learnersApi.getNearbyLearners({
           latitude: currentLocation.latitude,
           longitude: currentLocation.longitude,
-          radiusKm: 10, // 10km radius for nearby learners
+          radiusKm: 40000, // 40000km radius to cover the entire world
         });
 
         console.log('✅ [ExplorePage] Data loaded successfully!');

@@ -23,7 +23,13 @@ const transformMessage = (m: BackendMessage): Message => ({
 
 const transformConversation = (c: BackendConversation): Conversation => ({
     id: String(c.id),
-    participants: c.participants,
+    participants: (c.participants as any[]).map(p => ({
+        id: String(p.id),
+        email: p.email || '',
+        username: p.username || p.display_name?.toLowerCase().replace(/\s+/g, '_') || 'user',
+        displayName: p.displayName || p.display_name || p.username || 'Unknown User',
+        avatarUrl: p.avatarUrl || p.avatar_url,
+    })) as UserProfile[],
     unreadCount: c.unreadCount || 0,
     updatedAt: c.lastMessageAt || c.updatedAt,
     isGroup: false, // Default to false
