@@ -1,12 +1,15 @@
 import { Globe, Bell, Search } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface HeaderProps {
   title?: string;
 }
 
 export function Header({ title = "Feed" }: HeaderProps) {
+  const { user } = useAuth();
+
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur-md pt-[env(safe-area-inset-top)]">
       <div className="flex h-14 items-center justify-between px-4">
@@ -33,10 +36,14 @@ export function Header({ title = "Feed" }: HeaderProps) {
             <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-primary" />
           </Button>
 
-          {/* Mobile Profile Link (since removed from BottomNav) */}
+          {/* Mobile Profile Link */}
           <Link to="/profile" className="ml-1 lg:hidden">
             <div className="h-8 w-8 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center text-xs font-bold text-primary-foreground shadow-sm">
-              MP
+              {user?.displayName ? (
+                user.displayName.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2)
+              ) : (
+                "?"
+              )}
             </div>
           </Link>
         </div>

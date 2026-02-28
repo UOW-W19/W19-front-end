@@ -59,7 +59,7 @@ export function ConversationList({ conversations, selectedId, onSelect }: Conver
                                         }`}
                                 >
                                     {/* Avatar */}
-                                    <div className="relative shrink-0">
+                                    <div className="relative shrink-0 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary/60 text-lg font-semibold text-primary-foreground">
                                         {info.avatar && info.avatar.startsWith('http') ? (
                                             <img
                                                 src={info.avatar}
@@ -67,9 +67,7 @@ export function ConversationList({ conversations, selectedId, onSelect }: Conver
                                                 className="h-12 w-12 rounded-full object-cover"
                                             />
                                         ) : (
-                                            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary/60 text-lg font-semibold text-primary-foreground">
-                                                {info.avatar || info.initial}
-                                            </div>
+                                            info.initial
                                         )}
 
                                         {info.isOnline && (

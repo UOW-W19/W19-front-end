@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
@@ -10,6 +10,7 @@ import type { Message } from "@/types/message";
 export default function MessagesPage() {
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [isStartingChat, setIsStartingChat] = useState(false);
+  const startingForUserRef = useRef<string | null>(null);
   const queryClient = useQueryClient();
   const location = useLocation();
   const navigate = useNavigate();
@@ -48,34 +49,41 @@ export default function MessagesPage() {
     const params = new URLSearchParams(location.search);
     const userId = params.get('user');
 
-    if (userId && !loadingConversations && !isStartingChat) {
-      // Check if conversation already exists
-      const existing = conversations.find(c =>
-        c.participants.some(p => p.id === userId)
-      );
+    if (!userId || loadingConversations) return;
 
-      if (existing) {
-        setSelectedConversationId(existing.id);
-        navigate('/messages', { replace: true });
-      } else {
-        // Start new conversation
-        setIsStartingChat(true);
-        messagesApi.startConversation(userId)
-          .then(async (newMsg) => {
-            // Force a refetch and wait for it to finish so the new conversation is in the list
-            await queryClient.refetchQueries({ queryKey: ['conversations'] });
-            setSelectedConversationId(newMsg.conversationId);
-          })
-          .catch(err => {
-            console.error("Failed to start conversation:", err);
-          })
-          .finally(() => {
-            setIsStartingChat(false);
-            navigate('/messages', { replace: true });
-          });
-      }
+    // Already handling this user — prevent duplicate calls
+    if (startingForUserRef.current === userId) return;
+
+    // Check if conversation already exists in the loaded list
+    const existing = conversations.find(c =>
+      c.participants.some(p => p.id === userId)
+    );
+
+    if (existing) {
+      setSelectedConversationId(existing.id);
+      navigate('/messages', { replace: true });
+      return;
     }
-  }, [location.search, conversations, loadingConversations, isStartingChat, queryClient, navigate]);
+
+    // Mark as in-progress before the async call
+    startingForUserRef.current = userId;
+    setIsStartingChat(true);
+
+    messagesApi.startConversation(userId)
+      .then(async (newMsg) => {
+        await queryClient.refetchQueries({ queryKey: ['conversations'] });
+        setSelectedConversationId(newMsg.conversationId);
+      })
+      .catch(err => {
+        console.error("Failed to start conversation:", err);
+      })
+      .finally(() => {
+        startingForUserRef.current = null;
+        setIsStartingChat(false);
+        navigate('/messages', { replace: true });
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.search, loadingConversations]);
 
   // Mark as read when selecting a conversation
   useEffect(() => {

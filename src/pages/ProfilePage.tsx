@@ -81,7 +81,7 @@ export default function ProfilePage() {
               className="h-24 w-24 rounded-full object-cover"
             />
           ) : (
-            <div className="flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-primary to-coral-light text-3xl font-bold text-primary-foreground">
+            <div className="flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary/60 text-3xl font-bold text-primary-foreground">
               {getInitials(user.displayName)}
             </div>
           )}
