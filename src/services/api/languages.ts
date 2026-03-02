@@ -59,7 +59,11 @@ export const languagesApi = {
      * @returns Array of supported languages with codes, names, and flag emojis
      */
     async getLanguages(): Promise<Language[]> {
-        const languages = await apiRequest<BackendLanguage[]>('/languages');
-        return languages.map(transformLanguage);
+        // Backend returns { languages: [...] } envelope
+        const response = await apiRequest<{ languages?: BackendLanguage[] } | BackendLanguage[]>('/languages');
+        const list = Array.isArray(response)
+            ? response
+            : (response as { languages?: BackendLanguage[] }).languages ?? [];
+        return list.map(transformLanguage);
     },
 };
