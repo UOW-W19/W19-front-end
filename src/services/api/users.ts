@@ -133,6 +133,13 @@ const apiRequest = async <T>(
     return {} as T;
   }
 
+  // Handle empty body responses (e.g. follow/unfollow returns 200 with no body)
+  const contentType = response.headers.get('content-type');
+  const contentLength = response.headers.get('content-length');
+  if (!contentType?.includes('application/json') || contentLength === '0') {
+    return {} as T;
+  }
+
   return response.json();
 };
 
@@ -575,6 +582,26 @@ export const usersApi = {
   async getFollowing(userId: string): Promise<PublicUserProfile[]> {
     const response = await apiRequest<BackendPublicProfile[]>(`/users/${userId}/following`);
     return response.map(transformPublicProfile);
+  },
+
+  /**
+   * Follow a user
+   * @param userId - User ID to follow
+   */
+  async followUser(userId: string): Promise<void> {
+    await apiRequest<void>(`/users/${userId}/follow`, {
+      method: 'POST',
+    });
+  },
+
+  /**
+   * Unfollow a user
+   * @param userId - User ID to unfollow
+   */
+  async unfollowUser(userId: string): Promise<void> {
+    await apiRequest<void>(`/users/${userId}/follow`, {
+      method: 'DELETE',
+    });
   },
 
   // ============ USER SAFETY ============
