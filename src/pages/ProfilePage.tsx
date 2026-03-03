@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Edit2, MapPin, Check, X, Loader2, Plus, Trash2 } from "lucide-react";
+import { Edit2, MapPin, Check, X, Loader2, Trash2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { usersApi } from "@/services/api/users";
@@ -40,7 +40,7 @@ export default function ProfilePage() {
   // Language editor state
   const [availableLanguages, setAvailableLanguages] = useState<Language[]>([]);
   const [editLanguages, setEditLanguages] = useState<LanguageEntry[]>([]);
-  const [langSearch, setLangSearch] = useState("");
+
 
   // Posts
   const [posts, setPosts] = useState<Post[]>([]);
@@ -103,7 +103,6 @@ export default function ProfilePage() {
         isLearning: l.isLearning,
       }))
     );
-    setLangSearch("");
     setIsEditing(true);
   };
 
@@ -149,7 +148,6 @@ export default function ProfilePage() {
         isLearning: true,
       },
     ]);
-    setLangSearch("");
   };
 
   const removeLanguage = (code: string) => {
@@ -166,13 +164,9 @@ export default function ProfilePage() {
     );
   };
 
-  const filteredAvailableLangs = langSearch.trim()
-    ? availableLanguages.filter(
-      (l) =>
-        l.name.toLowerCase().includes(langSearch.toLowerCase()) &&
-        !editLanguages.find((el) => el.code === l.code)
-    )
-    : [];
+  const unselectedLanguages = availableLanguages.filter(
+    (l) => !editLanguages.find((el) => el.code === l.code)
+  );
 
   const getInitials = (name: string) =>
     name
@@ -321,37 +315,25 @@ export default function ProfilePage() {
                 </div>
               ))}
 
-              {/* Add language search */}
-              <div className="relative">
-                <div className="flex items-center gap-2 rounded-lg border border-dashed border-border bg-muted/30 px-3 py-2">
-                  <Plus className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <input
-                    type="text"
-                    value={langSearch}
-                    onChange={(e) => setLangSearch(e.target.value)}
-                    placeholder="Add a language..."
-                    className="flex-1 bg-transparent text-sm text-foreground focus:outline-none placeholder:text-muted-foreground"
-                  />
-                </div>
-                {filteredAvailableLangs.length > 0 && (
-                  <ul className="absolute z-10 mt-1 w-full rounded-lg border border-border bg-card shadow-lg max-h-48 overflow-y-auto">
-                    {filteredAvailableLangs.slice(0, 8).map((lang) => (
-                      <li key={lang.code}>
-                        <button
-                          type="button"
-                          onClick={() => addLanguage(lang)}
-                          className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted/50 transition-colors text-left"
-                        >
-                          <span className="text-base">
-                            {(lang as unknown as { flag?: string }).flag ?? "🏳️"}
-                          </span>
-                          <span>{lang.name}</span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
+              {/* Add language dropdown */}
+              {unselectedLanguages.length > 0 && (
+                <select
+                  defaultValue=""
+                  onChange={(e) => {
+                    const lang = availableLanguages.find((l) => l.code === e.target.value);
+                    if (lang) addLanguage(lang);
+                    e.target.value = "";
+                  }}
+                  className="w-full rounded-lg border border-dashed border-border bg-muted/30 px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="" disabled>Add a language…</option>
+                  {unselectedLanguages.map((lang) => (
+                    <option key={lang.code} value={lang.code}>
+                      {(lang as unknown as { flag?: string }).flag ?? ""} {lang.name}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
 
             {/* Action buttons */}

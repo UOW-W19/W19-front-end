@@ -261,19 +261,22 @@ export default function UserProfilePage() {
         {profile.languages.length > 0 && (
           <section className="mb-6">
             <h3 className="mb-3 font-semibold text-foreground">Languages</h3>
-            <div className="flex flex-wrap gap-2">
+            <div className="space-y-2">
               {profile.languages.map((lang) => (
                 <div
                   key={lang.code}
-                  className="flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5"
+                  className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3"
                 >
-                  <span className="text-base">{lang.flagEmoji}</span>
-                  <span className="text-sm font-medium text-foreground">{lang.name}</span>
-                  <span className={`text-xs px-1.5 py-0.5 rounded ${lang.proficiency === 'NATIVE'
+                  <span className="text-xl shrink-0">{lang.flagEmoji}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm text-foreground">{lang.name}</p>
+                    <p className="text-xs text-muted-foreground">{lang.isLearning ? 'Learning' : 'Native'}</p>
+                  </div>
+                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${lang.proficiency === 'NATIVE'
                       ? 'bg-primary/10 text-primary'
-                      : 'bg-muted text-muted-foreground'
+                      : 'bg-muted text-muted-foreground uppercase tracking-wide'
                     }`}>
-                    {lang.proficiency === 'NATIVE' ? 'Native' : lang.isLearning ? 'Learning' : lang.proficiency}
+                    {lang.proficiency === 'NATIVE' ? 'Native' : lang.proficiency.charAt(0) + lang.proficiency.slice(1).toLowerCase()}
                   </span>
                 </div>
               ))}
@@ -286,8 +289,8 @@ export default function UserProfilePage() {
           <button
             onClick={() => setActiveTab('posts')}
             className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'posts'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-muted-foreground hover:text-foreground'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
           >
             Posts
@@ -295,8 +298,8 @@ export default function UserProfilePage() {
           <button
             onClick={() => setActiveTab('activity')}
             className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'activity'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-muted-foreground hover:text-foreground'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
           >
             Activity
