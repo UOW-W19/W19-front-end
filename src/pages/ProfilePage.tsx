@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
-import { Edit2, MapPin, Check, X, Loader2, Trash2 } from "lucide-react";
+import { Edit2, MapPin, Check, X, Loader2, Trash2, Users, Settings } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
 import { usersApi } from "@/services/api/users";
 import { languagesApi } from "@/services/api/languages";
 import { PostCard } from "@/components/feed/PostCard";
@@ -381,15 +382,28 @@ export default function ProfilePage() {
                 {user.bio}
               </p>
             )}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleEdit}
-              className="mt-4"
-            >
-              <Edit2 className="h-3.5 w-3.5 mr-1.5" />
-              Edit Profile
-            </Button>
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleEdit}
+              >
+                <Edit2 className="h-3.5 w-3.5 mr-1.5" />
+                Edit
+              </Button>
+              <Button variant="outline" size="sm" asChild>
+                <Link to="/friends">
+                  <Users className="h-3.5 w-3.5 mr-1.5" />
+                  Friends
+                </Link>
+              </Button>
+              <Button variant="outline" size="sm" asChild>
+                <Link to="/settings">
+                  <Settings className="h-3.5 w-3.5 mr-1.5" />
+                  Settings
+                </Link>
+              </Button>
+            </div>
           </>
         )}
       </div>

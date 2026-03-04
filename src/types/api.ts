@@ -1,5 +1,5 @@
 // API Types matching Backend contract (Frontend Integration Guide)
-// Last Updated: 2026-01-10
+// Last Updated: 2026-03-05
 // IMPORTANT: Backend uses snake_case, frontend uses camelCase
 // Transformation happens in service layer
 
@@ -266,11 +266,11 @@ export interface LearningStatsResponse {
 }
 
 // ============ REPORTS ============
-export type ReportReason = 
-  | 'SPAM' 
-  | 'HARASSMENT' 
-  | 'INAPPROPRIATE' 
-  | 'MISINFORMATION' 
+export type ReportReason =
+  | 'SPAM'
+  | 'HARASSMENT'
+  | 'INAPPROPRIATE'
+  | 'MISINFORMATION'
   | 'OTHER';
 
 export interface ReportRequest {
@@ -278,6 +278,23 @@ export interface ReportRequest {
   commentId?: string;
   reason: ReportReason;
   description?: string;
+}
+
+// ============ FRIENDS ============
+export type FriendStatus = 'PENDING' | 'ACCEPTED' | 'REJECTED';
+export type LocationVisibility = 'PUBLIC' | 'FRIENDS_ONLY' | 'NOBODY';
+
+export interface FriendRequestResponse {
+  id: string;
+  status: FriendStatus;
+  isSentByMe: boolean;
+  otherUser: {
+    id: string;
+    username: string;
+    displayName: string;
+    avatarUrl?: string;
+  };
+  createdAt: string;
 }
 
 // ============ SETTINGS ============
@@ -290,7 +307,7 @@ export interface NotificationPrefs {
 }
 
 export interface PrivacySettings {
-  showLocation: boolean;
+  locationVisibility: LocationVisibility; // replaces old showLocation boolean
   allowMessages: 'everyone' | 'friends' | 'none';
 }
 

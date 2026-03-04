@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   User,
@@ -9,9 +10,13 @@ import {
   LogOut,
   ChevronRight,
   Moon,
-  Sun
+  Sun,
+  MapPin,
+  Loader2,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { usersApi } from "@/services/api/users";
+import type { LocationVisibility } from "@/types/api";
 
 const settingsSections = [
   {
@@ -40,6 +45,28 @@ const settingsSections = [
 export default function SettingsPage() {
   const navigate = useNavigate();
   const { logout, user } = useAuth();
+
+  const [locationVisibility, setLocationVisibility] = useState<LocationVisibility>('PUBLIC');
+  const [isSavingVisibility, setIsSavingVisibility] = useState(false);
+
+  // Load current privacy settings on mount
+  useEffect(() => {
+    usersApi.getPrivacySettings().then((s) => {
+      setLocationVisibility(s.locationVisibility ?? 'PUBLIC');
+    }).catch(() => {/* ignore */ });
+  }, []);
+
+  const handleVisibilityChange = async (value: LocationVisibility) => {
+    setLocationVisibility(value);
+    setIsSavingVisibility(true);
+    try {
+      await usersApi.updatePrivacySettings({ locationVisibility: value });
+    } catch {
+      // silently fail
+    } finally {
+      setIsSavingVisibility(false);
+    }
+  };
 
   const handleLogout = async () => {
     await logout();
@@ -81,7 +108,35 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Settings sections */}
+      {/* Location Visibility control */}
+      <div className="mb-6 rounded-2xl border border-border bg-card p-4">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted">
+            <MapPin className="h-5 w-5 text-muted-foreground" />
+          </div>
+          <div className="flex-1">
+            <p className="font-medium text-foreground">Location Visibility</p>
+            <p className="text-sm text-muted-foreground">Who can see you on the map</p>
+          </div>
+          {isSavingVisibility && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+        </div>
+        <div className="flex rounded-xl border border-border overflow-hidden">
+          {(['PUBLIC', 'FRIENDS_ONLY', 'NOBODY'] as LocationVisibility[]).map((opt) => (
+            <button
+              key={opt}
+              onClick={() => handleVisibilityChange(opt)}
+              className={`flex-1 py-2 text-xs font-medium transition-colors ${locationVisibility === opt
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted/30 text-muted-foreground hover:bg-muted/60'
+                }`}
+            >
+              {opt === 'PUBLIC' ? 'Public' : opt === 'FRIENDS_ONLY' ? 'Friends' : 'Nobody'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+
       {settingsSections.map((section) => (
         <section key={section.title} className="mb-6">
           <h2 className="mb-3 text-sm font-medium text-muted-foreground uppercase tracking-wide">

@@ -1,4 +1,4 @@
-import { Globe, Bell, Search } from "lucide-react";
+import { Globe, Bell, Search, Users } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
@@ -30,6 +30,16 @@ export function Header({ title = "Feed" }: HeaderProps) {
         <div className="flex items-center gap-1">
           <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full active:scale-95">
             <Search className="h-5 w-5 text-muted-foreground" />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-10 w-10 flex lg:hidden rounded-full relative active:scale-95" asChild>
+            <Link to="/friends">
+              <Users className="h-5 w-5 text-muted-foreground" />
+            </Link>
+          </Button>
+          <Button variant="ghost" size="icon" className="h-10 w-10 flex rounded-full relative active:scale-95" asChild>
+            <Link to="/friends" className="hidden lg:flex">
+              <Users className="h-5 w-5 text-muted-foreground" />
+            </Link>
           </Button>
           <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full relative active:scale-95">
             <Bell className="h-5 w-5 text-muted-foreground" />

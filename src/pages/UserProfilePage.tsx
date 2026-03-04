@@ -9,13 +9,19 @@ import {
   Loader2,
   Lock,
   MessageCircle,
-  MoreHorizontal
+  MoreHorizontal,
+  UserCheck,
+  UserX,
+  ChevronDown,
+  Clock,
 } from "lucide-react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { usersApi } from "@/services/api/users";
+import { friendsApi } from "@/services/api/friends";
 import type { PublicUserProfile, UserPostsResponse } from "@/services/api/users";
+import type { FriendRequestResponse } from "@/types/api";
 import { PostCard } from "@/components/feed/PostCard";
 import type { Post } from "@/types/post";
 import {
@@ -36,6 +42,8 @@ export default function UserProfilePage() {
   const [isLoadingPosts, setIsLoadingPosts] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
   const [isFollowLoading, setIsFollowLoading] = useState(false);
+  const [friendStatus, setFriendStatus] = useState<FriendRequestResponse | null>(null);
+  const [isFriendLoading, setIsFriendLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'posts' | 'activity'>('posts');
   const [error, setError] = useState<string | null>(null);
 
@@ -58,6 +66,14 @@ export default function UserProfilePage() {
         const profileData = await usersApi.getProfile(userId);
         setProfile(profileData);
         setIsFollowing(profileData.isFollowing);
+
+        // Load friend status
+        try {
+          const fs = await friendsApi.getFriendStatus(userId);
+          setFriendStatus(fs);
+        } catch {
+          // not a blocker
+        }
 
         // Fetch posts if activity is public
         if (profileData.privacySettings.showActivity) {
@@ -118,6 +134,36 @@ export default function UserProfilePage() {
       setIsLoadingPosts(false);
     }
   };
+
+  // ── Friend action handler ─────────────────────────────────────────────
+  const handleFriendAction = async (action: 'send' | 'accept' | 'reject' | 'remove') => {
+    if (!userId) return;
+    setIsFriendLoading(true);
+    try {
+      if (action === 'send') {
+        const result = await friendsApi.sendFriendRequest(userId);
+        setFriendStatus(result);
+      } else if ((action === 'accept' || action === 'reject') && friendStatus) {
+        const result = await friendsApi.respondToRequest(friendStatus.id, action);
+        setFriendStatus(result);
+      } else if (action === 'remove') {
+        await friendsApi.removeFriend(userId);
+        setFriendStatus(null);
+      }
+    } catch (err) {
+      console.error('Friend action failed:', err);
+    } finally {
+      setIsFriendLoading(false);
+    }
+  };
+
+  // Button label/variant based on current friendship state
+  const friendButtonConfig = (() => {
+    if (!friendStatus) return { label: 'Add Friend', icon: UserPlus, variant: 'default' as const };
+    if (friendStatus.status === 'ACCEPTED') return { label: 'Friends', icon: UserCheck, variant: 'outline' as const };
+    if (friendStatus.status === 'PENDING' && friendStatus.isSentByMe) return { label: 'Requested', icon: Clock, variant: 'secondary' as const };
+    return { label: 'Add Friend', icon: UserPlus, variant: 'default' as const };
+  })();
 
   const getInitials = (name: string) => {
     return name
@@ -222,7 +268,7 @@ export default function UserProfilePage() {
           </div>
 
           {/* Action buttons */}
-          <div className="mt-4 flex justify-center gap-3">
+          <div className="mt-4 flex justify-center gap-2 flex-wrap">
             <Button
               variant={isFollowing ? "outline" : "default"}
               size="sm"
@@ -238,6 +284,61 @@ export default function UserProfilePage() {
               )}
               {isFollowing ? 'Unfollow' : 'Follow'}
             </Button>
+
+            {/* ── Add Friend button ── */}
+            {friendStatus?.status === 'PENDING' && !friendStatus.isSentByMe ? (
+              // Received pending request → show Accept & Decline
+              <>
+                <Button
+                  size="sm"
+                  disabled={isFriendLoading}
+                  onClick={() => handleFriendAction('accept')}
+                >
+                  {isFriendLoading ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <UserCheck className="h-4 w-4 mr-1" />}
+                  Accept
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={isFriendLoading}
+                  onClick={() => handleFriendAction('reject')}
+                >
+                  <UserX className="h-4 w-4 mr-1" />
+                  Decline
+                </Button>
+              </>
+            ) : friendStatus?.status === 'ACCEPTED' ? (
+              // Already friends → show Remove Friend
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={isFriendLoading}
+                className="text-destructive border-destructive/40 hover:bg-destructive/10"
+                onClick={() => handleFriendAction('remove')}
+              >
+                {isFriendLoading ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <UserMinus className="h-4 w-4 mr-1" />}
+                Remove Friend
+              </Button>
+            ) : (
+              // No relationship or pending sent → single button
+              <Button
+                variant={friendButtonConfig.variant}
+                size="sm"
+                disabled={isFriendLoading}
+                className={friendStatus?.status === 'PENDING' ? "cursor-default" : ""}
+                onClick={() => {
+                  if (!friendStatus) handleFriendAction('send');
+                }}
+              >
+                {isFriendLoading && !friendStatus ? (
+                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                ) : (
+                  <friendButtonConfig.icon className="h-4 w-4 mr-1" />
+                )}
+                {friendButtonConfig.label}
+              </Button>
+            )}
+
             <Button variant="outline" size="sm" asChild>
               <Link to={`/messages?user=${userId}`}>
                 <MessageCircle className="h-4 w-4 mr-1" />
@@ -273,8 +374,8 @@ export default function UserProfilePage() {
                     <p className="text-xs text-muted-foreground">{lang.isLearning ? 'Learning' : 'Native'}</p>
                   </div>
                   <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${lang.proficiency === 'NATIVE'
-                      ? 'bg-primary/10 text-primary'
-                      : 'bg-muted text-muted-foreground uppercase tracking-wide'
+                    ? 'bg-primary/10 text-primary'
+                    : 'bg-muted text-muted-foreground uppercase tracking-wide'
                     }`}>
                     {lang.proficiency === 'NATIVE' ? 'Native' : lang.proficiency.charAt(0) + lang.proficiency.slice(1).toLowerCase()}
                   </span>

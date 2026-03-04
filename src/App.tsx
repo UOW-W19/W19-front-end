@@ -12,6 +12,7 @@ import SettingsPage from "./pages/SettingsPage";
 import InstallPage from "./pages/InstallPage";
 import AuthPage from "./pages/AuthPage";
 import ScannerPage from "./pages/ScannerPage";
+import FriendsPage from "./pages/FriendsPage";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -25,7 +26,7 @@ const queryClient = new QueryClient({
 // Protected route wrapper
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
-  
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -33,11 +34,11 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
       </div>
     );
   }
-  
+
   if (!isAuthenticated) {
     return <Navigate to="/auth" replace />;
   }
-  
+
   return <>{children}</>;
 }
 
@@ -60,6 +61,7 @@ const AppRoutes = () => (
       <Route path="/settings" element={<SettingsPage />} />
       <Route path="/install" element={<InstallPage />} />
       <Route path="/scanner" element={<ScannerPage />} />
+      <Route path="/friends" element={<FriendsPage />} />
     </Route>
   </Routes>
 );

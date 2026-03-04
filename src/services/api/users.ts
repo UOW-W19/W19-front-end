@@ -4,7 +4,7 @@ import { API_BASE_URL } from './config';
 import { getStoredToken } from './auth';
 
 // Backend response types (snake_case)
-interface BackendPublicProfile {
+export interface BackendPublicProfile {
   id: string;
   username: string;
   display_name: string;
@@ -144,7 +144,7 @@ const apiRequest = async <T>(
 };
 
 // Transform backend profile to frontend
-const transformPublicProfile = (profile: BackendPublicProfile): PublicUserProfile => ({
+export const transformPublicProfile = (profile: BackendPublicProfile): PublicUserProfile => ({
   id: profile.id,
   username: profile.username,
   displayName: profile.display_name,
@@ -472,7 +472,7 @@ export const usersApi = {
         meetupNotifications: response.notification_prefs.meetup_notifications,
       },
       privacySettings: {
-        showLocation: response.privacy_settings.show_location,
+        locationVisibility: (response.privacy_settings.show_location ? 'PUBLIC' : 'NOBODY') as 'PUBLIC' | 'FRIENDS_ONLY' | 'NOBODY',
         allowMessages: response.privacy_settings.allow_messages,
       },
     };
@@ -500,7 +500,7 @@ export const usersApi = {
     }
     if (settings.privacySettings) {
       body.privacy_settings = {
-        show_location: settings.privacySettings.showLocation,
+        location_visibility: settings.privacySettings.locationVisibility,
         allow_messages: settings.privacySettings.allowMessages,
       };
     }
@@ -533,7 +533,7 @@ export const usersApi = {
         meetupNotifications: response.notification_prefs.meetup_notifications,
       },
       privacySettings: {
-        showLocation: response.privacy_settings.show_location,
+        locationVisibility: (response.privacy_settings.show_location ? 'PUBLIC' : 'NOBODY') as 'PUBLIC' | 'FRIENDS_ONLY' | 'NOBODY',
         allowMessages: response.privacy_settings.allow_messages,
       },
     };
@@ -584,26 +584,6 @@ export const usersApi = {
     return response.map(transformPublicProfile);
   },
 
-  /**
-   * Follow a user
-   * @param userId - User ID to follow
-   */
-  async followUser(userId: string): Promise<void> {
-    await apiRequest<void>(`/users/${userId}/follow`, {
-      method: 'POST',
-    });
-  },
-
-  /**
-   * Unfollow a user
-   * @param userId - User ID to unfollow
-   */
-  async unfollowUser(userId: string): Promise<void> {
-    await apiRequest<void>(`/users/${userId}/follow`, {
-      method: 'DELETE',
-    });
-  },
-
   // ============ USER SAFETY ============
 
   /**
@@ -623,6 +603,44 @@ export const usersApi = {
   async unblockUser(userId: string): Promise<void> {
     await apiRequest<void>(`/users/${userId}/block`, {
       method: 'DELETE',
+    });
+  },
+
+  // ============ PRIVACY SETTINGS ============
+  /**
+   * Get current user's privacy settings (location_visibility + allow_messages)
+   */
+  async getPrivacySettings(): Promise<{
+    locationVisibility: 'PUBLIC' | 'FRIENDS_ONLY' | 'NOBODY';
+    allowMessages: 'everyone' | 'friends' | 'none';
+  }> {
+    const raw = await apiRequest<{
+      location_visibility: string;
+      allow_messages: string;
+    }>('/users/me/privacy');
+    return {
+      locationVisibility: (raw.location_visibility ?? 'PUBLIC') as 'PUBLIC' | 'FRIENDS_ONLY' | 'NOBODY',
+      allowMessages: (raw.allow_messages ?? 'everyone') as 'everyone' | 'friends' | 'none',
+    };
+  },
+
+  /**
+   * Update current user's privacy settings
+   */
+  async updatePrivacySettings(settings: {
+    locationVisibility?: 'PUBLIC' | 'FRIENDS_ONLY' | 'NOBODY';
+    allowMessages?: 'everyone' | 'friends' | 'none';
+  }): Promise<void> {
+    const body: Record<string, unknown> = {};
+    if (settings.locationVisibility !== undefined) {
+      body.location_visibility = settings.locationVisibility;
+    }
+    if (settings.allowMessages !== undefined) {
+      body.allow_messages = settings.allowMessages;
+    }
+    await apiRequest<void>('/users/me/privacy', {
+      method: 'PATCH',
+      body: JSON.stringify(body),
     });
   },
 };
