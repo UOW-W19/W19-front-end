@@ -2,7 +2,7 @@
 import type { Language } from '@/types/api';
 
 // Use environment variable if set, otherwise default to localhost backend
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081/api';
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
 // Supported languages
 export const LANGUAGES: Language[] = [

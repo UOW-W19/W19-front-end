@@ -1,75 +1,52 @@
-# React + TypeScript + Vite
+# 🌏 Locale — Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React + TypeScript + Vite frontend for the Locale language exchange app.
 
-Currently, two official plugins are available:
+## Prerequisites
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **Docker Desktop** (No Node or npm needed if using Docker!)
 
-## React Compiler
+---
 
-The React Compiler is enabled on this template. See [this documentation](https://react.dev/learn/react-compiler) for more information.
+## 🚀 Running With Docker (Recommended for Team)
 
-Note: This will impact Vite dev & build performances.
+> Both repos must be cloned side-by-side on your machine:
+> ```
+> Desktop/
+> ├── W19-back-end/   ← backend repo (where you run docker-compose)
+> └── W19-front-end/  ← this repo
+> ```
 
-## Expanding the ESLint configuration
+### 1. Copy the environment file
+```bash
+cp .env.example .env
+```
+Fill in the `VITE_GOOGLE_PLACES_KEY` that your teammate shared with you.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### 2. Start everything (from the backend folder!)
+```bash
+cd ../W19-back-end
+docker compose up --build
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+This spins up the entire stack, including this frontend.
+The app will be available at: **http://localhost:8080**
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+---
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## 💻 Running Locally (Without Docker)
+
+Requirements: Node 20+
+
+1. Copy `.env.example` → `.env` and fill in the Google Places key.
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+3. Run the dev server:
+   ```bash
+   npm run dev
+   ```
+
+The app will be available at `http://localhost:5173` (by default).
+*Note: You must also run the Spring Boot backend locally for the API to work.*
