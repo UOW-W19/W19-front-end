@@ -3,8 +3,10 @@ import { Edit2, MapPin, Check, X, Loader2, Trash2, Users, Settings } from "lucid
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
-import { usersApi } from "@/services/api/users";
+import { toast } from "sonner";
+import { usersApi, uploadAvatar } from "@/services/api/users";
 import { languagesApi } from "@/services/api/languages";
+import { AvatarPickerModal } from "@/components/profile/AvatarPickerModal";
 import { PostCard } from "@/components/feed/PostCard";
 import type { Language } from "@/types/api";
 import type { Post } from "@/types";
@@ -30,6 +32,7 @@ export default function ProfilePage() {
   const { user, updateProfile } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
 
   // Profile fields
   const [editForm, setEditForm] = useState({
@@ -111,6 +114,17 @@ export default function ProfilePage() {
     setIsEditing(false);
   };
 
+  const handleAvatarSave = async (file: File) => {
+    try {
+      const s3Url = await uploadAvatar(file);
+      await updateProfile({ avatarUrl: s3Url });
+      toast.success("Profile picture updated");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to upload photo");
+      throw error; // re-throw so the modal keeps showing (doesn't close on failure)
+    }
+  };
+
   const handleSave = async () => {
     setIsSaving(true);
     try {
@@ -131,6 +145,7 @@ export default function ProfilePage() {
       setIsEditing(false);
     } catch (error) {
       console.error("Failed to update profile:", error);
+      toast.error("Failed to save profile changes");
     } finally {
       setIsSaving(false);
     }
@@ -195,7 +210,12 @@ export default function ProfilePage() {
     <div className="h-full overflow-y-auto pb-24 scrollbar-hide mx-auto max-w-2xl px-4 py-6">
       {/* Profile header */}
       <div className="mb-6 text-center">
-        <div className="relative mx-auto mb-4 w-fit">
+        {/* Clickable avatar — always opens the picker modal */}
+        <button
+          className="relative mx-auto mb-4 block w-fit group"
+          onClick={() => setIsAvatarModalOpen(true)}
+          aria-label="Change profile picture"
+        >
           {user.avatarUrl ? (
             <img
               src={user.avatarUrl}
@@ -207,15 +227,23 @@ export default function ProfilePage() {
               {getInitials(user.displayName)}
             </div>
           )}
+          {/* Hover overlay hint */}
+          <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/0 group-hover:bg-black/30 transition-colors" />
+
+          {/* Edit pencil badge — visible in view mode */}
           {!isEditing && (
-            <button
-              onClick={handleEdit}
-              className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full border-2 border-background bg-muted hover:bg-muted/80 transition-colors"
-            >
+            <span className="pointer-events-none absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full border-2 border-background bg-muted shadow-sm">
               <Edit2 className="h-4 w-4 text-muted-foreground" />
-            </button>
+            </span>
           )}
-        </div>
+        </button>
+
+        <AvatarPickerModal
+          open={isAvatarModalOpen}
+          onClose={() => setIsAvatarModalOpen(false)}
+          user={user}
+          onSave={handleAvatarSave}
+        />
 
         {isEditing ? (
           /* ---- EDIT MODE ---- */
