@@ -330,42 +330,6 @@ let mockFollowState: Record<string, boolean> = {
 };
 // ============ END MOCK DATA ============
 
-// Upload avatar to S3 via backend file endpoint
-// Uses raw fetch (not apiRequest) so we can send multipart/form-data without a Content-Type header
-export async function uploadAvatar(file: File): Promise<string> {
-  const token = getStoredToken();
-
-  const headers: Record<string, string> = {
-    'ngrok-skip-browser-warning': 'true',
-  };
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-
-  const formData = new FormData();
-  formData.append('file', file);
-
-  const response = await fetch(`${API_BASE_URL}/files/upload?type=images`, {
-    method: 'POST',
-    headers,
-    body: formData,
-  });
-
-  if (!response.ok) {
-    let errorMessage = 'Upload failed';
-    try {
-      const errorData = await response.json();
-      errorMessage = errorData.message || errorData.error || errorMessage;
-    } catch {
-      errorMessage = response.statusText || errorMessage;
-    }
-    throw new Error(errorMessage);
-  }
-
-  const data: { url: string } = await response.json();
-  return data.url;
-}
-
 export const usersApi = {
   // Get public profile by user ID
   async getProfile(userId: string): Promise<PublicUserProfile> {
