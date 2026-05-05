@@ -84,12 +84,15 @@ const apiRequest = async <T>(
   isRetry = false
 ): Promise<T> => {
   const token = getStoredToken();
+  const isMultipart = options.body instanceof FormData;
   
   const headers: HeadersInit = {
-    'Content-Type': 'application/json',
     'ngrok-skip-browser-warning': 'true',
     ...options.headers,
   };
+  if (!isMultipart) {
+    (headers as Record<string, string>)['Content-Type'] = 'application/json';
+  }
   
   if (token) {
     (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
@@ -209,6 +212,28 @@ const transformProfile = (profile: BackendProfile): UserProfile => {
   };
 };
 
+const buildUpdateProfileFormData = (data: UpdateProfileRequest) => {
+  const formData = new FormData();
+
+  if (data.avatar) {
+    formData.append('avatar', data.avatar);
+  }
+  if (data.displayName !== undefined) {
+    formData.append('displayName', data.displayName);
+  }
+  if (data.bio !== undefined) {
+    formData.append('bio', data.bio);
+  }
+  if (data.latitude !== undefined) {
+    formData.append('latitude', String(data.latitude));
+  }
+  if (data.longitude !== undefined) {
+    formData.append('longitude', String(data.longitude));
+  }
+
+  return formData;
+};
+
 // Auth API functions
 export const authApi = {
   async register(data: RegisterRequest): Promise<AuthResponse> {
@@ -302,15 +327,21 @@ export const authApi = {
     try {
       profile = await apiRequest<BackendProfile>('/users/me', {
         method: 'PATCH',
-        body: JSON.stringify(data),
+        body: buildUpdateProfileFormData(data),
       });
-    } catch {
+    } catch (error) {
+      if (data.avatar) {
+        throw error;
+      }
+
       // Fallback: update locally if endpoint doesn't exist
       const storedUser = getStoredUser();
       if (!storedUser) {
         throw new Error('Not authenticated');
       }
-      const updatedUser = { ...storedUser, ...data };
+      const localPatch = { ...data };
+      delete localPatch.avatar;
+      const updatedUser = { ...storedUser, ...localPatch };
       localStorage.setItem(USER_KEY, JSON.stringify(updatedUser));
       return updatedUser;
     }

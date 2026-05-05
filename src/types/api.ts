@@ -58,6 +58,7 @@ export interface UserProfile {
 export interface UpdateProfileRequest {
   displayName?: string;
   bio?: string;
+  avatar?: File;
   avatarUrl?: string;
   location?: string;
   latitude?: number;

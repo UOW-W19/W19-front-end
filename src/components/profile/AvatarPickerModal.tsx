@@ -73,6 +73,7 @@ export function AvatarPickerModal({ open, onClose, user, onSave }: AvatarPickerM
 
   // Image selected for cropping (object URL or remote URL)
   const [selectedSrc, setSelectedSrc] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   // Previous images: current avatar + images from user's posts
   const [prevImages, setPrevImages] = useState<string[]>([]);
@@ -116,8 +117,9 @@ export function AvatarPickerModal({ open, onClose, user, onSave }: AvatarPickerM
     setCroppedAreaPixels(null);
   };
 
-  const openCropStep = (src: string) => {
+  const openCropStep = (src: string, file?: File) => {
     setSelectedSrc(src);
+    setSelectedFile(file ?? null);
     resetCropState();
     setStep("crop");
   };
@@ -125,7 +127,7 @@ export function AvatarPickerModal({ open, onClose, user, onSave }: AvatarPickerM
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    openCropStep(URL.createObjectURL(file));
+    openCropStep(URL.createObjectURL(file), file);
     e.target.value = "";
   };
 
@@ -137,7 +139,15 @@ export function AvatarPickerModal({ open, onClose, user, onSave }: AvatarPickerM
     if (!selectedSrc || !croppedAreaPixels) return;
     setIsSaving(true);
     try {
-      const file = await getCroppedImg(selectedSrc, croppedAreaPixels);
+      let file: File;
+      try {
+        file = await getCroppedImg(selectedSrc, croppedAreaPixels);
+      } catch (error) {
+        if (!selectedFile) {
+          throw error;
+        }
+        file = selectedFile;
+      }
       await onSave(file);
       handleClose();
     } finally {
@@ -148,6 +158,7 @@ export function AvatarPickerModal({ open, onClose, user, onSave }: AvatarPickerM
   const handleClose = () => {
     setStep("view");
     setSelectedSrc(null);
+    setSelectedFile(null);
     resetCropState();
     onClose();
   };

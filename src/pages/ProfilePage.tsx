@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
-import { usersApi, uploadAvatar } from "@/services/api/users";
+import { usersApi } from "@/services/api/users";
 import { languagesApi } from "@/services/api/languages";
 import { AvatarPickerModal } from "@/components/profile/AvatarPickerModal";
 import { PostCard } from "@/components/feed/PostCard";
@@ -116,8 +116,7 @@ export default function ProfilePage() {
 
   const handleAvatarSave = async (file: File) => {
     try {
-      const s3Url = await uploadAvatar(file);
-      await updateProfile({ avatarUrl: s3Url });
+      await updateProfile({ avatar: file });
       toast.success("Profile picture updated");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to upload photo");
