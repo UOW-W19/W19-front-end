@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, MoreVertical, Phone, Video } from "lucide-react";
+import { Send, MoreVertical, Phone, Video, ImagePlus, X } from "lucide-react";
 import { format } from "date-fns";
 import type { Conversation, Message } from "@/types/message";
 import { useAuth } from "@/contexts/AuthContext";
@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 interface ChatWindowProps {
     conversation: Conversation;
     messages: Message[];
-    onSendMessage: (content: string) => void;
+    onSendMessage: (content: string, image?: File) => void;
     onBack?: () => void;
     isLoading?: boolean;
 }
@@ -16,7 +16,10 @@ interface ChatWindowProps {
 export function ChatWindow({ conversation, messages, onSendMessage, onBack, isLoading }: ChatWindowProps) {
     const { user } = useAuth();
     const [newMessage, setNewMessage] = useState("");
+    const [selectedImage, setSelectedImage] = useState<string | null>(null);
+    const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const imageInputRef = useRef<HTMLInputElement>(null);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -26,11 +29,40 @@ export function ChatWindow({ conversation, messages, onSendMessage, onBack, isLo
         scrollToBottom();
     }, [messages]);
 
+    useEffect(() => {
+        return () => {
+            if (selectedImage) {
+                URL.revokeObjectURL(selectedImage);
+            }
+        };
+    }, [selectedImage]);
+
     const handleSend = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!newMessage.trim()) return;
-        onSendMessage(newMessage);
+        if (!newMessage.trim() && !selectedImageFile) return;
+        onSendMessage(newMessage, selectedImageFile || undefined);
         setNewMessage("");
+        setSelectedImage(null);
+        setSelectedImageFile(null);
+        if (imageInputRef.current) {
+            imageInputRef.current.value = "";
+        }
+    };
+
+    const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setSelectedImageFile(file);
+        setSelectedImage(URL.createObjectURL(file));
+    };
+
+    const removeImage = () => {
+        setSelectedImage(null);
+        setSelectedImageFile(null);
+        if (imageInputRef.current) {
+            imageInputRef.current.value = "";
+        }
     };
 
     // Helper to get display info
@@ -132,7 +164,16 @@ export function ChatWindow({ conversation, messages, onSendMessage, onBack, isLo
                                             : "bg-muted text-foreground rounded-tl-none"
                                             }`}
                                     >
-                                        <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                                        {msg.imageUrl && (
+                                            <img
+                                                src={msg.imageUrl}
+                                                alt="Message attachment"
+                                                className="mb-2 max-h-64 rounded-xl object-cover"
+                                            />
+                                        )}
+                                        {msg.content && (
+                                            <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                                        )}
                                         <div className={`text-[10px] mt-1 text-right ${isMeMock ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
                                             {format(new Date(msg.createdAt), "HH:mm")}
                                         </div>
@@ -147,7 +188,43 @@ export function ChatWindow({ conversation, messages, onSendMessage, onBack, isLo
 
             {/* Input Area */}
             <div className="p-4 border-t border-border bg-card">
+                {selectedImage && (
+                    <div className="mb-3 w-fit max-w-[180px] overflow-hidden rounded-xl border border-border bg-muted">
+                        <div className="relative">
+                            <img
+                                src={selectedImage}
+                                alt="Selected attachment"
+                                className="max-h-32 w-full object-cover"
+                            />
+                            <button
+                                type="button"
+                                onClick={removeImage}
+                                className="absolute right-1.5 top-1.5 rounded-full bg-foreground/70 p-1 text-background"
+                                aria-label="Remove image"
+                            >
+                                <X className="h-3.5 w-3.5" />
+                            </button>
+                        </div>
+                    </div>
+                )}
                 <form onSubmit={handleSend} className="flex gap-2">
+                    <input
+                        ref={imageInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageSelect}
+                        className="hidden"
+                    />
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => imageInputRef.current?.click()}
+                        disabled={isLoading}
+                        className="rounded-xl h-10 w-10 shrink-0"
+                    >
+                        <ImagePlus className="h-4 w-4" />
+                    </Button>
                     <input
                         type="text"
                         value={newMessage}
@@ -158,7 +235,7 @@ export function ChatWindow({ conversation, messages, onSendMessage, onBack, isLo
                     <Button
                         type="submit"
                         size="icon"
-                        disabled={!newMessage.trim() || isLoading}
+                        disabled={(!newMessage.trim() && !selectedImageFile) || isLoading}
                         className="rounded-xl h-10 w-10 shrink-0"
                     >
                         <Send className="h-4 w-4" />

@@ -16,7 +16,8 @@ const transformMessage = (m: BackendMessage): Message => ({
     id: String(m.id),
     conversationId: String(m.conversationId),
     senderId: String(m.sender.id),
-    content: m.content,
+    content: m.content || '',
+    imageUrl: m.imageUrl || m.image_url,
     createdAt: m.createdAt,
     isRead: m.isRead,
 });
@@ -47,11 +48,14 @@ const transformConversation = (c: BackendConversation): Conversation => ({
 
 const apiRequest = async <T>(endpoint: string, options: RequestInit = {}): Promise<T> => {
     const token = getStoredToken();
+    const isMultipart = options.body instanceof FormData;
     const headers: HeadersInit = {
-        'Content-Type': 'application/json',
         'ngrok-skip-browser-warning': 'true',
         ...options.headers,
     };
+    if (!isMultipart) {
+        (headers as Record<string, string>)['Content-Type'] = 'application/json';
+    }
 
     if (token) {
         (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
@@ -67,6 +71,22 @@ const apiRequest = async <T>(endpoint: string, options: RequestInit = {}): Promi
     if (response.status === 204) return {} as T;
 
     return response.json();
+};
+
+const buildMessageFormData = (data: { content?: string; image?: File; recipientId?: string }) => {
+    const formData = new FormData();
+
+    if (data.recipientId !== undefined) {
+        formData.append('recipientId', data.recipientId);
+    }
+    if (data.content !== undefined && data.content.trim()) {
+        formData.append('content', data.content.trim());
+    }
+    if (data.image) {
+        formData.append('image', data.image);
+    }
+
+    return formData;
 };
 
 export const messagesApi = {
@@ -104,7 +124,10 @@ export const messagesApi = {
     sendMessage: async (data: CreateMessageRequest): Promise<Message> => {
         const response = await apiRequest<BackendMessage>(`/conversations/${data.conversationId}/messages`, {
             method: 'POST',
-            body: JSON.stringify({ content: data.content }),
+            body: buildMessageFormData({
+                content: data.content,
+                image: data.image,
+            }),
         });
         return transformMessage(response);
     },
@@ -112,12 +135,13 @@ export const messagesApi = {
     /**
      * Start a new conversation with a recipient
      */
-    startConversation: async (recipientId: string, content = "Hello!"): Promise<Message> => {
+    startConversation: async (recipientId: string, content = "Hello!", image?: File): Promise<Message> => {
         const response = await apiRequest<BackendMessage>('/conversations', {
             method: 'POST',
-            body: JSON.stringify({
+            body: buildMessageFormData({
                 recipientId: recipientId,
-                content: content
+                content: content,
+                image,
             }),
         });
         return transformMessage(response);

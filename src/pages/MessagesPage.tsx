@@ -32,9 +32,9 @@ export default function MessagesPage() {
 
   // Send message mutation
   const sendMessageMutation = useMutation({
-    mutationFn: (content: string) => {
+    mutationFn: ({ content, image }: { content: string; image?: File }) => {
       if (!selectedConversationId) throw new Error("No conversation selected");
-      return messagesApi.sendMessage({ conversationId: selectedConversationId, content });
+      return messagesApi.sendMessage({ conversationId: selectedConversationId, content, image });
     },
     onSuccess: (newMessage) => {
       queryClient.setQueryData(['messages', selectedConversationId], (old: Message[] = []) => {
@@ -132,7 +132,7 @@ export default function MessagesPage() {
             conversation={selectedConversation}
             messages={messages}
             isLoading={sendMessageMutation.isPending}
-            onSendMessage={(content) => sendMessageMutation.mutate(content)}
+            onSendMessage={(content, image) => sendMessageMutation.mutate({ content, image })}
             onBack={() => setSelectedConversationId(null)}
           />
         </div>

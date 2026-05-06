@@ -5,6 +5,7 @@ export interface Message {
     conversationId: string;
     senderId: string;
     content: string;
+    imageUrl?: string;
     createdAt: string;
     isRead: boolean;
     // Optional: support for attachments in the future
@@ -28,6 +29,7 @@ export interface Conversation {
 export interface CreateMessageRequest {
     conversationId: string;
     content: string;
+    image?: File;
 }
 
 // Backend DTOs matching the Spring Boot ProfileResponse/MessageResponse
@@ -36,6 +38,8 @@ export interface BackendMessage {
     conversationId: string;
     sender: UserProfile; // Backend sends the whole sender profile in MessageResponse
     content: string;
+    image_url?: string;
+    imageUrl?: string;
     isRead: boolean;
     createdAt: string;
 }
