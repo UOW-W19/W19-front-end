@@ -163,7 +163,7 @@ export interface CommentsResponse {
 }
 
 // ============ LEARNING CORE ============
-export type WordSource = 'POST' | 'MANUAL';
+export type WordSource = 'POST' | 'MANUAL' | 'SCANNER';
 
 export interface SavedWord {
   id: string;
