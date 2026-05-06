@@ -3,3 +3,4 @@ export * from "./post";
 export * from "./language";
 export * from "./navigation";
 export * from "./api";
+export * from "./scanner";
