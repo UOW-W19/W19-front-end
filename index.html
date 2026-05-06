@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Locale" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="theme-color" content="#f5f2ec" />
+    
+    <title>Locale - Learn Languages Together</title>
+    <meta name="description" content="Connect with language learners nearby. Practice, share, and grow together." />
+    <meta name="author" content="Locale" />
+
+    <!-- PWA Icons -->
+    <link rel="icon" href="/favicon.ico" />
+    <link rel="apple-touch-icon" href="/pwa-192x192.png" />
+
+    <meta property="og:title" content="Locale - Learn Languages Together" />
+    <meta property="og:description" content="Connect with language learners nearby. Practice, share, and grow together." />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="/pwa-512x512.png" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@Locale" />
+    <meta name="twitter:image" content="/pwa-512x512.png" />
+    
+    <!-- Prevent tap highlight on iOS -->
+    <style>
+      * { -webkit-tap-highlight-color: transparent; }
+      html, body { overscroll-behavior: none; }
+    </style>
+  </head>
+
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
