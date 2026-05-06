@@ -17,12 +17,15 @@ const apiRequest = async <T>(
   options: RequestInit = {}
 ): Promise<T> => {
   const token = getStoredToken();
+  const isMultipart = options.body instanceof FormData;
   
   const headers: HeadersInit = {
-    'Content-Type': 'application/json',
     'ngrok-skip-browser-warning': 'true',
     ...options.headers,
   };
+  if (!isMultipart) {
+    (headers as Record<string, string>)['Content-Type'] = 'application/json';
+  }
   
   if (token) {
     (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
@@ -138,6 +141,26 @@ const transformPost = (post: BackendPost): ApiPost => {
   };
 };
 
+const buildCreatePostFormData = (data: CreatePostRequest) => {
+  const formData = new FormData();
+
+  formData.append('content', data.content);
+  if (data.originalLanguage !== undefined) {
+    formData.append('original_language', data.originalLanguage);
+  }
+  if (data.latitude !== undefined) {
+    formData.append('latitude', String(data.latitude));
+  }
+  if (data.longitude !== undefined) {
+    formData.append('longitude', String(data.longitude));
+  }
+  if (data.image) {
+    formData.append('image', data.image);
+  }
+
+  return formData;
+};
+
 // Posts API functions
 export const postsApi = {
   async getFeed(params?: PaginationParams & { language?: string; latitude?: number; longitude?: number }): Promise<FeedResponse> {
@@ -184,18 +207,9 @@ export const postsApi = {
   },
 
   async createPost(data: CreatePostRequest): Promise<ApiPost> {
-    // Send snake_case to backend
-    const body = {
-      content: data.content,
-      original_language: data.originalLanguage,
-      image_url: data.imageUrl,
-      latitude: data.latitude,
-      longitude: data.longitude,
-    };
-    
     const post = await apiRequest<BackendPost>('/posts', {
       method: 'POST',
-      body: JSON.stringify(body),
+      body: buildCreatePostFormData(data),
     });
     
     return transformPost(post);

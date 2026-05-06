@@ -2,10 +2,11 @@ import { useState, useCallback, useEffect } from "react";
 import { Globe, Plus, MessageCircle, ChevronDown, Check, Loader2 } from "lucide-react";
 import { PostCard } from "@/components/feed/PostCard";
 import { ComposeModal } from "@/components/feed/ComposeModal";
+import type { ComposePostPayload } from "@/components/feed/ComposeModal";
 import { Button } from "@/components/ui/button";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { postsApi, LANGUAGES, getLanguageByCode } from "@/services/api";
-import type { ApiPost, Post } from "@/types";
+import type { ApiPost, CreatePostRequest, Post } from "@/types";
 
 // Convert API post to UI post format
 const toUiPost = (apiPost: ApiPost): Post => {
@@ -83,13 +84,12 @@ export default function FeedPage() {
     await fetchPosts();
   }, [fetchPosts]);
 
-  const handleCreatePost = async (newPostData: Omit<Post, "id" | "time" | "reactions">) => {
+  const handleCreatePost = async (newPostData: ComposePostPayload) => {
     const langCode = LANGUAGES.find(l => l.name === newPostData.author.language)?.code || 'en';
-    const payload = {
+    const payload: CreatePostRequest = {
       content: newPostData.content,
       originalLanguage: langCode,
-      translation: newPostData.translation || undefined,
-      imageUrl: newPostData.image || undefined,
+      image: newPostData.imageFile || undefined,
     };
     console.log('[FeedPage] Creating post:', payload);
     try {

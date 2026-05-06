@@ -107,6 +107,7 @@ export interface ApiPost {
 export interface CreatePostRequest {
   content: string;
   originalLanguage?: string;
+  image?: File;
   imageUrl?: string;
   latitude?: number;
   longitude?: number;
