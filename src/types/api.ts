@@ -340,6 +340,3 @@ export interface PaginationParams {
   cursor?: string;
   limit?: number;
 }
-
-// Legacy alias for backward compatibility
-export type PostAuthor = AuthorDto;
