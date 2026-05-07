@@ -86,9 +86,6 @@ export default function ExplorePage() {
   // Load data when location changes
   useEffect(() => {
     const loadData = async () => {
-      console.log('🔍 [ExplorePage] Starting to load data...');
-      console.log('📍 Current location:', currentLocation);
-
       try {
         // Try to load meetups, but don't fail if endpoint doesn't exist
         let meetupsResponse;
@@ -98,8 +95,7 @@ export default function ExplorePage() {
             longitude: currentLocation.longitude,
             radiusKm: 40000, // 40000km radius to cover the entire world
           });
-        } catch (meetupsError) {
-          console.warn('⚠️ [ExplorePage] Meetups API failed (endpoint may not be implemented yet):', meetupsError);
+        } catch {
           meetupsResponse = { meetups: [], totalPages: 0, totalElements: 0, currentPage: 0 };
         }
 
@@ -109,23 +105,8 @@ export default function ExplorePage() {
           radiusKm: 40000, // 40000km radius to cover the entire world
         });
 
-        console.log('✅ [ExplorePage] Data loaded successfully!');
-        console.log('📅 Meetups response:', meetupsResponse);
-        console.log('📊 Meetups count:', meetupsResponse.meetups.length);
-        console.log('👥 Learners response:', learnersData);
-        console.log('📊 Learners count:', learnersData.length);
-
         setMeetups(meetupsResponse.meetups);
         setLearners(learnersData);
-
-        if (meetupsResponse.meetups.length === 0 && learnersData.length === 0) {
-          console.warn('⚠️ [ExplorePage] No data found! Check:');
-          console.warn('  1. Is backend running?');
-          console.warn('  2. Are you logged in?');
-          console.warn('  3. Does database have data with coordinates?');
-          console.warn('  4. Are coordinates near your location?');
-          console.warn('  5. Do users have show_location=true?');
-        }
       } catch (error) {
         console.error('❌ [ExplorePage] Failed to load data:', error);
         toast.error('Failed to load nearby data', {

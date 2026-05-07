@@ -183,13 +183,8 @@ export const postsApi = {
     }
 
     const url = `/posts?${queryParams.toString()}`;
-    console.log('[postsApi] Fetching feed:', url);
-
     const response = await apiRequest<BackendFeedResponse>(url);
-    console.log('[postsApi] Raw backend response:', response);
-
     const posts = response.content.map(transformPost);
-    console.log('[postsApi] Transformed posts:', posts);
 
     const pageNumber = response.number ?? page;
     const hasMore = !response.last;

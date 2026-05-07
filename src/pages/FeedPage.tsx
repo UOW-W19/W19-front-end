@@ -67,7 +67,6 @@ export default function FeedPage() {
         ? LANGUAGES.find((l) => l.name === selectedLanguage)?.code
         : undefined;
       const response = await postsApi.getFeed({ language: langCode });
-      console.log("[FeedPage] getFeed response:", response);
       setPosts(response.posts.map(toUiPost));
     } catch (error) {
       console.error("Failed to fetch posts:", error);
@@ -91,10 +90,8 @@ export default function FeedPage() {
       originalLanguage: langCode,
       image: newPostData.imageFile || undefined,
     };
-    console.log('[FeedPage] Creating post:', payload);
     try {
       const apiPost = await postsApi.createPost(payload);
-      console.log('[FeedPage] Post created:', apiPost);
       setPosts(prev => [toUiPost(apiPost), ...prev]);
     } catch (error) {
       console.error('[FeedPage] Failed to create post:', error);
