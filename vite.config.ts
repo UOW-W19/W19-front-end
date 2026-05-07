@@ -17,7 +17,7 @@ export default defineConfig(() => {
           target: "http://localhost:8081",
           changeOrigin: true,
         },
-        "/ws": {
+        "/ws-native": {
           target: "http://localhost:8081",
           changeOrigin: true,
           ws: true,

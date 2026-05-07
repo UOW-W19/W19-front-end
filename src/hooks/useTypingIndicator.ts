@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Client } from '@stomp/stompjs';
-import SockJS from 'sockjs-client';
 import { getStoredToken } from '@/services/api/auth';
+
+const wsProtocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+const WS_URL = `${wsProtocol}://${window.location.host}/ws-native`;
 
 export function useTypingIndicator(conversationId: string, currentUserId: string) {
     const [isOtherTyping, setIsOtherTyping] = useState(false);
@@ -13,7 +15,7 @@ export function useTypingIndicator(conversationId: string, currentUserId: string
         const token = getStoredToken();
 
         const client = new Client({
-            webSocketFactory: () => new SockJS('/ws'),
+            brokerURL: WS_URL,
             connectHeaders: token ? { Authorization: `Bearer ${token}` } : {},
             reconnectDelay: 5000,
             onConnect: () => {
