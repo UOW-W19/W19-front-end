@@ -14,11 +14,18 @@ export function useTypingIndicator(conversationId: string, currentUserId: string
     useEffect(() => {
         const token = getStoredToken();
 
+        let retries = 0;
+
         const client = new Client({
             brokerURL: WS_URL,
             connectHeaders: token ? { Authorization: `Bearer ${token}` } : {},
             reconnectDelay: 5000,
+            onWebSocketError: () => {
+                retries++;
+                if (retries >= 3) client.deactivate();
+            },
             onConnect: () => {
+                retries = 0;
                 client.subscribe(
                     `/topic/conversation.${conversationId}.typing`,
                     (frame) => {
