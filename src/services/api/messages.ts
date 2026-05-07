@@ -112,10 +112,7 @@ export const messagesApi = {
             );
 
             const data = Array.isArray(response) ? response : response.content;
-            // Backend sends newest first according to spec (created_at DESC), 
-            // but typical frontend chat expects oldest first for rendering. 
-            // We might need to .reverse() here or in the component.
-            return data.map(transformMessage);
+            return data.map(transformMessage).reverse();
         } catch (error) {
             console.error('Failed to fetch messages:', error);
             return [];
