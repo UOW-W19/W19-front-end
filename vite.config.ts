@@ -77,6 +77,9 @@ export default defineConfig(() => {
         },
       }),
     ].filter(Boolean),
+    define: {
+      global: 'globalThis',
+    },
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "./src"),
