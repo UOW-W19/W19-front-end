@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect } from "react";
-import { Send, MoreVertical, Phone, Video, ImagePlus, X } from "lucide-react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { Send, MoreVertical, Phone, Video, ImagePlus, X, ChevronDown } from "lucide-react";
 import { format } from "date-fns";
 import type { Conversation, Message } from "@/types/message";
 import { useAuth } from "@/contexts";
@@ -18,6 +18,7 @@ export function ChatWindow({ conversation, messages, onSendMessage, onBack, isLo
     const [newMessage, setNewMessage] = useState("");
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
     const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
+    const [showScrollButton, setShowScrollButton] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const imageInputRef = useRef<HTMLInputElement>(null);
@@ -29,12 +30,24 @@ export function ChatWindow({ conversation, messages, onSendMessage, onBack, isLo
         return el.scrollHeight - el.scrollTop - el.clientHeight < 100;
     };
 
+    const handleScroll = useCallback(() => {
+        setShowScrollButton(!isNearBottom());
+    }, []);
+
+    useEffect(() => {
+        const el = containerRef.current;
+        if (!el) return;
+        el.addEventListener("scroll", handleScroll, { passive: true });
+        return () => el.removeEventListener("scroll", handleScroll);
+    }, [handleScroll]);
+
     useEffect(() => {
         const isNewConversation = prevConvIdRef.current !== conversation.id;
         prevConvIdRef.current = conversation.id;
 
         if (isNewConversation) {
             messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
+            setShowScrollButton(false);
         } else if (isNearBottom()) {
             messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
         }
@@ -196,6 +209,19 @@ export function ChatWindow({ conversation, messages, onSendMessage, onBack, isLo
                     <div ref={messagesEndRef} />
                 </div>
             </div>
+
+            {/* Scroll-to-bottom button */}
+            {showScrollButton && (
+                <div className="relative h-0">
+                    <button
+                        onClick={() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })}
+                        className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-opacity hover:opacity-90"
+                        aria-label="Scroll to latest message"
+                    >
+                        <ChevronDown className="h-4 w-4" />
+                    </button>
+                </div>
+            )}
 
             {/* Input Area */}
             <div className="p-4 border-t border-border bg-card">
