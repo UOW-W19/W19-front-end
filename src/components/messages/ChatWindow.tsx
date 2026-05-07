@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { Send, MoreVertical, Phone, Video, ImagePlus, X } from "lucide-react";
 import { format } from "date-fns";
 import type { Conversation, Message } from "@/types/message";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts";
 import { Button } from "@/components/ui/button";
 
 interface ChatWindowProps {

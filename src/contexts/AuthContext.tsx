@@ -1,19 +1,8 @@
-import { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import type { UserProfile, LoginRequest, RegisterRequest, UpdateProfileRequest } from '@/types/api';
 import { authApi, getStoredToken, storeAuth, clearAuth } from '@/services/api';
-
-interface AuthContextType {
-  user: UserProfile | null;
-  isAuthenticated: boolean;
-  isLoading: boolean;
-  login: (data: LoginRequest) => Promise<void>;
-  register: (data: RegisterRequest) => Promise<void>;
-  logout: () => Promise<void>;
-  updateProfile: (data: UpdateProfileRequest) => Promise<void>;
-}
-
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+import { AuthContext } from './auth-context';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserProfile | null>(null);
@@ -33,7 +22,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Validate token by calling the backend
         const profile = await authApi.getProfile();
         setUser(profile);
-      } catch (error) {
+      } catch {
         // Token is invalid or expired - clear auth
         console.warn('Session expired or invalid, clearing auth');
         clearAuth();
@@ -88,12 +77,4 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       {children}
     </AuthContext.Provider>
   );
-}
-
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
 }

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Edit2, MapPin, Check, X, Loader2, Trash2, Users, Settings } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
@@ -30,6 +30,7 @@ const PROFICIENCY_OPTIONS: { value: ProficiencyLevel; label: string }[] = [
 
 export default function ProfilePage() {
   const { user, updateProfile } = useAuth();
+  const userId = user?.id;
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
@@ -57,10 +58,10 @@ export default function ProfilePage() {
 
   // Load current user's posts
   useEffect(() => {
-    if (!user) return;
+    if (!userId) return;
     setIsLoadingPosts(true);
     usersApi
-      .getUserPosts(user.id)
+      .getUserPosts(userId)
       .then(({ posts: apiPosts }) => {
         const adapted: Post[] = apiPosts.map((p) => ({
           id: p.id,
@@ -89,7 +90,7 @@ export default function ProfilePage() {
       })
       .catch(console.error)
       .finally(() => setIsLoadingPosts(false));
-  }, [user?.id]);
+  }, [userId]);
 
   const handleEdit = () => {
     setEditForm({

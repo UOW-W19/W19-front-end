@@ -46,12 +46,22 @@ export interface BackendMessage {
 
 export interface BackendConversation {
     id: string;
-    participants: UserProfile[];
+    participants: BackendConversationParticipant[];
     lastMessagePreview: string;
     lastMessageAt: string;
     unreadCount: number;
     createdAt: string;
     updatedAt: string;
+}
+
+export interface BackendConversationParticipant {
+    id: string | number;
+    email?: string;
+    username?: string;
+    displayName?: string;
+    display_name?: string;
+    avatarUrl?: string;
+    avatar_url?: string;
 }
 
 export interface BackendPaginatedResponse<T> {

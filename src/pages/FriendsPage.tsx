@@ -11,7 +11,7 @@ import {
     Bell,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts";
 import { friendsApi } from "@/services/api/friends";
 import type { FriendRequestResponse } from "@/types/api";
 import type { PublicUserProfile } from "@/services/api/users";

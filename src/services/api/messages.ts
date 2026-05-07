@@ -5,6 +5,7 @@ import type {
     Message,
     CreateMessageRequest,
     BackendConversation,
+    BackendConversationParticipant,
     BackendMessage,
     BackendPaginatedResponse
 } from '@/types/message';
@@ -24,7 +25,7 @@ const transformMessage = (m: BackendMessage): Message => ({
 
 const transformConversation = (c: BackendConversation): Conversation => ({
     id: String(c.id),
-    participants: (c.participants as any[]).map(p => ({
+    participants: c.participants.map((p: BackendConversationParticipant) => ({
         id: String(p.id),
         email: p.email || '',
         username: p.username || p.display_name?.toLowerCase().replace(/\s+/g, '_') || 'user',

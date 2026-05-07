@@ -1,7 +1,7 @@
 import { formatDistanceToNow } from "date-fns";
 import { CheckCheck } from "lucide-react";
 import type { Conversation } from "@/types/message";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts";
 
 interface ConversationListProps {
     conversations: Conversation[];

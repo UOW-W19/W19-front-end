@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { X, Globe, MapPin, Sparkles, Send, ImagePlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Post } from "@/types";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts";
 
 export interface ComposePostPayload extends Omit<Post, "id" | "time" | "reactions"> {
   imageFile?: File;
