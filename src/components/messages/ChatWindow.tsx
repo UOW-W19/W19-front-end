@@ -4,6 +4,7 @@ import { format } from "date-fns";
 import type { Conversation, Message } from "@/types/message";
 import { useAuth } from "@/contexts";
 import { Button } from "@/components/ui/button";
+import { useTypingIndicator } from "@/hooks/useTypingIndicator";
 
 interface ChatWindowProps {
     conversation: Conversation;
@@ -104,6 +105,8 @@ export function ChatWindow({ conversation, messages, onSendMessage, onBack, isLo
             initial: otherParticipant?.displayName?.[0] || '?'
         };
     };
+
+    const { isOtherTyping, sendTyping } = useTypingIndicator(conversation.id, user?.id ?? '');
 
     const info = getDisplayInfo();
 
@@ -206,6 +209,15 @@ export function ChatWindow({ conversation, messages, onSendMessage, onBack, isLo
                             </div>
                         );
                     })}
+                    {isOtherTyping && (
+                        <div className="flex justify-start">
+                            <div className="flex items-center gap-1 rounded-2xl rounded-tl-none bg-muted px-4 py-3 shadow-sm">
+                                <span className="h-2 w-2 rounded-full bg-muted-foreground animate-bounce [animation-delay:0ms]" />
+                                <span className="h-2 w-2 rounded-full bg-muted-foreground animate-bounce [animation-delay:150ms]" />
+                                <span className="h-2 w-2 rounded-full bg-muted-foreground animate-bounce [animation-delay:300ms]" />
+                            </div>
+                        </div>
+                    )}
                     <div ref={messagesEndRef} />
                 </div>
             </div>
@@ -265,7 +277,7 @@ export function ChatWindow({ conversation, messages, onSendMessage, onBack, isLo
                     <input
                         type="text"
                         value={newMessage}
-                        onChange={(e) => setNewMessage(e.target.value)}
+                        onChange={(e) => { setNewMessage(e.target.value); sendTyping(); }}
                         placeholder="Type a message..."
                         className="flex-1 rounded-xl border border-input bg-muted px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                     />
