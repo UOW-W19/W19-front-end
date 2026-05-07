@@ -323,29 +323,10 @@ export const authApi = {
   },
 
   async updateProfile(data: UpdateProfileRequest): Promise<UserProfile> {
-    let profile: BackendProfile;
-    try {
-      profile = await apiRequest<BackendProfile>('/users/me', {
-        method: 'PATCH',
-        body: buildUpdateProfileFormData(data),
-      });
-    } catch (error) {
-      if (data.avatar) {
-        throw error;
-      }
-
-      // Fallback: update locally if endpoint doesn't exist
-      const storedUser = getStoredUser();
-      if (!storedUser) {
-        throw new Error('Not authenticated');
-      }
-      const localPatch = { ...data };
-      delete localPatch.avatar;
-      const updatedUser = { ...storedUser, ...localPatch };
-      localStorage.setItem(USER_KEY, JSON.stringify(updatedUser));
-      return updatedUser;
-    }
-    
+    const profile = await apiRequest<BackendProfile>('/users/me', {
+      method: 'PATCH',
+      body: buildUpdateProfileFormData(data),
+    });
     const user = transformProfile(profile);
     localStorage.setItem(USER_KEY, JSON.stringify(user));
     return user;
