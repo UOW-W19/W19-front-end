@@ -19,15 +19,26 @@ export function ChatWindow({ conversation, messages, onSendMessage, onBack, isLo
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
     const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
     const imageInputRef = useRef<HTMLInputElement>(null);
+    const prevConvIdRef = useRef<string>(conversation.id);
 
-    const scrollToBottom = () => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const isNearBottom = () => {
+        const el = containerRef.current;
+        if (!el) return true;
+        return el.scrollHeight - el.scrollTop - el.clientHeight < 100;
     };
 
     useEffect(() => {
-        scrollToBottom();
-    }, [messages]);
+        const isNewConversation = prevConvIdRef.current !== conversation.id;
+        prevConvIdRef.current = conversation.id;
+
+        if (isNewConversation) {
+            messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
+        } else if (isNearBottom()) {
+            messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        }
+    }, [conversation.id, messages.length]);
 
     useEffect(() => {
         return () => {
@@ -132,7 +143,7 @@ export function ChatWindow({ conversation, messages, onSendMessage, onBack, isLo
             </div>
 
             {/* Messages Area */}
-            <div className="flex-1 overflow-y-auto p-4">
+            <div ref={containerRef} className="flex-1 overflow-y-auto p-4">
                 <div className="flex flex-col justify-end min-h-full space-y-4">
                     {messages.map((msg, index) => {
                         // Fix: for mock data 'current-user' comparison
