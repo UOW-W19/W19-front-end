@@ -24,6 +24,7 @@ export function ChatWindow({ conversation, messages, onSendMessage, onBack, isLo
     const containerRef = useRef<HTMLDivElement>(null);
     const imageInputRef = useRef<HTMLInputElement>(null);
     const prevConvIdRef = useRef<string>(conversation.id);
+    const hasScrolledInitiallyRef = useRef(false);
 
     const isNearBottom = () => {
         const el = containerRef.current;
@@ -44,12 +45,16 @@ export function ChatWindow({ conversation, messages, onSendMessage, onBack, isLo
 
     useEffect(() => {
         const isNewConversation = prevConvIdRef.current !== conversation.id;
-        prevConvIdRef.current = conversation.id;
-
         if (isNewConversation) {
+            prevConvIdRef.current = conversation.id;
+            hasScrolledInitiallyRef.current = false;
+        }
+
+        if (!hasScrolledInitiallyRef.current && messages.length > 0) {
             messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
+            hasScrolledInitiallyRef.current = true;
             setShowScrollButton(false);
-        } else if (isNearBottom()) {
+        } else if (hasScrolledInitiallyRef.current && isNearBottom()) {
             messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
         }
     }, [conversation.id, messages.length]);
