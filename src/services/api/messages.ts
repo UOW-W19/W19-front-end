@@ -70,10 +70,12 @@ const apiRequest = async <T>(endpoint: string, options: RequestInit = {}): Promi
         throw new Error(`Api request failed: ${response.statusText}`);
     }
 
-    // Handles 204 No Content
+    // Handles 204 No Content and any response with an empty body
     if (response.status === 204) return {} as T;
 
-    return response.json();
+    const text = await response.text();
+    if (!text) return {} as T;
+    return JSON.parse(text) as T;
 };
 
 const buildMessageFormData = (data: { content?: string; image?: File; recipientId?: string }) => {
