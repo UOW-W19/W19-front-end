@@ -8,6 +8,12 @@ import { CreateGroupModal } from "@/components/messages/CreateGroupModal";
 import { messagesApi } from "@/services/api/messages";
 import type { Message } from "@/types/message";
 import { useAuth } from "@/contexts";
+import { useChatSubscription } from "@/hooks/useChatSubscription";
+
+const appendUniqueMessage = (messages: Message[], newMessage: Message) => {
+  if (messages.some(m => m.id === newMessage.id)) return messages;
+  return [...messages, newMessage];
+};
 
 export default function MessagesPage() {
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
@@ -26,12 +32,15 @@ export default function MessagesPage() {
     refetchInterval: 10000,
   });
 
+  const conversationIds = useMemo(() => conversations.map(c => c.id), [conversations]);
+  useChatSubscription(conversationIds, selectedConversationId);
+
   // Fetch messages for selected conversation
   const { data: messages = [] } = useQuery({
     queryKey: ['messages', selectedConversationId],
     queryFn: () => selectedConversationId ? messagesApi.getMessages(selectedConversationId) : Promise.resolve([]),
     enabled: !!selectedConversationId,
-    refetchInterval: 5000,
+    refetchInterval: 60000,
   });
 
   // Delete message mutation
@@ -91,7 +100,7 @@ export default function MessagesPage() {
     },
     onSuccess: (newMessage) => {
       queryClient.setQueryData(['messages', selectedConversationId], (old: Message[] = []) => {
-        return [...old, newMessage];
+        return appendUniqueMessage(old, newMessage);
       });
       queryClient.invalidateQueries({ queryKey: ['conversations'] });
     },

@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, MoreVertical, Phone, Video, ImagePlus, X, ChevronDown, Download, Trash2 } from "lucide-react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { Send, MoreVertical, Phone, Video, ImagePlus, X, ChevronDown, Download, Trash2, Users } from "lucide-react";
 import { format } from "date-fns";
 import type { Conversation, Message } from "@/types/message";
 import { useAuth } from "@/contexts";
@@ -32,6 +32,10 @@ export function ChatWindow({ conversation, messages, onSendMessage, onDeleteMess
     const imageInputRef = useRef<HTMLInputElement>(null);
     const prevConvIdRef = useRef<string>(conversation.id);
     const hasScrolledInitiallyRef = useRef(false);
+    const visibleMessages = useMemo(
+        () => messages.filter((msg, index, all) => all.findIndex(m => m.id === msg.id) === index),
+        [messages],
+    );
 
     const isNearBottom = () => {
         const el = containerRef.current;
@@ -60,11 +64,10 @@ export function ChatWindow({ conversation, messages, onSendMessage, onDeleteMess
         if (!hasScrolledInitiallyRef.current && messages.length > 0) {
             messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
             hasScrolledInitiallyRef.current = true;
-            setShowScrollButton(false);
         } else if (hasScrolledInitiallyRef.current && isNearBottom()) {
             messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
         }
-    }, [conversation.id, messages.length]);
+    }, [conversation.id, messages.length, visibleMessages.length]);
 
     useEffect(() => {
         return () => {
@@ -160,6 +163,8 @@ export function ChatWindow({ conversation, messages, onSendMessage, onDeleteMess
                                 alt={info.name}
                                 className="h-10 w-10 rounded-full object-cover"
                             />
+                        ) : conversation.isGroup ? (
+                            <Users className="h-5 w-5" />
                         ) : (
                             info.initial
                         )}
@@ -194,11 +199,15 @@ export function ChatWindow({ conversation, messages, onSendMessage, onDeleteMess
             {/* Messages Area */}
             <div ref={containerRef} className="flex-1 overflow-y-auto p-4">
                 <div className="flex flex-col justify-end min-h-full space-y-4">
-                    {messages.map((msg, index) => {
+                    {visibleMessages.map((msg, index) => {
                         // Fix: for mock data 'current-user' comparison
                         const isMeMock = msg.senderId === 'current-user' || msg.senderId === user?.id;
 
-                        const showAvatar = !isMeMock && (index === 0 || messages[index - 1].senderId !== msg.senderId);
+                        const showAvatar = index === 0 || visibleMessages[index - 1].senderId !== msg.senderId;
+                        const sender = conversation.participants.find(p => p.id === msg.senderId);
+                        const senderName = msg.senderDisplayName || sender?.displayName || (isMeMock ? user?.displayName : undefined) || "Unknown User";
+                        const senderAvatar = msg.senderAvatarUrl || sender?.avatarUrl || (isMeMock ? user?.avatarUrl : undefined);
+                        const senderInitial = senderName[0] ?? '?';
 
                         return (
                             <div
@@ -207,40 +216,50 @@ export function ChatWindow({ conversation, messages, onSendMessage, onDeleteMess
                             >
                                 <div className={`group flex max-w-[70%] gap-2 ${isMeMock ? "flex-row-reverse" : "flex-row"}`}>
 
-                                    {/* Avatar for other users */}
-                                    {!isMeMock && (
-                                        <div className="w-8 shrink-0">
-                                            {showAvatar && (
-                                                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary/60 text-xs font-semibold text-primary-foreground">
-                                                    {info.initial}
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
+                                    <div className="w-8 shrink-0">
+                                        {showAvatar && (
+                                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary/60 text-xs font-semibold text-primary-foreground">
+                                                {senderAvatar ? (
+                                                    <img
+                                                        src={senderAvatar}
+                                                        alt={senderName}
+                                                        className="h-8 w-8 rounded-full object-cover"
+                                                    />
+                                                ) : (
+                                                    senderInitial
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
 
-                                    <div
-                                        className={`rounded-2xl px-4 py-2 shadow-sm ${isMeMock
-                                            ? "bg-primary text-primary-foreground rounded-tr-none"
-                                            : "bg-muted text-foreground rounded-tl-none"
-                                            }`}
-                                    >
-                                        {msg.imageUrl && (
-                                            <button
-                                                onClick={() => setLightboxImage(msg.imageUrl!)}
-                                                className="block mb-2 cursor-zoom-in"
-                                            >
-                                                <img
-                                                    src={msg.imageUrl}
-                                                    alt="Message attachment"
-                                                    className="max-h-64 rounded-xl object-cover hover:opacity-90 transition-opacity"
-                                                />
-                                            </button>
+                                    <div className="flex flex-col gap-0.5">
+                                        {conversation.isGroup && !isMeMock && showAvatar && (
+                                            <span className="text-[11px] text-muted-foreground font-medium pl-1">{senderName}</span>
                                         )}
-                                        {msg.content && (
-                                            <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
-                                        )}
-                                        <div className={`text-[10px] mt-1 text-right ${isMeMock ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
-                                            {format(new Date(msg.createdAt), "HH:mm")}
+                                        <div
+                                            className={`rounded-2xl px-4 py-2 shadow-sm ${isMeMock
+                                                ? "bg-primary text-primary-foreground rounded-tr-none"
+                                                : "bg-muted text-foreground rounded-tl-none"
+                                                }`}
+                                        >
+                                            {msg.imageUrl && (
+                                                <button
+                                                    onClick={() => setLightboxImage(msg.imageUrl!)}
+                                                    className="block mb-2 cursor-zoom-in"
+                                                >
+                                                    <img
+                                                        src={msg.imageUrl}
+                                                        alt="Message attachment"
+                                                        className="max-h-64 rounded-xl object-cover hover:opacity-90 transition-opacity"
+                                                    />
+                                                </button>
+                                            )}
+                                            {msg.content && (
+                                                <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                                            )}
+                                            <div className={`text-[10px] mt-1 text-right ${isMeMock ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
+                                                {format(new Date(msg.createdAt), "HH:mm")}
+                                            </div>
                                         </div>
                                     </div>
 

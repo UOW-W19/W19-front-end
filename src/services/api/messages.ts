@@ -17,11 +17,22 @@ const transformMessage = (m: BackendMessage): Message => ({
     id: String(m.id),
     conversationId: String(m.conversationId),
     senderId: String(m.sender.id),
+    senderDisplayName: m.sender.displayName || m.sender.display_name || m.sender.username,
+    senderAvatarUrl: m.sender.avatarUrl || m.sender.avatar_url,
     content: m.content || '',
     imageUrl: m.imageUrl || m.image_url,
     createdAt: m.createdAt,
     isRead: m.isRead,
 });
+
+const dedupeMessages = (messages: Message[]) => {
+    const seen = new Set<string>();
+    return messages.filter(message => {
+        if (seen.has(message.id)) return false;
+        seen.add(message.id);
+        return true;
+    });
+};
 
 const transformConversation = (c: BackendConversation): Conversation => ({
     id: String(c.id),
@@ -43,6 +54,8 @@ const transformConversation = (c: BackendConversation): Conversation => ({
         createdAt: c.lastMessageAt || c.updatedAt,
         conversationId: String(c.id),
         senderId: '',
+        senderDisplayName: '',
+        senderAvatarUrl: undefined,
         isRead: true
     } as Message
 });
@@ -116,7 +129,7 @@ export const messagesApi = {
             );
 
             const data = Array.isArray(response) ? response : response.content;
-            return data.map(transformMessage).reverse();
+            return dedupeMessages(data.map(transformMessage).reverse());
         } catch (error) {
             console.error('Failed to fetch messages:', error);
             return [];
