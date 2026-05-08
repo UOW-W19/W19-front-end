@@ -11,11 +11,13 @@ interface ChatWindowProps {
     messages: Message[];
     onSendMessage: (content: string, image?: File) => void;
     onDeleteMessage?: (messageId: string) => void;
+    onLeaveGroup?: (conversationId: string) => void;
+    onUpdateGroup?: (conversationId: string, groupName: string) => void;
     onBack?: () => void;
     isLoading?: boolean;
 }
 
-export function ChatWindow({ conversation, messages, onSendMessage, onDeleteMessage, onBack, isLoading }: ChatWindowProps) {
+export function ChatWindow({ conversation, messages, onSendMessage, onDeleteMessage, onLeaveGroup, onUpdateGroup, onBack, isLoading }: ChatWindowProps) {
     const { user } = useAuth();
     const [newMessage, setNewMessage] = useState("");
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -23,6 +25,8 @@ export function ChatWindow({ conversation, messages, onSendMessage, onDeleteMess
     const [showScrollButton, setShowScrollButton] = useState(false);
     const [showMediaPanel, setShowMediaPanel] = useState(false);
     const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+    const [renamingGroup, setRenamingGroup] = useState(false);
+    const [renameValue, setRenameValue] = useState("");
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const imageInputRef = useRef<HTMLInputElement>(null);
@@ -285,38 +289,118 @@ export function ChatWindow({ conversation, messages, onSendMessage, onDeleteMess
                 </div>
             )}
 
-            {/* Media & Attachments panel */}
+            {/* Side panel — group info (when group) + media attachments */}
             {showMediaPanel && (
                 <div className="absolute inset-y-0 right-0 w-full sm:w-72 bg-card border-l border-border flex flex-col z-20 shadow-xl">
                     <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
-                        <h4 className="font-semibold text-sm">Media &amp; Attachments</h4>
+                        <h4 className="font-semibold text-sm">
+                            {conversation.isGroup ? "Group Info" : "Media & Attachments"}
+                        </h4>
                         <Button variant="ghost" size="icon" onClick={() => setShowMediaPanel(false)} aria-label="Close panel">
                             <X className="h-4 w-4" />
                         </Button>
                     </div>
-                    <div className="flex-1 overflow-y-auto p-3">
-                        {messages.filter(m => m.imageUrl).length === 0 ? (
-                            <p className="text-sm text-muted-foreground text-center mt-12">No attachments yet</p>
-                        ) : (
-                            <div className="grid grid-cols-2 gap-2">
-                                {messages.filter(m => m.imageUrl).map(msg => (
-                                    <button
-                                        key={msg.id}
-                                        onClick={() => setLightboxImage(msg.imageUrl!)}
-                                        className="group relative aspect-square overflow-hidden rounded-lg border border-border hover:ring-2 hover:ring-primary transition-all"
-                                    >
-                                        <img
-                                            src={msg.imageUrl!}
-                                            alt="Attachment"
-                                            className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-200"
+
+                    <div className="flex-1 overflow-y-auto">
+                        {/* Group-specific section */}
+                        {conversation.isGroup && (
+                            <div className="p-4 border-b border-border space-y-3">
+                                {/* Rename */}
+                                {renamingGroup ? (
+                                    <div className="flex gap-2">
+                                        <input
+                                            autoFocus
+                                            type="text"
+                                            value={renameValue}
+                                            onChange={e => setRenameValue(e.target.value)}
+                                            maxLength={60}
+                                            className="flex-1 rounded-lg border border-input bg-muted px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                                         />
-                                        <div className="absolute bottom-0 inset-x-0 bg-black/40 px-1.5 py-0.5 text-[10px] text-white text-right opacity-0 group-hover:opacity-100 transition-opacity">
-                                            {format(new Date(msg.createdAt), "MMM d")}
-                                        </div>
+                                        <Button
+                                            size="sm"
+                                            className="rounded-lg"
+                                            onClick={() => {
+                                                if (renameValue.trim() && onUpdateGroup) {
+                                                    onUpdateGroup(conversation.id, renameValue.trim());
+                                                }
+                                                setRenamingGroup(false);
+                                            }}
+                                        >Save</Button>
+                                        <Button size="sm" variant="ghost" className="rounded-lg" onClick={() => setRenamingGroup(false)}>
+                                            <X className="h-3.5 w-3.5" />
+                                        </Button>
+                                    </div>
+                                ) : (
+                                    <button
+                                        onClick={() => { setRenameValue(conversation.groupName || ""); setRenamingGroup(true); }}
+                                        className="text-xs text-primary hover:underline"
+                                    >
+                                        Rename group
                                     </button>
-                                ))}
+                                )}
+
+                                {/* Members list */}
+                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                                    Members ({conversation.participants.length})
+                                </p>
+                                <div className="space-y-2">
+                                    {conversation.participants.map(p => (
+                                        <div key={p.id} className="flex items-center gap-2">
+                                            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary/60 text-xs font-semibold text-primary-foreground">
+                                                {p.avatarUrl ? (
+                                                    <img src={p.avatarUrl} alt={p.displayName} className="h-7 w-7 rounded-full object-cover" />
+                                                ) : (
+                                                    p.displayName?.[0] || '?'
+                                                )}
+                                            </div>
+                                            <span className="flex-1 text-sm truncate">{p.displayName}</span>
+                                            {p.id === user?.id && (
+                                                <span className="text-[10px] text-muted-foreground">You</span>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* Leave group */}
+                                {onLeaveGroup && (
+                                    <button
+                                        onClick={() => { setShowMediaPanel(false); onLeaveGroup(conversation.id); }}
+                                        className="w-full text-sm text-destructive hover:bg-destructive/10 rounded-lg py-1.5 transition-colors"
+                                    >
+                                        Leave Group
+                                    </button>
+                                )}
                             </div>
                         )}
+
+                        {/* Attachments grid */}
+                        <div className="p-3">
+                            {!conversation.isGroup && (
+                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Media &amp; Attachments</p>
+                            )}
+                            {messages.filter(m => m.imageUrl).length === 0 ? (
+                                <p className="text-sm text-muted-foreground text-center mt-6">No attachments yet</p>
+                            ) : (
+                                <div className="grid grid-cols-2 gap-2">
+                                    {messages.filter(m => m.imageUrl).map(msg => (
+                                        <button
+                                            key={msg.id}
+                                            onClick={() => setLightboxImage(msg.imageUrl!)}
+                                            className="group relative aspect-square overflow-hidden rounded-lg border border-border hover:ring-2 hover:ring-primary transition-all"
+                                        >
+                                            <img
+                                                src={msg.imageUrl!}
+                                                alt="Attachment"
+                                                className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-200"
+                                            />
+                                            <div className="absolute bottom-0 inset-x-0 bg-black/40 px-1.5 py-0.5 text-[10px] text-white text-right opacity-0 group-hover:opacity-100 transition-opacity">
+                                                {format(new Date(msg.createdAt), "MMM d")}
+                                            </div>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
             )}

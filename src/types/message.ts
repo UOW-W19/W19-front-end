@@ -47,6 +47,9 @@ export interface BackendMessage {
 export interface BackendConversation {
     id: string;
     participants: BackendConversationParticipant[];
+    isGroup: boolean;
+    groupName?: string;
+    groupAvatar?: string;
     lastMessagePreview: string;
     lastMessageAt: string;
     unreadCount: number;

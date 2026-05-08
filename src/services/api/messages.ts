@@ -32,15 +32,17 @@ const transformConversation = (c: BackendConversation): Conversation => ({
         displayName: p.displayName || p.display_name || p.username || 'Unknown User',
         avatarUrl: p.avatarUrl || p.avatar_url,
     })) as UserProfile[],
+    isGroup: c.isGroup || false,
+    groupName: c.groupName,
+    groupAvatar: c.groupAvatar,
     unreadCount: c.unreadCount || 0,
     updatedAt: c.lastMessageAt || c.updatedAt,
-    isGroup: false, // Default to false
     lastMessage: {
         id: 'last-' + c.id,
         content: c.lastMessagePreview,
         createdAt: c.lastMessageAt || c.updatedAt,
         conversationId: String(c.id),
-        senderId: '', // Preview DTO doesn't explicitly have senderId
+        senderId: '',
         isRead: true
     } as Message
 });
@@ -155,5 +157,35 @@ export const messagesApi = {
         await apiRequest<void>(`/conversations/${conversationId}/messages/${messageId}`, {
             method: 'DELETE'
         });
+    },
+
+    createGroup: async (groupName: string, participantIds: string[], groupAvatar?: string): Promise<Conversation> => {
+        const response = await apiRequest<BackendConversation>('/conversations/group', {
+            method: 'POST',
+            body: JSON.stringify({ groupName, participantIds, groupAvatar }),
+        });
+        return transformConversation(response);
+    },
+
+    addParticipant: async (conversationId: string, profileId: string): Promise<Conversation> => {
+        const response = await apiRequest<BackendConversation>(
+            `/conversations/${conversationId}/participants?profileId=${profileId}`,
+            { method: 'POST' }
+        );
+        return transformConversation(response);
+    },
+
+    removeParticipant: async (conversationId: string, profileId: string): Promise<void> => {
+        await apiRequest<void>(`/conversations/${conversationId}/participants/${profileId}`, {
+            method: 'DELETE'
+        });
+    },
+
+    updateGroup: async (conversationId: string, groupName?: string, groupAvatar?: string): Promise<Conversation> => {
+        const response = await apiRequest<BackendConversation>(`/conversations/${conversationId}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ groupName, groupAvatar }),
+        });
+        return transformConversation(response);
     },
 };
