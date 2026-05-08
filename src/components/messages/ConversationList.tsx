@@ -77,7 +77,7 @@ export function ConversationList({ conversations, selectedId, onSelect, onNewGro
                                                 alt={info.name}
                                                 className="h-12 w-12 rounded-full object-cover"
                                             />
-                                        ) : conversation.isGroup ? (
+                                        ) : convo.isGroup ? (
                                             <Users className="h-5 w-5" />
                                         ) : (
                                             info.initial
