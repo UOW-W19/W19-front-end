@@ -30,6 +30,19 @@ export default function MessagesPage() {
     refetchInterval: 5000,
   });
 
+  // Delete message mutation
+  const deleteMessageMutation = useMutation({
+    mutationFn: (messageId: string) => {
+      if (!selectedConversationId) throw new Error("No conversation selected");
+      return messagesApi.deleteMessage(selectedConversationId, messageId);
+    },
+    onSuccess: (_data, messageId) => {
+      queryClient.setQueryData(['messages', selectedConversationId], (old: Message[] = []) =>
+        old.filter(m => m.id !== messageId)
+      );
+    },
+  });
+
   // Send message mutation
   const sendMessageMutation = useMutation({
     mutationFn: ({ content, image }: { content: string; image?: File }) => {
@@ -133,6 +146,7 @@ export default function MessagesPage() {
             messages={messages}
             isLoading={sendMessageMutation.isPending}
             onSendMessage={(content, image) => sendMessageMutation.mutate({ content, image })}
+            onDeleteMessage={(messageId) => deleteMessageMutation.mutate(messageId)}
             onBack={() => setSelectedConversationId(null)}
           />
         </div>

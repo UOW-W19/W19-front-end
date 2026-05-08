@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, MoreVertical, Phone, Video, ImagePlus, X, ChevronDown } from "lucide-react";
+import { Send, MoreVertical, Phone, Video, ImagePlus, X, ChevronDown, Download, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import type { Conversation, Message } from "@/types/message";
 import { useAuth } from "@/contexts";
@@ -10,16 +10,19 @@ interface ChatWindowProps {
     conversation: Conversation;
     messages: Message[];
     onSendMessage: (content: string, image?: File) => void;
+    onDeleteMessage?: (messageId: string) => void;
     onBack?: () => void;
     isLoading?: boolean;
 }
 
-export function ChatWindow({ conversation, messages, onSendMessage, onBack, isLoading }: ChatWindowProps) {
+export function ChatWindow({ conversation, messages, onSendMessage, onDeleteMessage, onBack, isLoading }: ChatWindowProps) {
     const { user } = useAuth();
     const [newMessage, setNewMessage] = useState("");
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
     const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
     const [showScrollButton, setShowScrollButton] = useState(false);
+    const [showMediaPanel, setShowMediaPanel] = useState(false);
+    const [lightboxImage, setLightboxImage] = useState<string | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const imageInputRef = useRef<HTMLInputElement>(null);
@@ -95,6 +98,21 @@ export function ChatWindow({ conversation, messages, onSendMessage, onBack, isLo
         }
     };
 
+    const handleDownload = async (url: string) => {
+        try {
+            const res = await fetch(url);
+            const blob = await res.blob();
+            const objectUrl = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = objectUrl;
+            a.download = url.split("/").pop() || "image";
+            a.click();
+            URL.revokeObjectURL(objectUrl);
+        } catch {
+            window.open(url, "_blank");
+        }
+    };
+
     // Helper to get display info
     const getDisplayInfo = () => {
         if (conversation.isGroup) {
@@ -111,12 +129,12 @@ export function ChatWindow({ conversation, messages, onSendMessage, onBack, isLo
         };
     };
 
-    const { isOtherTyping, sendTyping } = useTypingIndicator(conversation.id, user?.id ?? '');
+    const { isOtherTyping, typingDisplayName, sendTyping } = useTypingIndicator(conversation.id, user?.id ?? '');
 
     const info = getDisplayInfo();
 
     return (
-        <div className="flex flex-col h-full bg-background">
+        <div className="relative flex flex-col h-full bg-background">
             {/* Header */}
             <div className="flex items-center justify-between px-4 lg:px-6 py-3 border-b border-border bg-card/50 backdrop-blur-sm">
                 <div className="flex items-center gap-3">
@@ -157,7 +175,13 @@ export function ChatWindow({ conversation, messages, onSendMessage, onBack, isLo
                     <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
                         <Video className="h-5 w-5" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-muted-foreground hover:text-foreground"
+                        onClick={() => setShowMediaPanel(v => !v)}
+                        aria-label="View attachments"
+                    >
                         <MoreVertical className="h-5 w-5" />
                     </Button>
                 </div>
@@ -177,7 +201,7 @@ export function ChatWindow({ conversation, messages, onSendMessage, onBack, isLo
                                 key={msg.id}
                                 className={`flex w-full ${isMeMock ? "justify-end" : "justify-start"}`}
                             >
-                                <div className={`flex max-w-[70%] gap-2 ${isMeMock ? "flex-row-reverse" : "flex-row"}`}>
+                                <div className={`group flex max-w-[70%] gap-2 ${isMeMock ? "flex-row-reverse" : "flex-row"}`}>
 
                                     {/* Avatar for other users */}
                                     {!isMeMock && (
@@ -197,11 +221,16 @@ export function ChatWindow({ conversation, messages, onSendMessage, onBack, isLo
                                             }`}
                                     >
                                         {msg.imageUrl && (
-                                            <img
-                                                src={msg.imageUrl}
-                                                alt="Message attachment"
-                                                className="mb-2 max-h-64 rounded-xl object-cover"
-                                            />
+                                            <button
+                                                onClick={() => setLightboxImage(msg.imageUrl!)}
+                                                className="block mb-2 cursor-zoom-in"
+                                            >
+                                                <img
+                                                    src={msg.imageUrl}
+                                                    alt="Message attachment"
+                                                    className="max-h-64 rounded-xl object-cover hover:opacity-90 transition-opacity"
+                                                />
+                                            </button>
                                         )}
                                         {msg.content && (
                                             <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
@@ -210,16 +239,32 @@ export function ChatWindow({ conversation, messages, onSendMessage, onBack, isLo
                                             {format(new Date(msg.createdAt), "HH:mm")}
                                         </div>
                                     </div>
+
+                                    {/* Delete button — own messages only, visible on hover */}
+                                    {isMeMock && onDeleteMessage && (
+                                        <button
+                                            onClick={() => onDeleteMessage(msg.id)}
+                                            className="self-center opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                            aria-label="Delete message"
+                                        >
+                                            <Trash2 className="h-3.5 w-3.5" />
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         );
                     })}
                     {isOtherTyping && (
                         <div className="flex justify-start">
-                            <div className="flex items-center gap-1 rounded-2xl rounded-tl-none bg-muted px-4 py-3 shadow-sm">
+                            <div className="flex items-center gap-1.5 rounded-2xl rounded-tl-none bg-muted px-4 py-3 shadow-sm">
                                 <span className="h-2 w-2 rounded-full bg-muted-foreground animate-bounce [animation-delay:0ms]" />
                                 <span className="h-2 w-2 rounded-full bg-muted-foreground animate-bounce [animation-delay:150ms]" />
                                 <span className="h-2 w-2 rounded-full bg-muted-foreground animate-bounce [animation-delay:300ms]" />
+                                {typingDisplayName && (
+                                    <span className="ml-1 text-xs text-muted-foreground">
+                                        {typingDisplayName} is typing...
+                                    </span>
+                                )}
                             </div>
                         </div>
                     )}
@@ -237,6 +282,73 @@ export function ChatWindow({ conversation, messages, onSendMessage, onBack, isLo
                     >
                         <ChevronDown className="h-4 w-4" />
                     </button>
+                </div>
+            )}
+
+            {/* Media & Attachments panel */}
+            {showMediaPanel && (
+                <div className="absolute inset-y-0 right-0 w-full sm:w-72 bg-card border-l border-border flex flex-col z-20 shadow-xl">
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
+                        <h4 className="font-semibold text-sm">Media &amp; Attachments</h4>
+                        <Button variant="ghost" size="icon" onClick={() => setShowMediaPanel(false)} aria-label="Close panel">
+                            <X className="h-4 w-4" />
+                        </Button>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-3">
+                        {messages.filter(m => m.imageUrl).length === 0 ? (
+                            <p className="text-sm text-muted-foreground text-center mt-12">No attachments yet</p>
+                        ) : (
+                            <div className="grid grid-cols-2 gap-2">
+                                {messages.filter(m => m.imageUrl).map(msg => (
+                                    <button
+                                        key={msg.id}
+                                        onClick={() => setLightboxImage(msg.imageUrl!)}
+                                        className="group relative aspect-square overflow-hidden rounded-lg border border-border hover:ring-2 hover:ring-primary transition-all"
+                                    >
+                                        <img
+                                            src={msg.imageUrl!}
+                                            alt="Attachment"
+                                            className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-200"
+                                        />
+                                        <div className="absolute bottom-0 inset-x-0 bg-black/40 px-1.5 py-0.5 text-[10px] text-white text-right opacity-0 group-hover:opacity-100 transition-opacity">
+                                            {format(new Date(msg.createdAt), "MMM d")}
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* Lightbox */}
+            {lightboxImage && (
+                <div
+                    className="absolute inset-0 bg-black/85 flex items-center justify-center z-30"
+                    onClick={() => setLightboxImage(null)}
+                >
+                    <div className="absolute top-3 right-3 flex items-center gap-2">
+                        <button
+                            className="rounded-full bg-white/10 p-1.5 text-white hover:bg-white/20 transition-colors"
+                            onClick={e => { e.stopPropagation(); handleDownload(lightboxImage); }}
+                            aria-label="Download image"
+                        >
+                            <Download className="h-5 w-5" />
+                        </button>
+                        <button
+                            className="rounded-full bg-white/10 p-1.5 text-white hover:bg-white/20 transition-colors"
+                            onClick={() => setLightboxImage(null)}
+                            aria-label="Close image"
+                        >
+                            <X className="h-5 w-5" />
+                        </button>
+                    </div>
+                    <img
+                        src={lightboxImage}
+                        alt="Full size attachment"
+                        className="max-w-[92%] max-h-[92%] object-contain rounded-lg shadow-2xl"
+                        onClick={e => e.stopPropagation()}
+                    />
                 </div>
             )}
 

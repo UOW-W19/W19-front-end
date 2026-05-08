@@ -149,5 +149,11 @@ export const messagesApi = {
         await apiRequest<void>(`/conversations/${conversationId}/read`, {
             method: 'POST'
         });
-    }
+    },
+
+    deleteMessage: async (conversationId: string, messageId: string): Promise<void> => {
+        await apiRequest<void>(`/conversations/${conversationId}/messages/${messageId}`, {
+            method: 'DELETE'
+        });
+    },
 };
