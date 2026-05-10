@@ -8,6 +8,7 @@ import { StompContext } from "./stomp-context";
 const wsProtocol = window.location.protocol === "https:" ? "wss" : "ws";
 const WS_URL = `${wsProtocol}://${window.location.host}/ws-native`;
 const shouldLogStomp = import.meta.env.DEV;
+const stompDebug = shouldLogStomp ? (message: string) => console.debug("[stomp]", message) : () => {};
 
 export function StompProvider({ children }: { children: ReactNode }) {
   const { isAuthenticated } = useAuth();
@@ -25,7 +26,7 @@ export function StompProvider({ children }: { children: ReactNode }) {
           ? { Authorization: `Bearer ${freshToken}` }
           : {};
       },
-      debug: shouldLogStomp ? (message) => console.debug("[stomp]", message) : undefined,
+      debug: stompDebug,
       onConnect: () => {
         if (shouldLogStomp) console.debug("[stomp:connect]", WS_URL);
         setIsConnected(true);
