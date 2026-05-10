@@ -7,6 +7,7 @@ import { VitePWA } from "vite-plugin-pwa";
 export default defineConfig(() => {
   const devPortRaw = Number(process.env.VITE_DEV_PORT);
   const devPort = Number.isFinite(devPortRaw) ? devPortRaw : 8080;
+  const enablePwa = process.env.VITE_ENABLE_PWA !== "false";
 
   return {
     server: {
@@ -26,7 +27,7 @@ export default defineConfig(() => {
     },
     plugins: [
       react(),
-      VitePWA({
+      enablePwa && VitePWA({
         registerType: "autoUpdate",
         includeAssets: ["favicon.ico", "pwa-192x192.png", "pwa-512x512.png"],
         manifest: {

@@ -5,7 +5,9 @@ WORKDIR /app
 
 # Build-time env vars for Vite (baked into the static bundle)
 ARG VITE_GOOGLE_PLACES_KEY
+ARG VITE_ENABLE_PWA=false
 ENV VITE_GOOGLE_PLACES_KEY=$VITE_GOOGLE_PLACES_KEY
+ENV VITE_ENABLE_PWA=$VITE_ENABLE_PWA
 
 # Cache node_modules layer
 COPY package*.json ./
