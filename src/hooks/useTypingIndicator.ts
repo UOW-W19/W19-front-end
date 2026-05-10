@@ -1,12 +1,27 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useStomp } from "@/contexts/useStomp";
 
+interface TypingPayload {
+  userId?: string;
+  senderId?: string;
+  profileId?: string;
+  displayName?: string;
+  display_name?: string;
+}
+
 export function useTypingIndicator(conversationId: string, currentUserId: string) {
-  const [isOtherTyping, setIsOtherTyping] = useState(false);
+  const [typingConversationId, setTypingConversationId] = useState<string | null>(null);
   const [typingDisplayName, setTypingDisplayName] = useState<string | null>(null);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const throttleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { client, isConnected } = useStomp();
+
+  useEffect(() => {
+    if (hideTimerRef.current) {
+      clearTimeout(hideTimerRef.current);
+      hideTimerRef.current = null;
+    }
+  }, [conversationId]);
 
   useEffect(() => {
     if (!client || !isConnected || !conversationId) return;
@@ -14,18 +29,19 @@ export function useTypingIndicator(conversationId: string, currentUserId: string
     const subscription = client.subscribe(`/topic/conversation.${conversationId}.typing`, (frame) => {
       let displayName: string | null = null;
       try {
-        const payload = JSON.parse(frame.body) as { userId?: string; displayName?: string };
-        if (payload.userId === currentUserId) return;
-        displayName = payload.displayName ?? null;
+        const payload = JSON.parse(frame.body) as TypingPayload;
+        const senderId = payload.userId ?? payload.senderId ?? payload.profileId;
+        if (senderId && senderId === currentUserId) return;
+        displayName = payload.displayName ?? payload.display_name ?? null;
       } catch {
         // Malformed payloads still mean another participant is typing.
       }
 
-      setIsOtherTyping(true);
+      setTypingConversationId(conversationId);
       setTypingDisplayName(displayName);
       if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
       hideTimerRef.current = setTimeout(() => {
-        setIsOtherTyping(false);
+        setTypingConversationId(null);
         setTypingDisplayName(null);
       }, 3000);
     });
@@ -51,5 +67,5 @@ export function useTypingIndicator(conversationId: string, currentUserId: string
     }, 2000);
   }, [client, conversationId]);
 
-  return { isOtherTyping, typingDisplayName, sendTyping };
+  return { isOtherTyping: typingConversationId === conversationId, typingDisplayName, sendTyping };
 }

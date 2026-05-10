@@ -7,6 +7,7 @@ import { StompContext } from "./stomp-context";
 
 const wsProtocol = window.location.protocol === "https:" ? "wss" : "ws";
 const WS_URL = `${wsProtocol}://${window.location.host}/ws-native`;
+const shouldLogStomp = import.meta.env.DEV;
 
 export function StompProvider({ children }: { children: ReactNode }) {
   const { isAuthenticated } = useAuth();
@@ -20,10 +21,23 @@ export function StompProvider({ children }: { children: ReactNode }) {
       connectHeaders: token ? { Authorization: `Bearer ${token}` } : {},
       reconnectDelay: 1000,
       maxReconnectDelay: 30000,
-      onConnect: () => setIsConnected(true),
-      onDisconnect: () => setIsConnected(false),
-      onWebSocketClose: () => setIsConnected(false),
-      onStompError: () => setIsConnected(false),
+      debug: shouldLogStomp ? (message) => console.debug("[stomp]", message) : undefined,
+      onConnect: () => {
+        if (shouldLogStomp) console.debug("[stomp:connect]", WS_URL);
+        setIsConnected(true);
+      },
+      onDisconnect: () => {
+        if (shouldLogStomp) console.debug("[stomp:disconnect]");
+        setIsConnected(false);
+      },
+      onWebSocketClose: (event) => {
+        if (shouldLogStomp) console.debug("[stomp:websocket-close]", event.code, event.reason);
+        setIsConnected(false);
+      },
+      onStompError: (frame) => {
+        if (shouldLogStomp) console.error("[stomp:error]", frame.headers.message, frame.body);
+        setIsConnected(false);
+      },
     });
   }, [isAuthenticated]);
 

@@ -6,7 +6,7 @@ import { ConversationList } from "@/components/messages/ConversationList";
 import { ChatWindow } from "@/components/messages/ChatWindow";
 import { CreateGroupModal } from "@/components/messages/CreateGroupModal";
 import { messagesApi } from "@/services/api/messages";
-import type { Message } from "@/types/message";
+import type { Conversation, Message } from "@/types/message";
 import { useAuth } from "@/contexts";
 import { useChatSubscription } from "@/hooks/useChatSubscription";
 
@@ -24,6 +24,11 @@ export default function MessagesPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
+
+  const handleSelectConversation = (conversation: Conversation) => {
+    setSelectedConversationId(conversation.id);
+    queryClient.invalidateQueries({ queryKey: ['messages', conversation.id] });
+  };
 
   // Fetch conversations
   const { data: conversations = [], isLoading: loadingConversations } = useQuery({
@@ -197,7 +202,7 @@ export default function MessagesPage() {
           <ConversationList
             conversations={conversations}
             selectedId={selectedConversationId || undefined}
-            onSelect={(conversation) => setSelectedConversationId(conversation.id)}
+            onSelect={handleSelectConversation}
             onNewGroup={() => setShowCreateGroup(true)}
           />
         )}

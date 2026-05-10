@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts";
 import { useStomp } from "@/contexts/useStomp";
@@ -26,7 +26,10 @@ export function useChatSubscription(conversationIds: string[], activeConversatio
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const { client, isConnected } = useStomp();
-  const conversationIdsKey = conversationIds.join("|");
+  const conversationIdsKey = useMemo(
+    () => [...new Set(conversationIds)].sort().join("|"),
+    [conversationIds],
+  );
   const activeConversationIdRef = useRef(activeConversationId);
   const currentUserIdRef = useRef(user?.id);
 
@@ -55,12 +58,14 @@ export function useChatSubscription(conversationIds: string[], activeConversatio
         const currentUserId = currentUserIdRef.current;
         const isOwnMessage = incoming.senderId === currentUserId;
 
-        if (incoming.conversationId === activeConversationId && !isOwnMessage) {
-          queryClient.setQueryData(["messages", incoming.conversationId], (old: Message[] | undefined) => {
-            if (!old) return old;
-            if (old.some((message) => message.id === incoming.id)) return old;
-            return [...old, incoming];
-          });
+        queryClient.setQueryData(["messages", incoming.conversationId], (old: Message[] | undefined) => {
+          if (!old) return old;
+          if (old.some((message) => message.id === incoming.id)) return old;
+          return [...old, incoming];
+        });
+
+        if (incoming.conversationId !== activeConversationId) {
+          queryClient.invalidateQueries({ queryKey: ["messages", incoming.conversationId] });
         }
 
         queryClient.setQueryData(["conversations"], (old: Conversation[] = []) => {
