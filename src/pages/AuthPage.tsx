@@ -167,7 +167,11 @@ export default function AuthPage() {
                   </label>
                   <select
                     value={nativeLanguage}
-                    onChange={(e) => setNativeLanguage(e.target.value)}
+                    onChange={(e) => {
+                      const code = e.target.value;
+                      setNativeLanguage(code);
+                      setLearningLanguages(prev => prev.filter(l => l !== code));
+                    }}
                     className="w-full px-4 py-3.5 rounded-xl bg-muted border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all text-foreground"
                   >
                     {LANGUAGES.map((lang) => (
