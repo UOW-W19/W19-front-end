@@ -123,7 +123,7 @@ export default function MessagesPage() {
 
     // Check if conversation already exists in the loaded list
     const existing = conversations.find(c =>
-      c.participants.some(p => p.id === userId)
+      !c.isGroup && c.participants.some(p => p.id === userId)
     );
 
     if (existing) {
@@ -136,13 +136,13 @@ export default function MessagesPage() {
     startingForUserRef.current = userId;
     setIsStartingChat(true);
 
-    messagesApi.startConversation(userId)
-      .then(async (newMsg) => {
+    messagesApi.findOrCreateDm(userId)
+      .then(async (conversation) => {
         await queryClient.refetchQueries({ queryKey: ['conversations'] });
-        setSelectedConversationId(newMsg.conversationId);
+        setSelectedConversationId(conversation.id);
       })
       .catch(err => {
-        console.error("Failed to start conversation:", err);
+        console.error("Failed to open conversation:", err);
       })
       .finally(() => {
         startingForUserRef.current = null;
@@ -221,7 +221,7 @@ export default function MessagesPage() {
             conversation={selectedConversation}
             messages={messages}
             isLoading={sendMessageMutation.isPending}
-            onSendMessage={(content, image) => sendMessageMutation.mutate({ content, image })}
+            onSendMessage={async (content, image) => { await sendMessageMutation.mutateAsync({ content, image }); }}
             onDeleteMessage={(messageId) => deleteMessageMutation.mutate(messageId)}
             onLeaveGroup={(conversationId) => leaveGroupMutation.mutate(conversationId)}
             onUpdateGroup={(conversationId, groupName) => updateGroupMutation.mutate({ conversationId, groupName })}

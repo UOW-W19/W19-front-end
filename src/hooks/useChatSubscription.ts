@@ -101,4 +101,15 @@ export function useChatSubscription(conversationIds: string[], activeConversatio
 
     return () => subscriptions.forEach((subscription) => subscription.unsubscribe());
   }, [client, conversationIdsKey, isConnected, queryClient]);
+
+  // Subscribe once to the user-specific queue so new conversations are detected immediately
+  useEffect(() => {
+    if (!client || !isConnected) return;
+
+    const subscription = client.subscribe('/user/queue/conversations', () => {
+      void queryClient.invalidateQueries({ queryKey: ['conversations'] });
+    });
+
+    return () => subscription.unsubscribe();
+  }, [client, isConnected, queryClient]);
 }

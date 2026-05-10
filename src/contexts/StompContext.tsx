@@ -14,13 +14,17 @@ export function StompProvider({ children }: { children: ReactNode }) {
   const [isConnected, setIsConnected] = useState(false);
   const client = useMemo(() => {
     if (!isAuthenticated) return null;
-    const token = getStoredToken();
 
-    return new Client({
+    const stompClient = new Client({
       brokerURL: WS_URL,
-      connectHeaders: token ? { Authorization: `Bearer ${token}` } : {},
       reconnectDelay: 1000,
       maxReconnectDelay: 30000,
+      beforeConnect: async () => {
+        const freshToken = getStoredToken();
+        stompClient.connectHeaders = freshToken
+          ? { Authorization: `Bearer ${freshToken}` }
+          : {};
+      },
       debug: shouldLogStomp ? (message) => console.debug("[stomp]", message) : undefined,
       onConnect: () => {
         if (shouldLogStomp) console.debug("[stomp:connect]", WS_URL);
@@ -32,13 +36,16 @@ export function StompProvider({ children }: { children: ReactNode }) {
       },
       onWebSocketClose: (event) => {
         if (shouldLogStomp) console.debug("[stomp:websocket-close]", event.code, event.reason);
+        else if (event.code !== 1000 && event.code !== 1001) console.warn("[stomp:websocket-close]", event.code, event.reason);
         setIsConnected(false);
       },
       onStompError: (frame) => {
         if (shouldLogStomp) console.error("[stomp:error]", frame.headers.message, frame.body);
+        else console.warn("[stomp:error]", frame.headers.message);
         setIsConnected(false);
       },
     });
+    return stompClient;
   }, [isAuthenticated]);
 
   useEffect(() => {

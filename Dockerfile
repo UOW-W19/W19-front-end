@@ -15,7 +15,7 @@ RUN npm ci
 
 # Copy source and build
 COPY . .
-RUN npm run build:docker
+RUN npm run build
 
 # ─── Stage 2: Serve with Nginx ────────────────────────────────────────────────
 FROM nginx:alpine

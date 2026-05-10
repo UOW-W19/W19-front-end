@@ -9,7 +9,7 @@ import { useTypingIndicator } from "@/hooks/useTypingIndicator";
 interface ChatWindowProps {
     conversation: Conversation;
     messages: Message[];
-    onSendMessage: (content: string, image?: File) => void;
+    onSendMessage: (content: string, image?: File) => Promise<void>;
     onDeleteMessage?: (messageId: string) => void;
     onLeaveGroup?: (conversationId: string) => void;
     onUpdateGroup?: (conversationId: string, groupName: string) => void;
@@ -22,6 +22,7 @@ export function ChatWindow({ conversation, messages, onSendMessage, onDeleteMess
     const [newMessage, setNewMessage] = useState("");
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
     const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
+    const [sendError, setSendError] = useState<string | null>(null);
     const [showScrollButton, setShowScrollButton] = useState(false);
     const [showMediaPanel, setShowMediaPanel] = useState(false);
     const [lightboxImage, setLightboxImage] = useState<string | null>(null);
@@ -77,15 +78,20 @@ export function ChatWindow({ conversation, messages, onSendMessage, onDeleteMess
         };
     }, [selectedImage]);
 
-    const handleSend = (e: React.FormEvent) => {
+    const handleSend = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!newMessage.trim() && !selectedImageFile) return;
-        onSendMessage(newMessage, selectedImageFile || undefined);
-        setNewMessage("");
-        setSelectedImage(null);
-        setSelectedImageFile(null);
-        if (imageInputRef.current) {
-            imageInputRef.current.value = "";
+        setSendError(null);
+        try {
+            await onSendMessage(newMessage, selectedImageFile || undefined);
+            setNewMessage("");
+            setSelectedImage(null);
+            setSelectedImageFile(null);
+            if (imageInputRef.current) {
+                imageInputRef.current.value = "";
+            }
+        } catch {
+            setSendError("Failed to send. Please try again.");
         }
     };
 
@@ -497,7 +503,7 @@ export function ChatWindow({ conversation, messages, onSendMessage, onDeleteMess
                     <input
                         type="text"
                         value={newMessage}
-                        onChange={(e) => { setNewMessage(e.target.value); sendTyping(); }}
+                        onChange={(e) => { setNewMessage(e.target.value); sendTyping(); if (sendError) setSendError(null); }}
                         placeholder="Type a message..."
                         className="flex-1 rounded-xl border border-input bg-muted px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                     />
@@ -510,6 +516,9 @@ export function ChatWindow({ conversation, messages, onSendMessage, onDeleteMess
                         <Send className="h-4 w-4" />
                     </Button>
                 </form>
+                {sendError && (
+                    <p className="mt-1.5 text-xs text-destructive">{sendError}</p>
+                )}
             </div>
         </div>
     );
