@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import type { UserProfile, LoginRequest, RegisterRequest, UpdateProfileRequest } from '@/types/api';
-import { authApi, getStoredToken, storeAuth, clearAuth } from '@/services/api';
+import { authApi, getStoredToken, storeAuth } from '@/services/api';
 import { AuthContext } from './auth-context';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -53,7 +53,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     await authApi.logout();
-    clearAuth();
     setUser(null);
   }, []);
 

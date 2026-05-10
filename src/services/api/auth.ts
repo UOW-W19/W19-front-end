@@ -246,17 +246,55 @@ export const authApi = {
         display_name: data.displayName,
       }),
     });
-    
-    // Store token to fetch profile
+
+    // Store tokens so subsequent authenticated calls work
     localStorage.setItem(TOKEN_KEY, authResponse.access_token);
     if (authResponse.refresh_token) {
       localStorage.setItem(REFRESH_TOKEN_KEY, authResponse.refresh_token);
     }
-    
-    // Fetch user profile
+
+    // Seed language preferences before fetching the profile so the returned
+    // user already has languages populated. Failure is non-fatal — the user
+    // can set languages from ProfilePage if this call doesn't go through.
+    const languagePayload: Array<{
+      code: string;
+      proficiency: string;
+      is_learning: boolean;
+    }> = [];
+
+    if (data.nativeLanguage) {
+      languagePayload.push({
+        code: data.nativeLanguage,
+        proficiency: 'NATIVE',
+        is_learning: false,
+      });
+    }
+
+    for (const code of data.learningLanguages ?? []) {
+      if (code !== data.nativeLanguage) {
+        languagePayload.push({
+          code,
+          proficiency: 'BEGINNER',
+          is_learning: true,
+        });
+      }
+    }
+
+    if (languagePayload.length > 0) {
+      try {
+        await apiRequest<void>('/users/me/languages', {
+          method: 'PUT',
+          body: JSON.stringify(languagePayload),
+        });
+      } catch {
+        console.warn('Could not seed language preferences after registration');
+      }
+    }
+
+    // Fetch profile after language seeding so languages are included
     const profile = await apiRequest<BackendProfile>('/users/me');
     const user = transformProfile(profile);
-    
+
     return {
       userId: authResponse.user_id,
       accessToken: authResponse.access_token,
@@ -308,7 +346,13 @@ export const authApi = {
   },
 
   async logout(): Promise<void> {
-    clearAuth();
+    try {
+      await apiRequest<void>('/auth/logout', { method: 'POST' });
+    } catch {
+      // best-effort — always clear local session regardless of network state
+    } finally {
+      clearAuth();
+    }
   },
 
   async getProfile(): Promise<UserProfile> {

@@ -9,6 +9,8 @@ export interface RegisterRequest {
   username?: string;
   password: string;
   displayName: string;
+  nativeLanguage?: string | null;
+  learningLanguages?: string[];
 }
 
 export interface LoginRequest {
