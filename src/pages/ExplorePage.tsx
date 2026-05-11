@@ -10,6 +10,7 @@ import MeetupCard from '@/components/explore/MeetupCard';
 import MeetupDetailSheet from '@/components/explore/MeetupDetailSheet';
 import CreateMeetupModal from '@/components/explore/CreateMeetupModal';
 import ExploreMap from '@/components/explore/ExploreMap';
+import { useAuth } from '@/contexts';
 
 type LocationState =
   | { status: 'loading' }
@@ -22,6 +23,7 @@ const DEFAULT_LOCATION = { latitude: 40.7128, longitude: -74.0060 };
 
 export default function ExplorePage() {
   const navigate = useNavigate();
+  const { user, updateProfile } = useAuth();
   const [meetups, setMeetups] = useState<Meetup[]>([]);
   const [learners, setLearners] = useState<NearbyLearner[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -77,6 +79,14 @@ export default function ExplorePage() {
   useEffect(() => {
     requestLocation();
   }, [requestLocation]);
+
+  // Persist coordinates to the backend the first time geolocation is granted.
+  // Skipped if the user already has saved coordinates (user.latitude != null).
+  useEffect(() => {
+    if (locationState.status !== 'granted' || user?.latitude != null) return;
+    updateProfile({ latitude: locationState.latitude, longitude: locationState.longitude })
+      .catch(() => {});
+  }, [locationState, user?.latitude, updateProfile]);
 
   // Get current coordinates (real or fallback)
   const currentLocation = locationState.status === 'granted'

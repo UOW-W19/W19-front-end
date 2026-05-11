@@ -33,6 +33,7 @@ export default function ProfilePage() {
   const userId = user?.id;
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isLocating, setIsLocating] = useState(false);
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
 
   // Profile fields
@@ -149,6 +150,34 @@ export default function ProfilePage() {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleUseCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error('Geolocation is not supported by your browser');
+      return;
+    }
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          await updateProfile({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          });
+          toast.success('Location saved');
+        } catch {
+          toast.error('Failed to save location');
+        } finally {
+          setIsLocating(false);
+        }
+      },
+      () => {
+        toast.error('Could not get your location. Check browser permissions.');
+        setIsLocating(false);
+      },
+      { enableHighAccuracy: true, timeout: 15000 }
+    );
   };
 
   // Language editor helpers
@@ -274,6 +303,19 @@ export default function ProfilePage() {
                   className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </div>
+              <button
+                type="button"
+                onClick={handleUseCurrentLocation}
+                disabled={isLocating}
+                className="flex items-center gap-1.5 text-xs text-primary hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isLocating ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <MapPin className="h-3 w-3" />
+                )}
+                Use current location
+              </button>
               <textarea
                 value={editForm.bio}
                 onChange={(e) =>
