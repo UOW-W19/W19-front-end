@@ -306,7 +306,7 @@ export default function ProfilePage() {
               <button
                 type="button"
                 onClick={handleUseCurrentLocation}
-                disabled={isLocating}
+                disabled={isLocating || isSaving}
                 className="flex items-center gap-1.5 text-xs text-primary hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isLocating ? (
@@ -413,7 +413,7 @@ export default function ProfilePage() {
                 variant="outline"
                 size="sm"
                 onClick={handleCancel}
-                disabled={isSaving}
+                disabled={isSaving || isLocating}
                 className="flex-1"
               >
                 <X className="h-4 w-4 mr-1" />
@@ -422,7 +422,7 @@ export default function ProfilePage() {
               <Button
                 size="sm"
                 onClick={handleSave}
-                disabled={isSaving}
+                disabled={isSaving || isLocating}
                 className="flex-1"
               >
                 {isSaving ? (

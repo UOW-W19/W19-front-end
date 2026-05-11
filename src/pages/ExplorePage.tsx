@@ -85,7 +85,10 @@ export default function ExplorePage() {
   useEffect(() => {
     if (locationState.status !== 'granted' || user?.latitude != null) return;
     updateProfile({ latitude: locationState.latitude, longitude: locationState.longitude })
-      .catch(() => {});
+      .catch((error) => {
+        console.warn('Failed to persist user coordinates', error);
+        toast.error('We could not save your location preferences. Explore will still work for now.');
+      });
   }, [locationState, user?.latitude, updateProfile]);
 
   // Get current coordinates (real or fallback)
