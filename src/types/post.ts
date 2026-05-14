@@ -6,8 +6,10 @@ export interface Post {
     avatar: string;
     language: string;
     flag: string;
+    location?: string;
   };
   content: string;
+  originalLanguage: string;
   translation: string;
   location: string;
   distance: string;

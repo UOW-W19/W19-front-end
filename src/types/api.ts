@@ -75,6 +75,7 @@ export interface AuthorDto {
   avatarUrl?: string;
   language?: string;
   flagEmoji?: string;
+  location?: string;
 }
 
 // ============ POSTS ============

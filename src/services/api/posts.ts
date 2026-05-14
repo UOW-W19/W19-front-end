@@ -62,6 +62,7 @@ interface BackendAuthor {
   avatar_url?: string;
   language?: string;
   flag_emoji?: string;
+  location?: string;
 }
 
 interface BackendPost {
@@ -110,6 +111,7 @@ const transformAuthor = (author: BackendAuthor): AuthorDto => ({
   avatarUrl: author.avatar_url,
   language: author.language,
   flagEmoji: author.flag_emoji,
+  location: author.location,
 });
 
 // Transform backend post to frontend ApiPost
@@ -265,6 +267,14 @@ export const postsApi = {
       languageCode: response.language_code,
       translatedContent: response.translated_content,
     };
+  },
+
+  async translateText(text: string, sourceLanguage: string, targetLanguage: string): Promise<string> {
+    const response = await apiRequest<{ translated_text: string }>('/translate', {
+      method: 'POST',
+      body: JSON.stringify({ text, source_language: sourceLanguage, target_language: targetLanguage }),
+    });
+    return response.translated_text;
   },
 
   async reportPost(postId: string, reason: 'SPAM' | 'HARASSMENT' | 'INAPPROPRIATE' | 'MISINFORMATION' | 'OTHER', details?: string): Promise<void> {

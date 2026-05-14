@@ -166,6 +166,7 @@ interface BackendProfile {
   bio?: string;
   latitude?: number;
   longitude?: number;
+  location?: string;
   languages?: Array<{
     code: string;
     name?: string;
@@ -200,9 +201,7 @@ const transformProfile = (profile: BackendProfile): UserProfile => {
     bio: profile.bio,
     latitude: profile.latitude,
     longitude: profile.longitude,
-    location: profile.latitude && profile.longitude 
-      ? `${profile.latitude}, ${profile.longitude}` 
-      : undefined,
+    location: profile.location,
     createdAt: profile.created_at ?? new Date().toISOString(),
     languages,
     roles: profile.roles ?? [],
@@ -223,6 +222,9 @@ const buildUpdateProfileFormData = (data: UpdateProfileRequest) => {
   }
   if (data.bio !== undefined) {
     formData.append('bio', data.bio);
+  }
+  if (data.location !== undefined) {
+    formData.append('location', data.location);
   }
   if (data.latitude !== undefined) {
     formData.append('latitude', String(data.latitude));
