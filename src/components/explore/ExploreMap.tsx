@@ -58,6 +58,34 @@ type WebGLDiagnostics = {
   webgl1: boolean;
 };
 
+type ErrorLike = {
+  message?: string;
+  status?: number;
+  error?: {
+    message?: string;
+    status?: number;
+  };
+};
+
+type MapboxTelemetryApi = typeof mapboxgl & {
+  setTelemetryEnabled?: (enabled: boolean) => void;
+  config?: {
+    EVENTS_URL?: string;
+  };
+};
+
+const getErrorInfo = (e: unknown): { message: string; status?: number } => {
+  if (!e || typeof e !== 'object') {
+    return { message: '' };
+  }
+
+  const err = e as ErrorLike;
+  return {
+    message: err.error?.message || err.message || '',
+    status: err.error?.status ?? err.status,
+  };
+};
+
 const detectWebGLSupport = (): { supported: boolean; diagnostics: WebGLDiagnostics } => {
   let mapboxSupported: boolean | null = null;
   try {
@@ -191,9 +219,7 @@ export default function ExploreMap({ meetups, learners, onMeetupClick, onLearner
   }, [mapError, meetups, learners, mapboxToken]);
 
   const getFriendlyMapError = (e: unknown): string => {
-    const err = e as any;
-    const msg: string = err?.error?.message || err?.message || '';
-    const status: number | undefined = err?.error?.status ?? err?.status;
+    const { message: msg, status } = getErrorInfo(e);
 
     if (msg.includes('events.mapbox.com') || msg.includes('ERR_BLOCKED')) {
       return 'Map telemetry was blocked by your browser. (Safe to ignore; we already disable telemetry.)';
@@ -285,7 +311,7 @@ export default function ExploreMap({ meetups, learners, onMeetupClick, onLearner
       // Disable telemetry to prevent ad-blocker interference
       // Use try-catch as some properties may be read-only in newer versions
       try {
-        const mbgl = mapboxgl as any;
+        const mbgl = mapboxgl as MapboxTelemetryApi;
 
         // Try to disable telemetry via the API method first (most reliable)
         if (typeof mbgl.setTelemetryEnabled === 'function') {
@@ -298,7 +324,7 @@ export default function ExploreMap({ meetups, learners, onMeetupClick, onLearner
           try {
             // Try direct assignment first
             mbgl.config.EVENTS_URL = '';
-          } catch (configError) {
+          } catch {
             // If that fails (read-only property), try Object.defineProperty
             try {
               Object.defineProperty(mbgl.config, 'EVENTS_URL', {
@@ -360,7 +386,7 @@ export default function ExploreMap({ meetups, learners, onMeetupClick, onLearner
 
       mapInstance.on('error', (evt) => {
         // Ignore telemetry noise
-        const errorMsg = (evt as any)?.error?.message || '';
+        const errorMsg = getErrorInfo(evt).message;
         if (errorMsg.includes('events.mapbox.com') || errorMsg.includes('ERR_BLOCKED')) return;
 
         console.error('[ExploreMap] Map error event:', evt);
@@ -490,7 +516,7 @@ export default function ExploreMap({ meetups, learners, onMeetupClick, onLearner
         map.current.fitBounds(bounds, { padding: 50, maxZoom: 14 });
       }
     }
-  }, [meetups, learners, isMapReady, onMeetupClick, userLocation]);
+  }, [meetups, learners, isMapReady, onMeetupClick, onLearnerClick, userLocation]);
 
   // Add/update user location marker
   useEffect(() => {

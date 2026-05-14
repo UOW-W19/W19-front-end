@@ -84,12 +84,15 @@ const apiRequest = async <T>(
   isRetry = false
 ): Promise<T> => {
   const token = getStoredToken();
+  const isMultipart = options.body instanceof FormData;
   
   const headers: HeadersInit = {
-    'Content-Type': 'application/json',
     'ngrok-skip-browser-warning': 'true',
     ...options.headers,
   };
+  if (!isMultipart) {
+    (headers as Record<string, string>)['Content-Type'] = 'application/json';
+  }
   
   if (token) {
     (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
@@ -163,6 +166,7 @@ interface BackendProfile {
   bio?: string;
   latitude?: number;
   longitude?: number;
+  location?: string;
   languages?: Array<{
     code: string;
     name?: string;
@@ -197,9 +201,7 @@ const transformProfile = (profile: BackendProfile): UserProfile => {
     bio: profile.bio,
     latitude: profile.latitude,
     longitude: profile.longitude,
-    location: profile.latitude && profile.longitude 
-      ? `${profile.latitude}, ${profile.longitude}` 
-      : undefined,
+    location: profile.location,
     createdAt: profile.created_at ?? new Date().toISOString(),
     languages,
     roles: profile.roles ?? [],
@@ -207,6 +209,31 @@ const transformProfile = (profile: BackendProfile): UserProfile => {
     followingCount: profile.following_count ?? 0,
     postsCount: profile.posts_count ?? 0,
   };
+};
+
+const buildUpdateProfileFormData = (data: UpdateProfileRequest) => {
+  const formData = new FormData();
+
+  if (data.avatar) {
+    formData.append('avatar', data.avatar);
+  }
+  if (data.displayName !== undefined) {
+    formData.append('displayName', data.displayName);
+  }
+  if (data.bio !== undefined) {
+    formData.append('bio', data.bio);
+  }
+  if (data.location !== undefined) {
+    formData.append('location', data.location);
+  }
+  if (data.latitude !== undefined) {
+    formData.append('latitude', String(data.latitude));
+  }
+  if (data.longitude !== undefined) {
+    formData.append('longitude', String(data.longitude));
+  }
+
+  return formData;
 };
 
 // Auth API functions
@@ -221,17 +248,55 @@ export const authApi = {
         display_name: data.displayName,
       }),
     });
-    
-    // Store token to fetch profile
+
+    // Store tokens so subsequent authenticated calls work
     localStorage.setItem(TOKEN_KEY, authResponse.access_token);
     if (authResponse.refresh_token) {
       localStorage.setItem(REFRESH_TOKEN_KEY, authResponse.refresh_token);
     }
-    
-    // Fetch user profile
+
+    // Seed language preferences before fetching the profile so the returned
+    // user already has languages populated. Failure is non-fatal — the user
+    // can set languages from ProfilePage if this call doesn't go through.
+    const languagePayload: Array<{
+      code: string;
+      proficiency: string;
+      is_learning: boolean;
+    }> = [];
+
+    if (data.nativeLanguage) {
+      languagePayload.push({
+        code: data.nativeLanguage,
+        proficiency: 'NATIVE',
+        is_learning: false,
+      });
+    }
+
+    for (const code of data.learningLanguages ?? []) {
+      if (code !== data.nativeLanguage) {
+        languagePayload.push({
+          code,
+          proficiency: 'BEGINNER',
+          is_learning: true,
+        });
+      }
+    }
+
+    if (languagePayload.length > 0) {
+      try {
+        await apiRequest<void>('/users/me/languages', {
+          method: 'PUT',
+          body: JSON.stringify(languagePayload),
+        });
+      } catch {
+        console.warn('Could not seed language preferences after registration');
+      }
+    }
+
+    // Fetch profile after language seeding so languages are included
     const profile = await apiRequest<BackendProfile>('/users/me');
     const user = transformProfile(profile);
-    
+
     return {
       userId: authResponse.user_id,
       accessToken: authResponse.access_token,
@@ -283,7 +348,13 @@ export const authApi = {
   },
 
   async logout(): Promise<void> {
-    clearAuth();
+    try {
+      await apiRequest<void>('/auth/logout', { method: 'POST' });
+    } catch {
+      // best-effort — always clear local session regardless of network state
+    } finally {
+      clearAuth();
+    }
   },
 
   async getProfile(): Promise<UserProfile> {
@@ -298,23 +369,10 @@ export const authApi = {
   },
 
   async updateProfile(data: UpdateProfileRequest): Promise<UserProfile> {
-    let profile: BackendProfile;
-    try {
-      profile = await apiRequest<BackendProfile>('/users/me', {
-        method: 'PATCH',
-        body: JSON.stringify(data),
-      });
-    } catch {
-      // Fallback: update locally if endpoint doesn't exist
-      const storedUser = getStoredUser();
-      if (!storedUser) {
-        throw new Error('Not authenticated');
-      }
-      const updatedUser = { ...storedUser, ...data };
-      localStorage.setItem(USER_KEY, JSON.stringify(updatedUser));
-      return updatedUser;
-    }
-    
+    const profile = await apiRequest<BackendProfile>('/users/me', {
+      method: 'PATCH',
+      body: buildUpdateProfileFormData(data),
+    });
     const user = transformProfile(profile);
     localStorage.setItem(USER_KEY, JSON.stringify(user));
     return user;

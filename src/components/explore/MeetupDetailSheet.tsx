@@ -3,7 +3,7 @@ import { MapPin, Calendar, Clock, Users, User, LogOut, UserPlus } from 'lucide-r
 import { format, parseISO } from 'date-fns';
 import type { Meetup, MeetupAttendee } from '@/types/meetup';
 import { meetupsApi } from '@/services/api/meetups';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts';
 import { Button } from '@/components/ui/button';
 import {
   Sheet,

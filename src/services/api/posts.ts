@@ -17,12 +17,15 @@ const apiRequest = async <T>(
   options: RequestInit = {}
 ): Promise<T> => {
   const token = getStoredToken();
+  const isMultipart = options.body instanceof FormData;
   
   const headers: HeadersInit = {
-    'Content-Type': 'application/json',
     'ngrok-skip-browser-warning': 'true',
     ...options.headers,
   };
+  if (!isMultipart) {
+    (headers as Record<string, string>)['Content-Type'] = 'application/json';
+  }
   
   if (token) {
     (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
@@ -59,6 +62,8 @@ interface BackendAuthor {
   avatar_url?: string;
   language?: string;
   flag_emoji?: string;
+  location?: string;
+  learning_languages?: { code: string; name: string; flag_emoji: string }[];
 }
 
 interface BackendPost {
@@ -73,6 +78,9 @@ interface BackendPost {
   distance?: string;
   location?: string;
   
+  user_reaction?: string;
+  is_saved?: boolean;
+
   // Metadata
   author: BackendAuthor;
   reactions?: {
@@ -107,6 +115,12 @@ const transformAuthor = (author: BackendAuthor): AuthorDto => ({
   avatarUrl: author.avatar_url,
   language: author.language,
   flagEmoji: author.flag_emoji,
+  location: author.location,
+  learningLanguages: (author.learning_languages ?? []).map(l => ({
+    code: l.code,
+    name: l.name,
+    flagEmoji: l.flag_emoji,
+  })),
 });
 
 // Transform backend post to frontend ApiPost
@@ -134,8 +148,29 @@ const transformPost = (post: BackendPost): ApiPost => {
     author: transformAuthor(post.author),
     reactions,
     userReaction,
+    isSaved: post.is_saved ?? false,
     createdAt: post.created_at ?? new Date().toISOString(),
   };
+};
+
+const buildCreatePostFormData = (data: CreatePostRequest) => {
+  const formData = new FormData();
+
+  formData.append('content', data.content);
+  if (data.originalLanguage !== undefined) {
+    formData.append('original_language', data.originalLanguage);
+  }
+  if (data.latitude !== undefined) {
+    formData.append('latitude', String(data.latitude));
+  }
+  if (data.longitude !== undefined) {
+    formData.append('longitude', String(data.longitude));
+  }
+  if (data.image) {
+    formData.append('image', data.image);
+  }
+
+  return formData;
 };
 
 // Posts API functions
@@ -160,13 +195,8 @@ export const postsApi = {
     }
 
     const url = `/posts?${queryParams.toString()}`;
-    console.log('[postsApi] Fetching feed:', url);
-
     const response = await apiRequest<BackendFeedResponse>(url);
-    console.log('[postsApi] Raw backend response:', response);
-
     const posts = response.content.map(transformPost);
-    console.log('[postsApi] Transformed posts:', posts);
 
     const pageNumber = response.number ?? page;
     const hasMore = !response.last;
@@ -184,18 +214,9 @@ export const postsApi = {
   },
 
   async createPost(data: CreatePostRequest): Promise<ApiPost> {
-    // Send snake_case to backend
-    const body = {
-      content: data.content,
-      original_language: data.originalLanguage,
-      image_url: data.imageUrl,
-      latitude: data.latitude,
-      longitude: data.longitude,
-    };
-    
     const post = await apiRequest<BackendPost>('/posts', {
       method: 'POST',
-      body: JSON.stringify(body),
+      body: buildCreatePostFormData(data),
     });
     
     return transformPost(post);
@@ -256,6 +277,32 @@ export const postsApi = {
       languageCode: response.language_code,
       translatedContent: response.translated_content,
     };
+  },
+
+  async getSavedPosts(page = 0): Promise<FeedResponse> {
+    const response = await apiRequest<BackendFeedResponse>(`/posts/saved?page=${page}&size=20`);
+    const posts = response.content.map(transformPost);
+    return {
+      posts,
+      nextCursor: !response.last ? String(page + 1) : undefined,
+      hasMore: !response.last,
+    };
+  },
+
+  async savePost(postId: string): Promise<void> {
+    await apiRequest(`/posts/${postId}/save`, { method: 'POST' });
+  },
+
+  async unsavePost(postId: string): Promise<void> {
+    await apiRequest(`/posts/${postId}/save`, { method: 'DELETE' });
+  },
+
+  async translateText(text: string, sourceLanguage: string, targetLanguage: string): Promise<string> {
+    const response = await apiRequest<{ translated_text: string }>('/translate', {
+      method: 'POST',
+      body: JSON.stringify({ text, source_language: sourceLanguage, target_language: targetLanguage }),
+    });
+    return response.translated_text;
   },
 
   async reportPost(postId: string, reason: 'SPAM' | 'HARASSMENT' | 'INAPPROPRIATE' | 'MISINFORMATION' | 'OTHER', details?: string): Promise<void> {

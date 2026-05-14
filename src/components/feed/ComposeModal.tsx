@@ -1,14 +1,18 @@
-import { useEffect, useState, useRef, type ChangeEvent } from "react";
+import { useState, useRef, type ChangeEvent } from "react";
 import { createPortal } from "react-dom";
 import { X, Globe, MapPin, Sparkles, Send, ImagePlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Post } from "@/types";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts";
+
+export interface ComposePostPayload extends Omit<Post, "id" | "time" | "reactions"> {
+  imageFile?: File;
+}
 
 export interface ComposeModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (post: Omit<Post, "id" | "time" | "reactions">) => void;
+  onSubmit: (post: ComposePostPayload) => void;
 }
 
 const languages = [
@@ -27,17 +31,13 @@ export function ComposeModal({ isOpen, onClose, onSubmit }: ComposeModalProps) {
   const [selectedLanguage, setSelectedLanguage] = useState(languages[0]);
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (isOpen) {
-      console.log("[ComposeModal] open (using createPortal)");
-    }
-  }, [isOpen]);
 
   const handleImageSelect = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      setSelectedImageFile(file);
       const reader = new FileReader();
       reader.onloadend = () => {
         setSelectedImage(reader.result as string);
@@ -48,6 +48,7 @@ export function ComposeModal({ isOpen, onClose, onSubmit }: ComposeModalProps) {
 
   const removeImage = () => {
     setSelectedImage(null);
+    setSelectedImageFile(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -69,11 +70,13 @@ export function ComposeModal({ isOpen, onClose, onSubmit }: ComposeModalProps) {
       location: "Your Location",
       distance: "0 km",
       image: selectedImage || undefined,
+      imageFile: selectedImageFile || undefined,
     });
 
     setContent("");
     setTranslation("");
     setSelectedImage(null);
+    setSelectedImageFile(null);
     onClose();
   };
 

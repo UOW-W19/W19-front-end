@@ -14,7 +14,7 @@ import {
   MapPin,
   Loader2,
 } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts";
 import { usersApi } from "@/services/api/users";
 import type { LocationVisibility } from "@/types/api";
 

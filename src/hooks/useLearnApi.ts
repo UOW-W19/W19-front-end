@@ -35,7 +35,7 @@ export const transformSavedWord = (word: SavedWordResponse): SavedWord => ({
   languageName: word.language_name,
   languageFlag: word.language_flag,
   masteryLevel: word.mastery_level,
-  source: word.source === 'POST' ? 'POST' : 'MANUAL',
+  source: word.source,
   sourceId: word.source_id,
   context: word.context,
   nextReview: word.next_review,

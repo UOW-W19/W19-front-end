@@ -7,6 +7,7 @@ import { VitePWA } from "vite-plugin-pwa";
 export default defineConfig(() => {
   const devPortRaw = Number(process.env.VITE_DEV_PORT);
   const devPort = Number.isFinite(devPortRaw) ? devPortRaw : 8080;
+  const enablePwa = process.env.VITE_ENABLE_PWA !== "false";
 
   return {
     server: {
@@ -17,11 +18,16 @@ export default defineConfig(() => {
           target: "http://localhost:8081",
           changeOrigin: true,
         },
+        "/ws-native": {
+          target: "http://localhost:8081",
+          changeOrigin: true,
+          ws: true,
+        },
       },
     },
     plugins: [
       react(),
-      VitePWA({
+      enablePwa && VitePWA({
         registerType: "autoUpdate",
         includeAssets: ["favicon.ico", "pwa-192x192.png", "pwa-512x512.png"],
         manifest: {
@@ -72,6 +78,9 @@ export default defineConfig(() => {
         },
       }),
     ].filter(Boolean),
+    define: {
+      global: 'globalThis',
+    },
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "./src"),

@@ -2,7 +2,9 @@
 FROM node:20-alpine AS builder
 
 ARG VITE_GOOGLE_PLACES_KEY
+ARG VITE_ENABLE_PWA=false
 ENV VITE_GOOGLE_PLACES_KEY=$VITE_GOOGLE_PLACES_KEY
+ENV VITE_ENABLE_PWA=$VITE_ENABLE_PWA
 
 WORKDIR /app
 
@@ -10,7 +12,7 @@ COPY package*.json ./
 RUN npm ci
 
 COPY . .
-RUN npm run build:docker
+RUN npm run build
 
 # --- Stage 2: Serve with nginx ---
 FROM nginx:alpine

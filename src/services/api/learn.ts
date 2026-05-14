@@ -13,7 +13,7 @@ export interface SavedWordResponse {
   language_code: string;
   language_name: string;
   language_flag: string;
-  source: 'POST' | 'MANUAL';
+  source: 'POST' | 'MANUAL' | 'SCANNER';
   source_id?: string;
   context?: string;
   mastery_level: number;
@@ -25,7 +25,7 @@ export interface CreateWordRequest {
   word: string;
   translation: string;
   language_code: string;
-  source?: 'POST' | 'MANUAL';
+  source?: 'POST' | 'MANUAL' | 'SCANNER';
   source_id?: string;
   context?: string;
 }

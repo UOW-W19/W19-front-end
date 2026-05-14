@@ -9,6 +9,8 @@ export interface RegisterRequest {
   username?: string;
   password: string;
   displayName: string;
+  nativeLanguage?: string | null;
+  learningLanguages?: string[];
 }
 
 export interface LoginRequest {
@@ -58,6 +60,7 @@ export interface UserProfile {
 export interface UpdateProfileRequest {
   displayName?: string;
   bio?: string;
+  avatar?: File;
   avatarUrl?: string;
   location?: string;
   latitude?: number;
@@ -72,6 +75,8 @@ export interface AuthorDto {
   avatarUrl?: string;
   language?: string;
   flagEmoji?: string;
+  location?: string;
+  learningLanguages?: { code: string; name: string; flagEmoji: string }[];
 }
 
 // ============ POSTS ============
@@ -99,6 +104,7 @@ export interface ApiPost {
   author: AuthorDto;
   reactions: PostReactionSummary;
   userReaction?: ReactionType | null;
+  isSaved?: boolean;
   status?: PostStatus;
   createdAt: string;
 }
@@ -106,6 +112,7 @@ export interface ApiPost {
 export interface CreatePostRequest {
   content: string;
   originalLanguage?: string;
+  image?: File;
   imageUrl?: string;
   latitude?: number;
   longitude?: number;
@@ -162,7 +169,7 @@ export interface CommentsResponse {
 }
 
 // ============ LEARNING CORE ============
-export type WordSource = 'POST' | 'MANUAL';
+export type WordSource = 'POST' | 'MANUAL' | 'SCANNER';
 
 export interface SavedWord {
   id: string;
@@ -338,6 +345,3 @@ export interface PaginationParams {
   cursor?: string;
   limit?: number;
 }
-
-// Legacy alias for backward compatibility
-export type PostAuthor = AuthorDto;

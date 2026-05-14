@@ -105,12 +105,7 @@ export const learnersApi = {
     }
 
     const url = `/learners/nearby?${queryParams.toString()}`;
-    console.log('[learnersApi] Fetching nearby learners:', url);
-
     const response = await apiRequest<BackendLearnersResponse>(url);
-    console.log('[learnersApi] Raw response:', response);
-    console.log('[learnersApi] Response type:', typeof response);
-    console.log('[learnersApi] Has learners property:', 'learners' in response);
 
     // Defensive check for response format
     if (!response || typeof response !== 'object') {
@@ -123,7 +118,6 @@ export const learnersApi = {
       return [];
     }
 
-    console.log('[learnersApi] Learners count:', response.learners.length);
     return response.learners.map(transformLearner);
   },
 };
