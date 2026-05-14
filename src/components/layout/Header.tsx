@@ -1,7 +1,7 @@
 import { Globe, Bell, Search, Users } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts";
 
 interface HeaderProps {
   title?: string;

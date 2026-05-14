@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Globe, Mail, Lock, User, Eye, EyeOff, ArrowRight, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts';
 import { LANGUAGES } from '@/services/api';
 
 type AuthMode = 'login' | 'register';
@@ -21,7 +21,11 @@ export default function AuthPage() {
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [nativeLanguage, setNativeLanguage] = useState('en');
+  const [customNativeLanguage, setCustomNativeLanguage] = useState('');
   const [learningLanguages, setLearningLanguages] = useState<string[]>([]);
+
+  // Resolves to null when user picks "Other" — backend requires a valid language_code FK
+  const effectiveNativeLanguage = nativeLanguage !== 'other' ? nativeLanguage : null;
 
   // Redirect if already authenticated - use useEffect to avoid state update during render
   useEffect(() => {
@@ -49,7 +53,8 @@ export default function AuthPage() {
           email,
           password,
           displayName: displayName.trim(),
-          // Note: Language preferences are set up after registration in the profile
+          nativeLanguage: effectiveNativeLanguage,
+          learningLanguages,
         });
       }
       navigate('/');
@@ -162,7 +167,11 @@ export default function AuthPage() {
                   </label>
                   <select
                     value={nativeLanguage}
-                    onChange={(e) => setNativeLanguage(e.target.value)}
+                    onChange={(e) => {
+                      const code = e.target.value;
+                      setNativeLanguage(code);
+                      setLearningLanguages(prev => prev.filter(l => l !== code));
+                    }}
                     className="w-full px-4 py-3.5 rounded-xl bg-muted border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all text-foreground"
                   >
                     {LANGUAGES.map((lang) => (
@@ -179,9 +188,14 @@ export default function AuthPage() {
                     <input
                       type="text"
                       placeholder="Type your native language..."
+                      value={customNativeLanguage}
+                      onChange={(e) => setCustomNativeLanguage(e.target.value)}
                       className="w-full px-4 py-3.5 rounded-xl bg-muted border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all text-foreground"
                       autoFocus
                     />
+                    <p className="mt-1.5 text-xs text-muted-foreground">
+                      Your native language won't be saved until it's supported — you can set it later from your profile.
+                    </p>
                   </div>
                 )}
 

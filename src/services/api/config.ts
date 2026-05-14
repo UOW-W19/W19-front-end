@@ -18,7 +18,3 @@ export const getLanguageByCode = (code: string): Language | undefined =>
 
 export const getLanguageByName = (name: string): Language | undefined =>
   LANGUAGES.find(l => l.name.toLowerCase() === name.toLowerCase());
-
-// Simulated network delay for mock APIs
-export const simulateDelay = (ms: number = 500) =>
-  new Promise(resolve => setTimeout(resolve, ms));

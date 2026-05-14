@@ -295,7 +295,7 @@ export default function LearnPage() {
     const percentage = Math.round((correctCount / results.length) * 100);
 
     return (
-      <div className="min-h-full overflow-y-auto pb-24 scrollbar-hide mx-auto max-w-md px-4 py-6 flex flex-col">
+      <div className="h-full overflow-y-auto pb-24 scrollbar-hide mx-auto max-w-md px-4 py-6 flex flex-col">
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center h-20 w-20 rounded-full bg-primary/10 mb-4">
             <Sparkles className="h-10 w-10 text-primary" />

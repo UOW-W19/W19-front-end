@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
 import { Edit2, MapPin, Check, X, Loader2, Trash2, Users, Settings } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { usersApi } from "@/services/api/users";
 import { languagesApi } from "@/services/api/languages";
+import { postsApi } from "@/services/api/posts";
 import { AvatarPickerModal } from "@/components/profile/AvatarPickerModal";
 import { PostCard } from "@/components/feed/PostCard";
 import type { Language } from "@/types/api";
@@ -30,8 +31,10 @@ const PROFICIENCY_OPTIONS: { value: ProficiencyLevel; label: string }[] = [
 
 export default function ProfilePage() {
   const { user, updateProfile } = useAuth();
+  const userId = user?.id;
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isLocating, setIsLocating] = useState(false);
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
 
   // Profile fields
@@ -49,6 +52,9 @@ export default function ProfilePage() {
   // Posts
   const [posts, setPosts] = useState<Post[]>([]);
   const [isLoadingPosts, setIsLoadingPosts] = useState(false);
+  const [activeTab, setActiveTab] = useState<'posts' | 'saved'>('posts');
+  const [savedPosts, setSavedPosts] = useState<Post[]>([]);
+  const [isLoadingSaved, setIsLoadingSaved] = useState(false);
 
   // Load available languages once when component mounts
   useEffect(() => {
@@ -57,10 +63,10 @@ export default function ProfilePage() {
 
   // Load current user's posts
   useEffect(() => {
-    if (!user) return;
+    if (!userId) return;
     setIsLoadingPosts(true);
     usersApi
-      .getUserPosts(user.id)
+      .getUserPosts(userId)
       .then(({ posts: apiPosts }) => {
         const adapted: Post[] = apiPosts.map((p) => ({
           id: p.id,
@@ -89,7 +95,40 @@ export default function ProfilePage() {
       })
       .catch(console.error)
       .finally(() => setIsLoadingPosts(false));
-  }, [user?.id]);
+  }, [userId]);
+
+  useEffect(() => {
+    if (activeTab !== 'saved' || savedPosts.length > 0) return;
+    setIsLoadingSaved(true);
+    postsApi.getSavedPosts(0)
+      .then(({ posts: apiPosts }) => {
+        const adapted: Post[] = apiPosts.map((p) => ({
+          id: p.id,
+          author: {
+            id: p.author.id,
+            name: p.author.displayName,
+            avatar: p.author.displayName.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2),
+            language: p.author.language ?? '',
+            flag: p.author.flagEmoji ?? '',
+            location: p.author.location,
+            learningLanguages: p.author.learningLanguages ?? [],
+          },
+          content: p.content,
+          originalLanguage: p.originalLanguage ?? 'en',
+          translation: p.translation ?? '',
+          location: p.location ?? '',
+          distance: p.distance ?? '',
+          image: p.imageUrl,
+          reactions: p.reactions,
+          time: new Date(p.createdAt).toLocaleDateString(),
+          isLiked: p.userReaction != null,
+          isSaved: p.isSaved ?? true,
+        }));
+        setSavedPosts(adapted);
+      })
+      .catch(console.error)
+      .finally(() => setIsLoadingSaved(false));
+  }, [activeTab, savedPosts.length]);
 
   const handleEdit = () => {
     setEditForm({
@@ -148,6 +187,56 @@ export default function ProfilePage() {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleUseCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error('Geolocation is not supported by your browser');
+      return;
+    }
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const { latitude, longitude } = position.coords;
+
+          let locationName = '';
+          try {
+            const geo = await fetch(
+              `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`,
+              { headers: { 'Accept-Language': 'en' } }
+            );
+            const data = await geo.json();
+            const addr = data.address ?? {};
+            const city = addr.city ?? addr.town ?? addr.village ?? addr.suburb ?? '';
+            const country = addr.country ?? '';
+            locationName = [city, country].filter(Boolean).join(', ');
+          } catch {
+            // geocoding failed — still save coordinates
+          }
+
+          // Save coordinates to backend for proximity features
+          await updateProfile({ latitude, longitude });
+
+          // Update the form input so user sees the city name and it persists on Save
+          if (locationName) {
+            setEditForm((prev) => ({ ...prev, location: locationName }));
+            toast.success(`Location set to ${locationName}`);
+          } else {
+            toast.success('Coordinates saved — enter a city name manually');
+          }
+        } catch {
+          toast.error('Failed to save location');
+        } finally {
+          setIsLocating(false);
+        }
+      },
+      () => {
+        toast.error('Could not get your location. Check browser permissions.');
+        setIsLocating(false);
+      },
+      { enableHighAccuracy: true, timeout: 15000 }
+    );
   };
 
   // Language editor helpers
@@ -273,6 +362,19 @@ export default function ProfilePage() {
                   className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </div>
+              <button
+                type="button"
+                onClick={handleUseCurrentLocation}
+                disabled={isLocating || isSaving}
+                className="flex items-center gap-1.5 text-xs text-primary hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isLocating ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <MapPin className="h-3 w-3" />
+                )}
+                Use current location
+              </button>
               <textarea
                 value={editForm.bio}
                 onChange={(e) =>
@@ -370,7 +472,7 @@ export default function ProfilePage() {
                 variant="outline"
                 size="sm"
                 onClick={handleCancel}
-                disabled={isSaving}
+                disabled={isSaving || isLocating}
                 className="flex-1"
               >
                 <X className="h-4 w-4 mr-1" />
@@ -379,7 +481,7 @@ export default function ProfilePage() {
               <Button
                 size="sm"
                 onClick={handleSave}
-                disabled={isSaving}
+                disabled={isSaving || isLocating}
                 className="flex-1"
               >
                 {isSaving ? (
@@ -489,23 +591,65 @@ export default function ProfilePage() {
         </div>
       </section>
 
-      {/* Posts */}
+      {/* Posts / Saved tabs */}
       <section>
-        <h2 className="mb-3 font-semibold text-foreground">Posts</h2>
-        {isLoadingPosts ? (
-          <div className="flex justify-center py-8">
-            <Loader2 className="h-6 w-6 animate-spin text-primary" />
-          </div>
-        ) : posts.length > 0 ? (
-          <div className="space-y-4">
-            {posts.map((post) => (
-              <PostCard key={post.id} post={post} />
-            ))}
-          </div>
-        ) : (
-          <div className="rounded-xl border border-dashed border-border p-8 text-center">
-            <p className="text-sm text-muted-foreground">No posts yet.</p>
-          </div>
+        <div className="flex gap-1 mb-4 border-b border-border">
+          <button
+            onClick={() => setActiveTab('posts')}
+            className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
+              activeTab === 'posts'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            Posts
+          </button>
+          <button
+            onClick={() => setActiveTab('saved')}
+            className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
+              activeTab === 'saved'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            Saved
+          </button>
+        </div>
+
+        {activeTab === 'posts' && (
+          isLoadingPosts ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            </div>
+          ) : posts.length > 0 ? (
+            <div className="space-y-4">
+              {posts.map((post) => (
+                <PostCard key={post.id} post={post} />
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-xl border border-dashed border-border p-8 text-center">
+              <p className="text-sm text-muted-foreground">No posts yet.</p>
+            </div>
+          )
+        )}
+
+        {activeTab === 'saved' && (
+          isLoadingSaved ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            </div>
+          ) : savedPosts.length > 0 ? (
+            <div className="space-y-4">
+              {savedPosts.map((post) => (
+                <PostCard key={post.id} post={post} />
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-xl border border-dashed border-border p-8 text-center">
+              <p className="text-sm text-muted-foreground">No saved posts yet.</p>
+            </div>
+          )
         )}
       </section>
     </div>
