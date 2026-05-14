@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { MapPin, Heart, MessageCircle, Share2, Send, X, Loader2, Languages, MoreHorizontal, Trash2, Flag, BookmarkPlus } from "lucide-react";
+import { MapPin, Heart, MessageCircle, Share2, Send, X, Loader2, Languages, MoreHorizontal, Trash2, Flag, BookmarkPlus, UserPlus, UserCheck, Bookmark } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/useAuth";
-import { commentsApi, postsApi, wordsApi } from "@/services/api";
+import { commentsApi, postsApi, wordsApi, friendsApi } from "@/services/api";
+import type { FriendRequestResponse } from "@/types/api";
 import { LANGUAGES } from "@/services/api";
 import type { Post } from "@/types";
 import type { ApiComment } from "@/types/api";
@@ -45,6 +46,8 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
   const [isDeleted, setIsDeleted] = useState(false);
   const [isReporting, setIsReporting] = useState(false);
   const [reportDone, setReportDone] = useState(false);
+  const [isSaved, setIsSaved] = useState(post.isSaved ?? false);
+  const [friendStatus, setFriendStatus] = useState<FriendRequestResponse | null | 'loading'>('loading');
   const [selectedPhrase, setSelectedPhrase] = useState('');
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [phraseTargetLang, setPhraseTargetLang] = useState<string | null>(null);
@@ -56,7 +59,29 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
   useEffect(() => {
     setIsLiked(post.isLiked ?? false);
     setLikesCount(post.reactions.likes);
-  }, [post.isLiked, post.reactions.likes]);
+    setIsSaved(post.isSaved ?? false);
+  }, [post.isLiked, post.reactions.likes, post.isSaved]);
+
+  useEffect(() => {
+    if (!post.author.id || user?.id === post.author.id) {
+      setFriendStatus(null);
+      return;
+    }
+    friendsApi.getFriendStatus(post.author.id)
+      .then(setFriendStatus)
+      .catch(() => setFriendStatus(null));
+  }, [post.author.id, user?.id]);
+
+  const handleSavePost = async () => {
+    const next = !isSaved;
+    setIsSaved(next);
+    try {
+      if (next) await postsApi.savePost(post.id);
+      else await postsApi.unsavePost(post.id);
+    } catch {
+      setIsSaved(!next);
+    }
+  };
 
   const handleLike = () => {
     const next = !isLiked;
@@ -151,6 +176,26 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
   };
 
   const isOwnPost = user?.id === post.author.id;
+
+  const handleConnect = async () => {
+    if (friendStatus === 'loading' || friendStatus !== null) return;
+    try {
+      const result = await friendsApi.sendFriendRequest(post.author.id);
+      setFriendStatus(result);
+    } catch (err) {
+      console.error('Failed to send friend request:', err);
+    }
+  };
+
+  const handleAccept = async () => {
+    if (!friendStatus || friendStatus === 'loading') return;
+    try {
+      const result = await friendsApi.respondToRequest(friendStatus.id, 'accept');
+      setFriendStatus(result);
+    } catch (err) {
+      console.error('Failed to accept friend request:', err);
+    }
+  };
 
   const handleDelete = async () => {
     setShowMenu(false);
@@ -256,7 +301,6 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
               ) : (
                 <span className="font-medium text-foreground">{post.author.name}</span>
               )}
-              <span className="text-base">{post.author.flag}</span>
             </div>
             {post.author.location && (
               <div className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -264,9 +308,60 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
                 <span>{post.author.location}</span>
               </div>
             )}
+            {(post.author.learningLanguages?.length ?? 0) > 0 && (
+              <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                <span className="text-xs text-muted-foreground">Learning</span>
+                {post.author.learningLanguages!.slice(0, 3).map((lang) => (
+                  <span
+                    key={lang.code}
+                    title={lang.name}
+                    className="text-sm bg-muted px-1.5 py-0.5 rounded-full"
+                  >
+                    {lang.flagEmoji}
+                  </span>
+                ))}
+                {post.author.learningLanguages!.length > 3 && (
+                  <span className="text-xs text-muted-foreground">+{post.author.learningLanguages!.length - 3}</span>
+                )}
+              </div>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {!isOwnPost && friendStatus !== 'loading' && (
+            <>
+              {friendStatus === null && (
+                <button
+                  onClick={handleConnect}
+                  className="flex items-center gap-1 text-xs font-medium text-primary border border-primary/30 bg-primary/5 hover:bg-primary/10 px-2.5 py-1 rounded-full transition-colors"
+                >
+                  <UserPlus className="h-3.5 w-3.5" />
+                  Connect
+                </button>
+              )}
+              {friendStatus !== null && friendStatus.status === 'PENDING' && friendStatus.isSentByMe && (
+                <span className="flex items-center gap-1 text-xs text-muted-foreground border border-border px-2.5 py-1 rounded-full">
+                  <UserCheck className="h-3.5 w-3.5" />
+                  Requested
+                </span>
+              )}
+              {friendStatus !== null && friendStatus.status === 'PENDING' && !friendStatus.isSentByMe && (
+                <button
+                  onClick={handleAccept}
+                  className="flex items-center gap-1 text-xs font-medium text-emerald-600 border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-full transition-colors"
+                >
+                  <UserCheck className="h-3.5 w-3.5" />
+                  Accept
+                </button>
+              )}
+              {friendStatus !== null && friendStatus.status === 'ACCEPTED' && (
+                <span className="flex items-center gap-1 text-xs text-muted-foreground border border-border px-2.5 py-1 rounded-full">
+                  <UserCheck className="h-3.5 w-3.5" />
+                  Friends
+                </span>
+              )}
+            </>
+          )}
           <span className="text-xs text-muted-foreground">{post.time}</span>
           <div className="relative">
             <button
@@ -403,8 +498,17 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
         <Button
           variant="ghost"
           size="sm"
+          onClick={handleSavePost}
+          className={`h-10 px-3 rounded-full active:scale-95 transition-all ml-auto ${isSaved ? 'text-primary bg-primary/10' : 'text-muted-foreground'}`}
+        >
+          <Bookmark className={`h-5 w-5 transition-all ${isSaved ? 'fill-primary stroke-primary' : ''}`} />
+        </Button>
+
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={handleShare}
-          className="flex items-center gap-1.5 h-10 px-3 rounded-full text-muted-foreground active:text-primary active:scale-95 transition-all ml-auto"
+          className="flex items-center gap-1.5 h-10 px-3 rounded-full text-muted-foreground active:text-primary active:scale-95 transition-all"
         >
           <Share2 className="h-5 w-5" />
         </Button>

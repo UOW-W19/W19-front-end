@@ -7,6 +7,7 @@ export interface Post {
     language: string;
     flag: string;
     location?: string;
+    learningLanguages?: { code: string; name: string; flagEmoji: string }[];
   };
   content: string;
   originalLanguage: string;
@@ -17,6 +18,7 @@ export interface Post {
   reactions: { likes: number; comments: number };
   time: string;
   isLiked?: boolean;
+  isSaved?: boolean;
 }
 
 export interface Comment {

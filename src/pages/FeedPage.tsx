@@ -19,6 +19,7 @@ const toUiPost = (apiPost: ApiPost): Post => {
       language: apiPost.author.language ?? lang?.name ?? apiPost.originalLanguage,
       flag: apiPost.author.flagEmoji ?? lang?.flag ?? '🌍',
       location: apiPost.author.location,
+      learningLanguages: apiPost.author.learningLanguages ?? [],
     },
     content: apiPost.content,
     originalLanguage: apiPost.originalLanguage,
@@ -32,6 +33,7 @@ const toUiPost = (apiPost: ApiPost): Post => {
     },
     time: formatRelativeTime(apiPost.createdAt),
     isLiked: apiPost.userReaction === 'LIKE',
+    isSaved: apiPost.isSaved ?? false,
   };
 };
 

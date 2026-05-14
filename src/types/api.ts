@@ -76,6 +76,7 @@ export interface AuthorDto {
   language?: string;
   flagEmoji?: string;
   location?: string;
+  learningLanguages?: { code: string; name: string; flagEmoji: string }[];
 }
 
 // ============ POSTS ============
@@ -103,6 +104,7 @@ export interface ApiPost {
   author: AuthorDto;
   reactions: PostReactionSummary;
   userReaction?: ReactionType | null;
+  isSaved?: boolean;
   status?: PostStatus;
   createdAt: string;
 }
