@@ -112,12 +112,12 @@ export const messagesApi = {
     /**
      * Start a new conversation with a recipient
      */
-    startConversation: async (recipientId: string, content = "Hello!"): Promise<Message> => {
+    startConversation: async (recipientId: string): Promise<Message> => {
         const response = await apiRequest<BackendMessage>('/conversations', {
             method: 'POST',
             body: JSON.stringify({
                 recipientId: recipientId,
-                content: content
+                // No content — backend will just create the conversation without sending a message
             }),
         });
         return transformMessage(response);
