@@ -9,8 +9,6 @@ export interface RegisterRequest {
   username?: string;
   password: string;
   displayName: string;
-  nativeLanguage?: string | null;
-  learningLanguages?: string[];
 }
 
 export interface LoginRequest {
@@ -75,8 +73,6 @@ export interface AuthorDto {
   avatarUrl?: string;
   language?: string;
   flagEmoji?: string;
-  location?: string;
-  learningLanguages?: { code: string; name: string; flagEmoji: string }[];
 }
 
 // ============ POSTS ============
@@ -104,7 +100,6 @@ export interface ApiPost {
   author: AuthorDto;
   reactions: PostReactionSummary;
   userReaction?: ReactionType | null;
-  isSaved?: boolean;
   status?: PostStatus;
   createdAt: string;
 }
@@ -345,3 +340,6 @@ export interface PaginationParams {
   cursor?: string;
   limit?: number;
 }
+
+// Legacy alias for backward compatibility
+export type PostAuthor = AuthorDto;

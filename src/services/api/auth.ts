@@ -166,7 +166,6 @@ interface BackendProfile {
   bio?: string;
   latitude?: number;
   longitude?: number;
-  location?: string;
   languages?: Array<{
     code: string;
     name?: string;
@@ -201,7 +200,9 @@ const transformProfile = (profile: BackendProfile): UserProfile => {
     bio: profile.bio,
     latitude: profile.latitude,
     longitude: profile.longitude,
-    location: profile.location,
+    location: profile.latitude && profile.longitude 
+      ? `${profile.latitude}, ${profile.longitude}` 
+      : undefined,
     createdAt: profile.created_at ?? new Date().toISOString(),
     languages,
     roles: profile.roles ?? [],
@@ -222,9 +223,6 @@ const buildUpdateProfileFormData = (data: UpdateProfileRequest) => {
   }
   if (data.bio !== undefined) {
     formData.append('bio', data.bio);
-  }
-  if (data.location !== undefined) {
-    formData.append('location', data.location);
   }
   if (data.latitude !== undefined) {
     formData.append('latitude', String(data.latitude));
@@ -248,55 +246,17 @@ export const authApi = {
         display_name: data.displayName,
       }),
     });
-
-    // Store tokens so subsequent authenticated calls work
+    
+    // Store token to fetch profile
     localStorage.setItem(TOKEN_KEY, authResponse.access_token);
     if (authResponse.refresh_token) {
       localStorage.setItem(REFRESH_TOKEN_KEY, authResponse.refresh_token);
     }
-
-    // Seed language preferences before fetching the profile so the returned
-    // user already has languages populated. Failure is non-fatal — the user
-    // can set languages from ProfilePage if this call doesn't go through.
-    const languagePayload: Array<{
-      code: string;
-      proficiency: string;
-      is_learning: boolean;
-    }> = [];
-
-    if (data.nativeLanguage) {
-      languagePayload.push({
-        code: data.nativeLanguage,
-        proficiency: 'NATIVE',
-        is_learning: false,
-      });
-    }
-
-    for (const code of data.learningLanguages ?? []) {
-      if (code !== data.nativeLanguage) {
-        languagePayload.push({
-          code,
-          proficiency: 'BEGINNER',
-          is_learning: true,
-        });
-      }
-    }
-
-    if (languagePayload.length > 0) {
-      try {
-        await apiRequest<void>('/users/me/languages', {
-          method: 'PUT',
-          body: JSON.stringify(languagePayload),
-        });
-      } catch {
-        console.warn('Could not seed language preferences after registration');
-      }
-    }
-
-    // Fetch profile after language seeding so languages are included
+    
+    // Fetch user profile
     const profile = await apiRequest<BackendProfile>('/users/me');
     const user = transformProfile(profile);
-
+    
     return {
       userId: authResponse.user_id,
       accessToken: authResponse.access_token,
@@ -348,13 +308,7 @@ export const authApi = {
   },
 
   async logout(): Promise<void> {
-    try {
-      await apiRequest<void>('/auth/logout', { method: 'POST' });
-    } catch {
-      // best-effort — always clear local session regardless of network state
-    } finally {
-      clearAuth();
-    }
+    clearAuth();
   },
 
   async getProfile(): Promise<UserProfile> {
@@ -369,10 +323,29 @@ export const authApi = {
   },
 
   async updateProfile(data: UpdateProfileRequest): Promise<UserProfile> {
-    const profile = await apiRequest<BackendProfile>('/users/me', {
-      method: 'PATCH',
-      body: buildUpdateProfileFormData(data),
-    });
+    let profile: BackendProfile;
+    try {
+      profile = await apiRequest<BackendProfile>('/users/me', {
+        method: 'PATCH',
+        body: buildUpdateProfileFormData(data),
+      });
+    } catch (error) {
+      if (data.avatar) {
+        throw error;
+      }
+
+      // Fallback: update locally if endpoint doesn't exist
+      const storedUser = getStoredUser();
+      if (!storedUser) {
+        throw new Error('Not authenticated');
+      }
+      const localPatch = { ...data };
+      delete localPatch.avatar;
+      const updatedUser = { ...storedUser, ...localPatch };
+      localStorage.setItem(USER_KEY, JSON.stringify(updatedUser));
+      return updatedUser;
+    }
+    
     const user = transformProfile(profile);
     localStorage.setItem(USER_KEY, JSON.stringify(user));
     return user;

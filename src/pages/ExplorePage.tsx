@@ -10,7 +10,6 @@ import MeetupCard from '@/components/explore/MeetupCard';
 import MeetupDetailSheet from '@/components/explore/MeetupDetailSheet';
 import CreateMeetupModal from '@/components/explore/CreateMeetupModal';
 import ExploreMap from '@/components/explore/ExploreMap';
-import { useAuth } from '@/contexts';
 
 type LocationState =
   | { status: 'loading' }
@@ -23,7 +22,6 @@ const DEFAULT_LOCATION = { latitude: 40.7128, longitude: -74.0060 };
 
 export default function ExplorePage() {
   const navigate = useNavigate();
-  const { user, updateProfile } = useAuth();
   const [meetups, setMeetups] = useState<Meetup[]>([]);
   const [learners, setLearners] = useState<NearbyLearner[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -80,17 +78,6 @@ export default function ExplorePage() {
     requestLocation();
   }, [requestLocation]);
 
-  // Persist coordinates to the backend the first time geolocation is granted.
-  // Skipped if the user already has saved coordinates (user.latitude != null).
-  useEffect(() => {
-    if (locationState.status !== 'granted' || user?.latitude != null) return;
-    updateProfile({ latitude: locationState.latitude, longitude: locationState.longitude })
-      .catch((error) => {
-        console.warn('Failed to persist user coordinates', error);
-        toast.error('We could not save your location preferences. Explore will still work for now.');
-      });
-  }, [locationState, user?.latitude, updateProfile]);
-
   // Get current coordinates (real or fallback)
   const currentLocation = locationState.status === 'granted'
     ? { latitude: locationState.latitude, longitude: locationState.longitude }
@@ -99,6 +86,9 @@ export default function ExplorePage() {
   // Load data when location changes
   useEffect(() => {
     const loadData = async () => {
+      console.log('🔍 [ExplorePage] Starting to load data...');
+      console.log('📍 Current location:', currentLocation);
+
       try {
         // Try to load meetups, but don't fail if endpoint doesn't exist
         let meetupsResponse;
@@ -108,7 +98,8 @@ export default function ExplorePage() {
             longitude: currentLocation.longitude,
             radiusKm: 40000, // 40000km radius to cover the entire world
           });
-        } catch {
+        } catch (meetupsError) {
+          console.warn('⚠️ [ExplorePage] Meetups API failed (endpoint may not be implemented yet):', meetupsError);
           meetupsResponse = { meetups: [], totalPages: 0, totalElements: 0, currentPage: 0 };
         }
 
@@ -118,8 +109,23 @@ export default function ExplorePage() {
           radiusKm: 40000, // 40000km radius to cover the entire world
         });
 
+        console.log('✅ [ExplorePage] Data loaded successfully!');
+        console.log('📅 Meetups response:', meetupsResponse);
+        console.log('📊 Meetups count:', meetupsResponse.meetups.length);
+        console.log('👥 Learners response:', learnersData);
+        console.log('📊 Learners count:', learnersData.length);
+
         setMeetups(meetupsResponse.meetups);
         setLearners(learnersData);
+
+        if (meetupsResponse.meetups.length === 0 && learnersData.length === 0) {
+          console.warn('⚠️ [ExplorePage] No data found! Check:');
+          console.warn('  1. Is backend running?');
+          console.warn('  2. Are you logged in?');
+          console.warn('  3. Does database have data with coordinates?');
+          console.warn('  4. Are coordinates near your location?');
+          console.warn('  5. Do users have show_location=true?');
+        }
       } catch (error) {
         console.error('❌ [ExplorePage] Failed to load data:', error);
         toast.error('Failed to load nearby data', {

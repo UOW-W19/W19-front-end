@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/contexts";
+import { useAuth } from "@/contexts/AuthContext";
 import { usersApi } from "@/services/api/users";
 import { friendsApi } from "@/services/api/friends";
 import type { PublicUserProfile, UserPostsResponse } from "@/services/api/users";

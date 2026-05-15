@@ -4,8 +4,6 @@ export interface Message {
     id: string;
     conversationId: string;
     senderId: string;
-    senderDisplayName?: string;
-    senderAvatarUrl?: string;
     content: string;
     imageUrl?: string;
     createdAt: string;
@@ -38,7 +36,7 @@ export interface CreateMessageRequest {
 export interface BackendMessage {
     id: string;
     conversationId: string;
-    sender: BackendConversationParticipant; // Backend sends the sender profile in MessageResponse
+    sender: UserProfile; // Backend sends the whole sender profile in MessageResponse
     content: string;
     image_url?: string;
     imageUrl?: string;
@@ -48,25 +46,12 @@ export interface BackendMessage {
 
 export interface BackendConversation {
     id: string;
-    participants: BackendConversationParticipant[];
-    isGroup: boolean;
-    groupName?: string;
-    groupAvatar?: string;
+    participants: UserProfile[];
     lastMessagePreview: string;
     lastMessageAt: string;
     unreadCount: number;
     createdAt: string;
     updatedAt: string;
-}
-
-export interface BackendConversationParticipant {
-    id: string | number;
-    email?: string;
-    username?: string;
-    displayName?: string;
-    display_name?: string;
-    avatarUrl?: string;
-    avatar_url?: string;
 }
 
 export interface BackendPaginatedResponse<T> {

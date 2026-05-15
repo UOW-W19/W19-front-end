@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
   Camera,
@@ -14,44 +13,25 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { saveDetectedObject as saveDetectedObjectById, scanImage } from "@/services/api/scanner";
-import { learnKeys } from "@/hooks/useLearnApi";
+import { scanImage } from "@/services/api/scanner";
+import { useCreateWord } from "@/hooks/useLearnApi";
 import type { DetectedObject } from "@/types/scanner";
 
 type ScannerStep = "select" | "preview" | "result";
-type SaveState = "saved" | "duplicate" | "error";
 
 const confidenceLabel = (confidence: number) => `${Math.round(confidence * 100)}%`;
-const objectKey = (object: DetectedObject) =>
-  object.id ?? `${object.label}:${object.languageCode}`;
-
-const translationSourceLabel = (object: DetectedObject) => {
-  switch (object.translationSource) {
-    case "DICTIONARY":
-      return "Dictionary";
-    case "TRANSLATION_CACHE":
-      return "Cached";
-    case "TRANSLATION_API":
-      return "Translated";
-    case "FALLBACK":
-      return "Needs review";
-    default:
-      return null;
-  }
-};
 
 export default function ScannerPage() {
   const [step, setStep] = useState<ScannerStep>("select");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [scanSessionId, setScanSessionId] = useState<string | null>(null);
   const [detectedObjects, setDetectedObjects] = useState<DetectedObject[]>([]);
   const [isScanning, setIsScanning] = useState(false);
-  const [saveStates, setSaveStates] = useState<Record<string, SaveState>>({});
-  const [savingKeys, setSavingKeys] = useState<Set<string>>(new Set());
+  const [savedLabels, setSavedLabels] = useState<Set<string>>(new Set());
+  const [savingLabels, setSavingLabels] = useState<Set<string>>(new Set());
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
-  const queryClient = useQueryClient();
+  const saveWord = useCreateWord();
 
   useEffect(() => {
     return () => {
@@ -75,10 +55,8 @@ export default function ScannerPage() {
 
     setSelectedFile(file);
     setPreviewUrl(URL.createObjectURL(file));
-    setScanSessionId(null);
     setDetectedObjects([]);
-    setSaveStates({});
-    setSavingKeys(new Set());
+    setSavedLabels(new Set());
     setStep("preview");
   };
 
@@ -89,10 +67,9 @@ export default function ScannerPage() {
     setStep("select");
     setSelectedFile(null);
     setPreviewUrl(null);
-    setScanSessionId(null);
     setDetectedObjects([]);
-    setSaveStates({});
-    setSavingKeys(new Set());
+    setSavedLabels(new Set());
+    setSavingLabels(new Set());
     setIsScanning(false);
     if (cameraInputRef.current) cameraInputRef.current.value = "";
     if (galleryInputRef.current) galleryInputRef.current.value = "";
@@ -103,45 +80,31 @@ export default function ScannerPage() {
 
     setIsScanning(true);
     try {
-      const result = await scanImage(selectedFile);
-      setScanSessionId(result.scanSessionId ?? null);
-      setDetectedObjects(result.detectedObjects);
+      const objects = await scanImage(selectedFile);
+      setDetectedObjects(objects);
       setStep("result");
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to scan image";
-      toast.error(message);
+      toast.error(error instanceof Error ? error.message : "Failed to scan image");
     } finally {
       setIsScanning(false);
     }
   };
 
   const saveDetectedObject = async (object: DetectedObject) => {
-    const key = objectKey(object);
-    if (!object.id) {
-      toast.error("Scan result is missing a detection ID");
-      setSaveStates((current) => ({ ...current, [key]: "error" }));
-      return;
-    }
-
-    setSavingKeys((current) => new Set(current).add(key));
+    const key = `${object.label}:${object.languageCode}`;
+    setSavingLabels((current) => new Set(current).add(key));
 
     try {
-      await saveDetectedObjectById(object.id);
-      setSaveStates((current) => ({ ...current, [key]: "saved" }));
-      queryClient.invalidateQueries({ queryKey: learnKeys.words() });
-      queryClient.invalidateQueries({ queryKey: learnKeys.stats() });
-      toast.success("Word saved!");
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to save word";
-      if (message === "Word already saved") {
-        setSaveStates((current) => ({ ...current, [key]: "duplicate" }));
-        toast.info("Word already in your collection");
-      } else {
-        setSaveStates((current) => ({ ...current, [key]: "error" }));
-        toast.error(message);
-      }
+      await saveWord.mutateAsync({
+        word: object.nativeWord,
+        translation: object.learningWord,
+        language_code: object.languageCode,
+        source: "SCANNER",
+        context: `Detected in photo with ${confidenceLabel(object.confidence)} confidence`,
+      });
+      setSavedLabels((current) => new Set(current).add(key));
     } finally {
-      setSavingKeys((current) => {
+      setSavingLabels((current) => {
         const next = new Set(current);
         next.delete(key);
         return next;
@@ -257,38 +220,13 @@ export default function ScannerPage() {
       {step === "result" && (
         <div className="flex-1 flex flex-col gap-5">
           {previewUrl && (
-            <div className="relative w-full rounded-2xl bg-muted overflow-hidden">
+            <div className="relative w-full aspect-[4/3] rounded-2xl bg-muted overflow-hidden">
               <img
                 src={previewUrl}
                 alt="Scanned object"
-                className="block w-full h-auto"
+                className="w-full h-full object-cover"
               />
-              {detectedObjects.map((object) => {
-                if (!object.box) return null;
-
-                return (
-                  <div
-                    key={`box-${objectKey(object)}`}
-                    className="absolute border-2 border-primary bg-primary/10"
-                    style={{
-                      left: `${object.box.x * 100}%`,
-                      top: `${object.box.y * 100}%`,
-                      width: `${object.box.width * 100}%`,
-                      height: `${object.box.height * 100}%`,
-                    }}
-                  >
-                    <span className="absolute left-0 top-0 max-w-full truncate bg-primary px-1.5 py-0.5 text-[11px] font-medium text-primary-foreground">
-                      {object.nativeWord}
-                    </span>
-                  </div>
-                );
-              })}
             </div>
-          )}
-          {scanSessionId && (
-            <p className="text-xs text-muted-foreground">
-              Scan session {scanSessionId.slice(0, 8)}
-            </p>
           )}
 
           {detectedObjects.length === 0 ? (
@@ -302,12 +240,9 @@ export default function ScannerPage() {
           ) : (
             <div className="space-y-3">
               {detectedObjects.map((object) => {
-                const key = objectKey(object);
-                const saveState = saveStates[key];
-                const isSaved = saveState === "saved";
-                const isDuplicate = saveState === "duplicate";
-                const isSaving = savingKeys.has(key);
-                const sourceLabel = translationSourceLabel(object);
+                const key = `${object.label}:${object.languageCode}`;
+                const isSaved = savedLabels.has(key);
+                const isSaving = savingLabels.has(key);
 
                 return (
                   <div
@@ -329,13 +264,12 @@ export default function ScannerPage() {
                         </p>
                         <p className="text-xs uppercase tracking-wide text-muted-foreground mt-1">
                           {object.languageCode}
-                          {sourceLabel ? ` · ${sourceLabel}` : ""}
                         </p>
                       </div>
                       <Button
-                        variant={isSaved || isDuplicate ? "secondary" : "outline"}
+                        variant={isSaved ? "secondary" : "outline"}
                         size="sm"
-                        disabled={isSaved || isDuplicate || isSaving}
+                        disabled={isSaved || isSaving}
                         onClick={() => saveDetectedObject(object)}
                         className="flex-shrink-0"
                       >
@@ -346,7 +280,7 @@ export default function ScannerPage() {
                         ) : (
                           <Save className="h-4 w-4" />
                         )}
-                        {isDuplicate ? "Duplicate" : isSaved ? "Saved" : "Save"}
+                        {isSaved ? "Saved" : "Save"}
                       </Button>
                     </div>
                   </div>

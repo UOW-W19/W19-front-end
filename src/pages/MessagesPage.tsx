@@ -1,34 +1,19 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { ConversationList } from "@/components/messages/ConversationList";
 import { ChatWindow } from "@/components/messages/ChatWindow";
-import { CreateGroupModal } from "@/components/messages/CreateGroupModal";
 import { messagesApi } from "@/services/api/messages";
-import type { Conversation, Message } from "@/types/message";
-import { useAuth } from "@/contexts";
-import { useChatSubscription } from "@/hooks/useChatSubscription";
-
-const appendUniqueMessage = (messages: Message[], newMessage: Message) => {
-  if (messages.some(m => m.id === newMessage.id)) return messages;
-  return [...messages, newMessage];
-};
+import type { Message } from "@/types/message";
 
 export default function MessagesPage() {
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [isStartingChat, setIsStartingChat] = useState(false);
-  const [showCreateGroup, setShowCreateGroup] = useState(false);
   const startingForUserRef = useRef<string | null>(null);
   const queryClient = useQueryClient();
   const location = useLocation();
   const navigate = useNavigate();
-  const { user } = useAuth();
-
-  const handleSelectConversation = (conversation: Conversation) => {
-    setSelectedConversationId(conversation.id);
-    queryClient.invalidateQueries({ queryKey: ['messages', conversation.id] });
-  };
 
   // Fetch conversations
   const { data: conversations = [], isLoading: loadingConversations } = useQuery({
@@ -37,64 +22,12 @@ export default function MessagesPage() {
     refetchInterval: 10000,
   });
 
-  const conversationIds = useMemo(() => conversations.map(c => c.id), [conversations]);
-  useChatSubscription(conversationIds, selectedConversationId);
-
   // Fetch messages for selected conversation
   const { data: messages = [] } = useQuery({
     queryKey: ['messages', selectedConversationId],
     queryFn: () => selectedConversationId ? messagesApi.getMessages(selectedConversationId) : Promise.resolve([]),
     enabled: !!selectedConversationId,
-    refetchInterval: 60000,
-  });
-
-  // Delete message mutation
-  const deleteMessageMutation = useMutation({
-    mutationFn: (messageId: string) => {
-      if (!selectedConversationId) throw new Error("No conversation selected");
-      return messagesApi.deleteMessage(selectedConversationId, messageId);
-    },
-    onSuccess: (_data, messageId) => {
-      queryClient.setQueryData(['messages', selectedConversationId], (old: Message[] = []) =>
-        old.filter(m => m.id !== messageId)
-      );
-    },
-  });
-
-  // Group mutations
-  const createGroupMutation = useMutation({
-    mutationFn: ({ groupName, participantIds }: { groupName: string; participantIds: string[] }) =>
-      messagesApi.createGroup(groupName, participantIds),
-    onSuccess: (newConversation) => {
-      queryClient.setQueryData(['conversations'], (old: typeof conversations) =>
-        [newConversation, ...(old || [])]
-      );
-      setSelectedConversationId(newConversation.id);
-      setShowCreateGroup(false);
-    },
-  });
-
-  const leaveGroupMutation = useMutation({
-    mutationFn: (conversationId: string) => {
-      if (!user?.id) throw new Error("Not authenticated");
-      return messagesApi.removeParticipant(conversationId, user.id);
-    },
-    onSuccess: (_data, conversationId) => {
-      queryClient.setQueryData(['conversations'], (old: typeof conversations) =>
-        (old || []).filter(c => c.id !== conversationId)
-      );
-      if (selectedConversationId === conversationId) setSelectedConversationId(null);
-    },
-  });
-
-  const updateGroupMutation = useMutation({
-    mutationFn: ({ conversationId, groupName }: { conversationId: string; groupName: string }) =>
-      messagesApi.updateGroup(conversationId, groupName),
-    onSuccess: (updated) => {
-      queryClient.setQueryData(['conversations'], (old: typeof conversations) =>
-        (old || []).map(c => c.id === updated.id ? { ...c, groupName: updated.groupName } : c)
-      );
-    },
+    refetchInterval: 5000,
   });
 
   // Send message mutation
@@ -105,7 +38,7 @@ export default function MessagesPage() {
     },
     onSuccess: (newMessage) => {
       queryClient.setQueryData(['messages', selectedConversationId], (old: Message[] = []) => {
-        return appendUniqueMessage(old, newMessage);
+        return [...old, newMessage];
       });
       queryClient.invalidateQueries({ queryKey: ['conversations'] });
     },
@@ -123,7 +56,7 @@ export default function MessagesPage() {
 
     // Check if conversation already exists in the loaded list
     const existing = conversations.find(c =>
-      !c.isGroup && c.participants.some(p => p.id === userId)
+      c.participants.some(p => p.id === userId)
     );
 
     if (existing) {
@@ -136,13 +69,13 @@ export default function MessagesPage() {
     startingForUserRef.current = userId;
     setIsStartingChat(true);
 
-    messagesApi.findOrCreateDm(userId)
-      .then(async (conversation) => {
+    messagesApi.startConversation(userId)
+      .then(async (newMsg) => {
         await queryClient.refetchQueries({ queryKey: ['conversations'] });
-        setSelectedConversationId(conversation.id);
+        setSelectedConversationId(newMsg.conversationId);
       })
       .catch(err => {
-        console.error("Failed to open conversation:", err);
+        console.error("Failed to start conversation:", err);
       })
       .finally(() => {
         startingForUserRef.current = null;
@@ -162,33 +95,12 @@ export default function MessagesPage() {
 
   const selectedConversation = conversations.find(c => c.id === selectedConversationId);
 
-  // Unique participants from DM conversations (excluding self) for group creation
-  const groupCandidates = useMemo(() => {
-    const seen = new Set<string>();
-    return conversations
-      .filter(c => !c.isGroup)
-      .flatMap(c => c.participants)
-      .filter(p => {
-        if (p.id === user?.id || seen.has(p.id)) return false;
-        seen.add(p.id);
-        return true;
-      });
-  }, [conversations, user?.id]);
-
   // Determine view state for mobile
   const showChat = !!selectedConversationId;
   const isChatLoading = isStartingChat || (!!selectedConversationId && !selectedConversation);
 
   return (
     <div className="h-full flex overflow-hidden bg-background">
-      {showCreateGroup && (
-        <CreateGroupModal
-          candidates={groupCandidates}
-          onClose={() => setShowCreateGroup(false)}
-          onCreated={(groupName, participantIds) => createGroupMutation.mutate({ groupName, participantIds })}
-          isLoading={createGroupMutation.isPending}
-        />
-      )}
       {/* Sidebar - Conversation List */}
       <div className={`
         ${showChat ? 'hidden lg:flex' : 'flex'} 
@@ -202,8 +114,7 @@ export default function MessagesPage() {
           <ConversationList
             conversations={conversations}
             selectedId={selectedConversationId || undefined}
-            onSelect={handleSelectConversation}
-            onNewGroup={() => setShowCreateGroup(true)}
+            onSelect={(conversation) => setSelectedConversationId(conversation.id)}
           />
         )}
       </div>
@@ -221,10 +132,7 @@ export default function MessagesPage() {
             conversation={selectedConversation}
             messages={messages}
             isLoading={sendMessageMutation.isPending}
-            onSendMessage={async (content, image) => { await sendMessageMutation.mutateAsync({ content, image }); }}
-            onDeleteMessage={(messageId) => deleteMessageMutation.mutate(messageId)}
-            onLeaveGroup={(conversationId) => leaveGroupMutation.mutate(conversationId)}
-            onUpdateGroup={(conversationId, groupName) => updateGroupMutation.mutate({ conversationId, groupName })}
+            onSendMessage={(content, image) => sendMessageMutation.mutate({ content, image })}
             onBack={() => setSelectedConversationId(null)}
           />
         </div>

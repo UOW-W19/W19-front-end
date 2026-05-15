@@ -1,16 +1,15 @@
 import { formatDistanceToNow } from "date-fns";
-import { CheckCheck, Users } from "lucide-react";
+import { CheckCheck } from "lucide-react";
 import type { Conversation } from "@/types/message";
-import { useAuth } from "@/contexts";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface ConversationListProps {
     conversations: Conversation[];
     selectedId?: string;
     onSelect: (conversation: Conversation) => void;
-    onNewGroup?: () => void;
 }
 
-export function ConversationList({ conversations, selectedId, onSelect, onNewGroup }: ConversationListProps) {
+export function ConversationList({ conversations, selectedId, onSelect }: ConversationListProps) {
     const { user } = useAuth();
 
     // Helper to get the other participant in 1:1 chats
@@ -37,18 +36,8 @@ export function ConversationList({ conversations, selectedId, onSelect, onNewGro
 
     return (
         <div className="flex flex-col h-full bg-card border-r border-border">
-            <div className="flex items-center justify-between p-4 border-b border-border">
+            <div className="p-4 border-b border-border">
                 <h2 className="text-xl font-bold">Messages</h2>
-                {onNewGroup && (
-                    <button
-                        onClick={onNewGroup}
-                        className="flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary/80 transition-colors"
-                        aria-label="New group"
-                    >
-                        <Users className="h-4 w-4" />
-                        New Group
-                    </button>
-                )}
             </div>
 
             <div className="flex-1 overflow-y-auto">
@@ -77,8 +66,6 @@ export function ConversationList({ conversations, selectedId, onSelect, onNewGro
                                                 alt={info.name}
                                                 className="h-12 w-12 rounded-full object-cover"
                                             />
-                                        ) : convo.isGroup ? (
-                                            <Users className="h-5 w-5" />
                                         ) : (
                                             info.initial
                                         )}

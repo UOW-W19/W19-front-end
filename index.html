@@ -7,8 +7,8 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Locale" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="theme-color" content="#f5f2ec" />
-    
+    <meta name="theme-color" content="#EDEBE8" />
+
     <title>Locale - Learn Languages Together</title>
     <meta name="description" content="Connect with language learners nearby. Practice, share, and grow together." />
     <meta name="author" content="Locale" />
@@ -25,14 +25,17 @@
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:site" content="@Locale" />
     <meta name="twitter:image" content="/pwa-512x512.png" />
-    
-    <!-- Prevent tap highlight on iOS -->
+
+    <!-- Lexend — exact font used in Figma designs -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+
     <style>
       * { -webkit-tap-highlight-color: transparent; }
       html, body { overscroll-behavior: none; }
     </style>
   </head>
-
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>

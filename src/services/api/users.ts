@@ -196,28 +196,229 @@ const transformPost = (post: BackendPost): ApiPost => ({
   createdAt: post.created_at ?? new Date().toISOString(),
 });
 
+// ============ MOCK DATA (Remove when backend is ready) ============
+const MOCK_PROFILES: Record<string, BackendPublicProfile> = {
+  'user-1': {
+    id: 'user-1',
+    username: 'maria_garcia',
+    display_name: 'María García',
+    avatar_url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150',
+    bio: '🇪🇸 Native Spanish speaker from Madrid. Learning English and Japanese. Love helping others learn!',
+    location: 'Madrid, Spain',
+    created_at: '2023-06-15T10:30:00Z',
+    languages: [
+      { code: 'es', name: 'Spanish', flag_emoji: '🇪🇸', proficiency: 'NATIVE', is_learning: false },
+      { code: 'en', name: 'English', flag_emoji: '🇬🇧', proficiency: 'ADVANCED', is_learning: true },
+      { code: 'ja', name: 'Japanese', flag_emoji: '🇯🇵', proficiency: 'BEGINNER', is_learning: true },
+    ],
+    followers_count: 234,
+    following_count: 156,
+    posts_count: 47,
+    is_following: false,
+    is_followed_by: false,
+    privacy_settings: { show_activity: true, show_saved_words: true },
+  },
+  'user-2': {
+    id: 'user-2',
+    username: 'tanaka_yuki',
+    display_name: '田中ゆき (Yuki)',
+    avatar_url: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150',
+    bio: 'Japanese teacher 📚 | Helping you master Hiragana, Katakana & Kanji | 日本語を一緒に学びましょう！',
+    location: 'Tokyo, Japan',
+    created_at: '2023-03-20T08:00:00Z',
+    languages: [
+      { code: 'ja', name: 'Japanese', flag_emoji: '🇯🇵', proficiency: 'NATIVE', is_learning: false },
+      { code: 'en', name: 'English', flag_emoji: '🇬🇧', proficiency: 'ADVANCED', is_learning: false },
+      { code: 'ko', name: 'Korean', flag_emoji: '🇰🇷', proficiency: 'INTERMEDIATE', is_learning: true },
+    ],
+    followers_count: 1024,
+    following_count: 89,
+    posts_count: 156,
+    is_following: true,
+    is_followed_by: true,
+    privacy_settings: { show_activity: true, show_saved_words: false },
+  },
+  'user-3': {
+    id: 'user-3',
+    username: 'pierre_dubois',
+    display_name: 'Pierre Dubois',
+    avatar_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
+    bio: 'Parisian 🗼 | French & English | Currently exploring German and Italian for my European travels!',
+    location: 'Paris, France',
+    created_at: '2024-01-10T14:00:00Z',
+    languages: [
+      { code: 'fr', name: 'French', flag_emoji: '🇫🇷', proficiency: 'NATIVE', is_learning: false },
+      { code: 'en', name: 'English', flag_emoji: '🇬🇧', proficiency: 'ADVANCED', is_learning: false },
+      { code: 'de', name: 'German', flag_emoji: '🇩🇪', proficiency: 'BEGINNER', is_learning: true },
+    ],
+    followers_count: 78,
+    following_count: 112,
+    posts_count: 23,
+    is_following: false,
+    is_followed_by: false,
+    privacy_settings: { show_activity: false, show_saved_words: false },
+  },
+};
+
+const MOCK_POSTS: Record<string, BackendPost[]> = {
+  'user-1': [
+    {
+      id: 'post-1',
+      content: '¡Hoy aprendí la diferencia entre "affect" y "effect"! 📝 Always confusing but finally got it.',
+      original_language: 'es',
+      image_url: undefined,
+      location: 'Madrid, Spain',
+      author: { id: 'user-1', username: 'maria_garcia', display_name: 'María García', avatar_url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150', flag_emoji: '🇪🇸' },
+      reactions: { likes: 42, comments: 8 },
+      created_at: '2024-01-14T16:30:00Z',
+    },
+    {
+      id: 'post-2',
+      content: 'My favorite Spanish idiom: "No hay mal que por bien no venga" - Every cloud has a silver lining ☁️✨',
+      original_language: 'es',
+      image_url: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800',
+      location: 'Madrid, Spain',
+      author: { id: 'user-1', username: 'maria_garcia', display_name: 'María García', avatar_url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150', flag_emoji: '🇪🇸' },
+      reactions: { likes: 89, comments: 15 },
+      created_at: '2024-01-12T10:00:00Z',
+    },
+  ],
+  'user-2': [
+    {
+      id: 'post-3',
+      content: '今日の単語: 木漏れ日 (komorebi) - sunlight filtering through trees 🌳☀️ One of my favorite untranslatable words!',
+      original_language: 'ja',
+      image_url: 'https://images.unsplash.com/photo-1448375240586-882707db888b?w=800',
+      location: 'Tokyo, Japan',
+      author: { id: 'user-2', username: 'tanaka_yuki', display_name: '田中ゆき (Yuki)', avatar_url: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150', flag_emoji: '🇯🇵' },
+      reactions: { likes: 156, comments: 23 },
+      created_at: '2024-01-15T09:00:00Z',
+    },
+    {
+      id: 'post-4',
+      content: 'Quick tip: ありがとう vs ありがとうございます - Use ございます in formal situations! 🎌',
+      original_language: 'ja',
+      author: { id: 'user-2', username: 'tanaka_yuki', display_name: '田中ゆき (Yuki)', avatar_url: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150', flag_emoji: '🇯🇵' },
+      reactions: { likes: 234, comments: 31 },
+      created_at: '2024-01-13T14:00:00Z',
+    },
+    {
+      id: 'post-5',
+      content: 'Started learning Korean this week! 안녕하세요 🇰🇷 Any tips from Korean speakers?',
+      original_language: 'ja',
+      author: { id: 'user-2', username: 'tanaka_yuki', display_name: '田中ゆき (Yuki)', avatar_url: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150', flag_emoji: '🇯🇵' },
+      reactions: { likes: 67, comments: 45 },
+      created_at: '2024-01-10T11:00:00Z',
+    },
+  ],
+  'user-3': [
+    {
+      id: 'post-6',
+      content: 'Bonjour! Just discovered that "Schadenfreude" has no direct French equivalent. German is fascinating! 🇩🇪',
+      original_language: 'fr',
+      author: { id: 'user-3', username: 'pierre_dubois', display_name: 'Pierre Dubois', avatar_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150', flag_emoji: '🇫🇷' },
+      reactions: { likes: 28, comments: 12 },
+      created_at: '2024-01-14T18:00:00Z',
+    },
+  ],
+};
+
+let mockFollowState: Record<string, boolean> = {
+  'user-1': false,
+  'user-2': true,
+  'user-3': false,
+};
+// ============ END MOCK DATA ============
+
 export const usersApi = {
   // Get public profile by user ID
   async getProfile(userId: string): Promise<PublicUserProfile> {
-    const profile = await apiRequest<BackendPublicProfile>(`/users/${userId}`);
-    return transformPublicProfile(profile);
+    // Try real API first
+    try {
+      const profile = await apiRequest<BackendPublicProfile>(`/users/${userId}`);
+      return transformPublicProfile(profile);
+    } catch (error) {
+      // Check if it's a 404 - endpoint might not exist yet
+      // MOCK FALLBACK: Remove this block when backend is fully ready
+      const mockProfile = MOCK_PROFILES[userId];
+      if (mockProfile) {
+        console.log('[usersApi] Using mock profile for:', userId);
+        return transformPublicProfile({
+          ...mockProfile,
+          is_following: mockFollowState[userId] ?? false,
+        });
+      }
+
+      // Try to get basic profile from /users/me if it's the current user's ID
+      // Otherwise, return a minimal profile based on available data
+      console.warn('[usersApi] Profile endpoint not available, returning minimal profile');
+
+      // Return a minimal "unknown user" profile when endpoint doesn't exist
+      // The UI will show basic info, and full profile will work once backend implements the endpoint
+      return {
+        id: userId,
+        username: 'user',
+        displayName: 'User',
+        avatarUrl: undefined,
+        bio: undefined,
+        location: undefined,
+        createdAt: new Date().toISOString(),
+        languages: [],
+        followersCount: 0,
+        followingCount: 0,
+        postsCount: 0,
+        isFollowing: false,
+        isFollowedBy: false,
+        privacySettings: {
+          showActivity: true,
+          showSavedWords: false,
+        },
+      };
+    }
   },
 
   // Get user's posts
   async getUserPosts(userId: string, cursor?: string): Promise<UserPostsResponse> {
     const page = cursor ? parseInt(cursor, 10) : 0;
-    const response = await apiRequest<BackendUserPostsResponse>(
-      `/users/${userId}/posts?page=${page}&size=10`
-    );
-    return {
-      posts: response.content.map(transformPost),
-      hasMore: !response.last,
-      nextCursor: !response.last ? String((response.number ?? page) + 1) : undefined,
-    };
+
+    // Try real API first
+    try {
+      const response = await apiRequest<BackendUserPostsResponse>(
+        `/users/${userId}/posts?page=${page}&size=10`
+      );
+
+      return {
+        posts: response.content.map(transformPost),
+        hasMore: !response.last,
+        nextCursor: !response.last ? String((response.number ?? page) + 1) : undefined,
+      };
+    } catch (error) {
+      // MOCK FALLBACK: Remove this block when backend is fully ready
+      const mockPosts = MOCK_POSTS[userId];
+      if (mockPosts) {
+        console.log('[usersApi] Using mock posts for:', userId);
+        return {
+          posts: mockPosts.map(transformPost),
+          hasMore: false,
+          nextCursor: undefined,
+        };
+      }
+      // If no mock data and API failed, rethrow
+      throw error;
+    }
   },
 
   // Follow a user - RESTful pattern: POST /users/{id}/follow
   async followUser(userId: string): Promise<void> {
+    // MOCK: Remove this block when backend is ready
+    if (MOCK_PROFILES[userId]) {
+      await new Promise(resolve => setTimeout(resolve, 200));
+      mockFollowState[userId] = true;
+      MOCK_PROFILES[userId].followers_count++;
+      return;
+    }
+    // END MOCK
+
     await apiRequest<void>(`/users/${userId}/follow`, {
       method: 'POST',
     });
@@ -225,6 +426,15 @@ export const usersApi = {
 
   // Unfollow a user - RESTful pattern: DELETE /users/{id}/follow
   async unfollowUser(userId: string): Promise<void> {
+    // MOCK: Remove this block when backend is ready
+    if (MOCK_PROFILES[userId]) {
+      await new Promise(resolve => setTimeout(resolve, 200));
+      mockFollowState[userId] = false;
+      MOCK_PROFILES[userId].followers_count = Math.max(0, MOCK_PROFILES[userId].followers_count - 1);
+      return;
+    }
+    // END MOCK
+
     await apiRequest<void>(`/users/${userId}/follow`, {
       method: 'DELETE',
     });

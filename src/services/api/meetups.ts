@@ -168,7 +168,10 @@ export const meetupsApi = {
     
     const queryString = queryParams.toString();
     const url = `/meetups${queryString ? `?${queryString}` : ''}`;
+    console.log('[meetupsApi] Fetching meetups:', url);
+    
     const response = await apiRequest<BackendMeetupsResponse>(url);
+    console.log('[meetupsApi] Raw response:', response);
     
     return {
       meetups: response.meetups.map(transformMeetup),
@@ -210,6 +213,8 @@ export const meetupsApi = {
     if (data.latitude !== undefined) body.latitude = data.latitude;
     if (data.longitude !== undefined) body.longitude = data.longitude;
     if (data.maxAttendees !== undefined) body.max_attendees = data.maxAttendees;
+    
+    console.log('[meetupsApi] Creating meetup:', body);
     
     const meetup = await apiRequest<BackendMeetup>('/meetups', {
       method: 'POST',
