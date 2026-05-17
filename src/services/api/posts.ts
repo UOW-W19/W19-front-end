@@ -78,7 +78,6 @@ interface BackendPost {
   distance?: string;
   location?: string;
   
-  user_reaction?: string;
   is_saved?: boolean;
 
   // Metadata

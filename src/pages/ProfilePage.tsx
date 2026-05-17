@@ -83,6 +83,7 @@ export default function ProfilePage() {
             flag: p.author.flagEmoji ?? "",
           },
           content: p.content,
+          originalLanguage: p.originalLanguage ?? "en",
           translation: p.translation ?? "",
           location: p.location ?? "",
           distance: p.distance ?? "",
