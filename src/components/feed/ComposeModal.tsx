@@ -66,6 +66,7 @@ export function ComposeModal({ isOpen, onClose, onSubmit }: ComposeModalProps) {
         flag: selectedLanguage.flag,
       },
       content: content.trim(),
+      originalLanguage: selectedLanguage.code,
       translation: translation.trim() || "Translation pending...",
       location: "Your Location",
       distance: "0 km",

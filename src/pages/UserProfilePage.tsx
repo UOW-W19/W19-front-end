@@ -423,6 +423,7 @@ export default function UserProfilePage() {
                       flag: apiPost.author.flagEmoji || "🌍",
                     },
                     content: apiPost.content,
+                    originalLanguage: apiPost.originalLanguage ?? "en",
                     translation: "",
                     location: apiPost.location || "",
                     distance: apiPost.distance || "",
