@@ -16,6 +16,7 @@ const InstallPage     = lazy(() => import("./pages/InstallPage"));
 const AuthPage        = lazy(() => import("./pages/AuthPage"));
 const ScannerPage     = lazy(() => import("./pages/ScannerPage"));
 const FriendsPage     = lazy(() => import("./pages/FriendsPage"));
+const NotificationsPage = lazy(() => import("./pages/NotificationsPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -72,6 +73,7 @@ const AppRoutes = () => (
         <Route path="/install" element={<InstallPage />} />
         <Route path="/scanner" element={<ScannerPage />} />
         <Route path="/friends" element={<FriendsPage />} />
+        <Route path="/notifications" element={<NotificationsPage />} />
       </Route>
     </Routes>
   </Suspense>

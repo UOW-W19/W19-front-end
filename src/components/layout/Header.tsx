@@ -1,7 +1,9 @@
 import { Globe, Bell, Search, Users } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts";
+import { notificationsApi } from "@/services/api/notifications";
 
 interface HeaderProps {
   title?: string;
@@ -9,6 +11,15 @@ interface HeaderProps {
 
 export function Header({ title = "Feed" }: HeaderProps) {
   const { user } = useAuth();
+  const { data: notificationSummary } = useQuery({
+    queryKey: ["notifications-summary"],
+    queryFn: notificationsApi.getSummary,
+    enabled: Boolean(user),
+    refetchInterval: 30_000,
+    staleTime: 10_000,
+  });
+  const unreadNotifications = notificationSummary?.unreadNotifications ?? 0;
+  const unreadLabel = unreadNotifications > 99 ? "99+" : String(unreadNotifications);
 
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur-md pt-[env(safe-area-inset-top)]">
@@ -41,9 +52,15 @@ export function Header({ title = "Feed" }: HeaderProps) {
               <Users className="h-5 w-5 text-muted-foreground" />
             </Link>
           </Button>
-          <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full relative active:scale-95">
-            <Bell className="h-5 w-5 text-muted-foreground" />
-            <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-primary" />
+          <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full relative active:scale-95" asChild>
+            <Link to="/notifications" aria-label="Notifications">
+              <Bell className="h-5 w-5 text-muted-foreground" />
+              {unreadNotifications > 0 && (
+                <span className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold leading-none text-primary-foreground">
+                  {unreadLabel}
+                </span>
+              )}
+            </Link>
           </Button>
 
           {/* Mobile Profile Link */}
