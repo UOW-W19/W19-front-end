@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -128,14 +128,16 @@ function NotificationRow({
 export default function NotificationsPage() {
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState<Filter>("all");
+  const [page, setPage] = useState(0);
+  const [loadedNotifications, setLoadedNotifications] = useState<AppNotification[]>([]);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [isMarkingAll, setIsMarkingAll] = useState(false);
   const unreadOnly = filter === "unread";
 
-  const queryKey = useMemo(() => ["notifications", unreadOnly], [unreadOnly]);
+  const queryKey = useMemo(() => ["notifications", unreadOnly, page], [unreadOnly, page]);
   const { data, isLoading, isFetching } = useQuery({
     queryKey,
-    queryFn: () => notificationsApi.getNotifications({ unreadOnly }),
+    queryFn: () => notificationsApi.getNotifications({ unreadOnly, page }),
     staleTime: 15_000,
   });
 
@@ -147,10 +149,34 @@ export default function NotificationsPage() {
   });
 
   const refreshNotifications = async () => {
+    setPage(0);
+    setLoadedNotifications([]);
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["notifications"] }),
       queryClient.invalidateQueries({ queryKey: ["notifications-summary"] }),
     ]);
+  };
+
+  useEffect(() => {
+    if (!data) return;
+
+    setLoadedNotifications((current) => {
+      if (data.currentPage === 0) {
+        return data.notifications;
+      }
+
+      const existingIds = new Set(current.map((notification) => notification.id));
+      return [
+        ...current,
+        ...data.notifications.filter((notification) => !existingIds.has(notification.id)),
+      ];
+    });
+  }, [data]);
+
+  const selectFilter = (nextFilter: Filter) => {
+    setFilter(nextFilter);
+    setPage(0);
+    setLoadedNotifications([]);
   };
 
   const markRead = async (id: string) => {
@@ -173,8 +199,9 @@ export default function NotificationsPage() {
     }
   };
 
-  const notifications = data?.notifications ?? [];
+  const notifications = loadedNotifications;
   const unreadCount = summary.data?.unreadNotifications ?? 0;
+  const hasMore = data?.hasMore ?? false;
 
   return (
     <div className="mx-auto h-full max-w-3xl overflow-y-auto pb-24 scrollbar-hide">
@@ -207,7 +234,7 @@ export default function NotificationsPage() {
           {(["all", "unread"] as const).map((option) => (
             <button
               key={option}
-              onClick={() => setFilter(option)}
+              onClick={() => selectFilter(option)}
               className={cn(
                 "flex-1 border-b-2 py-3 text-sm font-medium capitalize transition-colors",
                 filter === option
@@ -251,6 +278,20 @@ export default function NotificationsPage() {
                 isUpdating={updatingId === notification.id}
               />
             ))}
+            {hasMore && (
+              <Button
+                variant="outline"
+                className="mt-2 w-full"
+                disabled={isFetching}
+                onClick={() => setPage((current) => current + 1)}
+              >
+                {isFetching ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  "Load more"
+                )}
+              </Button>
+            )}
           </div>
         )}
       </div>
