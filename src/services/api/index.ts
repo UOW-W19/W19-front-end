@@ -11,4 +11,5 @@ export * from './places';
 export * from './scanner';
 export * from './words';
 export * from './friends';
+export * from './notifications';
 export { LANGUAGES, getLanguageByCode, getLanguageByName, API_BASE_URL } from './config';

@@ -247,7 +247,7 @@ export const usersApi = {
         meetup_notifications: boolean;
       };
       privacy_settings: {
-        show_location: boolean;
+        location_visibility: 'PUBLIC' | 'FRIENDS_ONLY' | 'NOBODY';
         allow_messages: 'everyone' | 'friends' | 'none';
       };
     }>('/users/me/settings');
@@ -262,7 +262,7 @@ export const usersApi = {
         meetupNotifications: response.notification_prefs.meetup_notifications,
       },
       privacySettings: {
-        locationVisibility: (response.privacy_settings.show_location ? 'PUBLIC' : 'NOBODY') as 'PUBLIC' | 'FRIENDS_ONLY' | 'NOBODY',
+        locationVisibility: response.privacy_settings.location_visibility ?? 'PUBLIC',
         allowMessages: response.privacy_settings.allow_messages,
       },
     };
@@ -305,7 +305,7 @@ export const usersApi = {
         meetup_notifications: boolean;
       };
       privacy_settings: {
-        show_location: boolean;
+        location_visibility: 'PUBLIC' | 'FRIENDS_ONLY' | 'NOBODY';
         allow_messages: 'everyone' | 'friends' | 'none';
       };
     }>('/users/me/settings', {
@@ -323,7 +323,7 @@ export const usersApi = {
         meetupNotifications: response.notification_prefs.meetup_notifications,
       },
       privacySettings: {
-        locationVisibility: (response.privacy_settings.show_location ? 'PUBLIC' : 'NOBODY') as 'PUBLIC' | 'FRIENDS_ONLY' | 'NOBODY',
+        locationVisibility: response.privacy_settings.location_visibility ?? 'PUBLIC',
         allowMessages: response.privacy_settings.allow_messages,
       },
     };
