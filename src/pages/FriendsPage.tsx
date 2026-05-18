@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import {
     Users,
     UserCheck,
@@ -17,6 +17,10 @@ import type { FriendRequestResponse } from "@/types/api";
 import type { PublicUserProfile } from "@/services/api/users";
 
 type Tab = "friends" | "requests";
+
+function tabFromParam(tab: string | null): Tab {
+    return tab === "requests" ? "requests" : "friends";
+}
 
 function Avatar({
     url,
@@ -50,7 +54,10 @@ function Avatar({
 
 export default function FriendsPage() {
     const { user } = useAuth();
-    const [activeTab, setActiveTab] = useState<Tab>("friends");
+    const [searchParams, setSearchParams] = useSearchParams();
+    const [activeTab, setActiveTab] = useState<Tab>(() =>
+        tabFromParam(searchParams.get("tab"))
+    );
 
     // — Friends list state —
     const [friends, setFriends] = useState<PublicUserProfile[]>([]);
@@ -94,6 +101,19 @@ export default function FriendsPage() {
         loadFriends();
         loadRequests();
     }, [loadFriends, loadRequests]);
+
+    useEffect(() => {
+        setActiveTab(tabFromParam(searchParams.get("tab")));
+    }, [searchParams]);
+
+    const selectTab = (tab: Tab) => {
+        setActiveTab(tab);
+        if (tab === "requests") {
+            setSearchParams({ tab: "requests" });
+        } else {
+            setSearchParams({});
+        }
+    };
 
     const handleRespond = async (
         friendId: string,
@@ -142,7 +162,7 @@ export default function FriendsPage() {
             {/* Tabs */}
             <div className="flex border-b border-border px-4">
                 <button
-                    onClick={() => setActiveTab("friends")}
+                    onClick={() => selectTab("friends")}
                     className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors flex items-center justify-center gap-2 ${activeTab === "friends"
                         ? "border-primary text-primary"
                         : "border-transparent text-muted-foreground hover:text-foreground"
@@ -158,7 +178,7 @@ export default function FriendsPage() {
                 </button>
 
                 <button
-                    onClick={() => setActiveTab("requests")}
+                    onClick={() => selectTab("requests")}
                     className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors flex items-center justify-center gap-2 ${activeTab === "requests"
                         ? "border-primary text-primary"
                         : "border-transparent text-muted-foreground hover:text-foreground"

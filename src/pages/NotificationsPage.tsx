@@ -39,6 +39,9 @@ function targetFor(notification: AppNotification) {
   const target = notification.targetUrl;
   if (!target) return undefined;
   if (target.startsWith("/users/")) return target.replace("/users/", "/user/");
+  if (target === "/friends/requests" || target.startsWith("/friends/requests?")) {
+    return "/friends?tab=requests";
+  }
   if (target.startsWith("/friends")) return "/friends";
   if (target.startsWith("/conversations/")) return "/messages";
   if (target.startsWith("/meetups/")) return "/explore";
