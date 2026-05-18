@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   User,
   Bell,
@@ -144,8 +144,9 @@ export default function SettingsPage() {
           </h2>
           <div className="rounded-2xl border border-border bg-card divide-y divide-border overflow-hidden">
             {section.items.map((item) => (
-              <button
+              <Link
                 key={item.label}
+                to={item.to}
                 className="flex w-full items-center justify-between p-4 text-left transition-colors hover:bg-muted/50"
               >
                 <div className="flex items-center gap-3">
@@ -153,7 +154,7 @@ export default function SettingsPage() {
                   <span className="font-medium text-foreground">{item.label}</span>
                 </div>
                 <ChevronRight className="h-5 w-5 text-muted-foreground" />
-              </button>
+              </Link>
             ))}
           </div>
         </section>
