@@ -26,7 +26,7 @@ const iconByType: Record<NotificationType, typeof Bell> = {
   FRIEND_REQUEST: UserPlus,
   FRIEND_ACCEPTED: Check,
   MESSAGE: MessageCircle,
-  POST_LIKE: Heart,
+  POST_REACTION: Heart,
   POST_COMMENT: MessageSquare,
   MEETUP_JOINED: Calendar,
   MEETUP_UPDATED: Calendar,
@@ -182,8 +182,11 @@ export default function NotificationsPage() {
   const markRead = async (id: string) => {
     setUpdatingId(id);
     try {
-      await notificationsApi.markRead(id);
-      await refreshNotifications();
+      const updated = await notificationsApi.markRead(id);
+      setLoadedNotifications(current =>
+        current.map(n => n.id === id ? updated : n)
+      );
+      queryClient.invalidateQueries({ queryKey: ["notifications-summary"] });
     } finally {
       setUpdatingId(null);
     }

@@ -22,22 +22,22 @@ const settingsSections = [
   {
     title: "Account",
     items: [
-      { icon: User, label: "Edit Profile", to: "/settings/profile" },
-      { icon: Globe, label: "Languages", to: "/settings/languages" },
-      { icon: Shield, label: "Privacy & Security", to: "/settings/privacy" },
+      { icon: User,       label: "Edit Profile",        to: "/settings/profile",        ready: false },
+      { icon: Globe,      label: "Languages",            to: "/settings/languages",      ready: false },
+      { icon: Shield,     label: "Privacy & Security",   to: "/settings/privacy",        ready: false },
     ],
   },
   {
     title: "Preferences",
     items: [
-      { icon: Bell, label: "Notifications", to: "/settings/notifications" },
-      { icon: Palette, label: "Appearance", to: "/settings/appearance" },
+      { icon: Bell,       label: "Notifications",        to: "/settings/notifications",  ready: true  },
+      { icon: Palette,    label: "Appearance",           to: "/settings/appearance",     ready: false },
     ],
   },
   {
     title: "Support",
     items: [
-      { icon: HelpCircle, label: "Help & FAQ", to: "/help" },
+      { icon: HelpCircle, label: "Help & FAQ",           to: "/help",                    ready: false },
     ],
   },
 ];
@@ -143,19 +143,33 @@ export default function SettingsPage() {
             {section.title}
           </h2>
           <div className="rounded-2xl border border-border bg-card divide-y divide-border overflow-hidden">
-            {section.items.map((item) => (
-              <Link
-                key={item.label}
-                to={item.to}
-                className="flex w-full items-center justify-between p-4 text-left transition-colors hover:bg-muted/50"
-              >
-                <div className="flex items-center gap-3">
-                  <item.icon className="h-5 w-5 text-muted-foreground" />
-                  <span className="font-medium text-foreground">{item.label}</span>
+            {section.items.map((item) => {
+              const inner = (
+                <>
+                  <div className="flex items-center gap-3">
+                    <item.icon className="h-5 w-5 text-muted-foreground" />
+                    <span className="font-medium text-foreground">{item.label}</span>
+                  </div>
+                  <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                </>
+              );
+              return item.ready ? (
+                <Link
+                  key={item.label}
+                  to={item.to}
+                  className="flex w-full items-center justify-between p-4 transition-colors hover:bg-muted/50"
+                >
+                  {inner}
+                </Link>
+              ) : (
+                <div
+                  key={item.label}
+                  className="flex w-full items-center justify-between p-4 cursor-not-allowed opacity-50"
+                >
+                  {inner}
                 </div>
-                <ChevronRight className="h-5 w-5 text-muted-foreground" />
-              </Link>
-            ))}
+              );
+            })}
           </div>
         </section>
       ))}

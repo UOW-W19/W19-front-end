@@ -309,7 +309,7 @@ export type NotificationType =
   | 'FRIEND_REQUEST'
   | 'FRIEND_ACCEPTED'
   | 'MESSAGE'
-  | 'POST_LIKE'
+  | 'POST_REACTION'
   | 'POST_COMMENT'
   | 'MEETUP_JOINED'
   | 'MEETUP_UPDATED'
