@@ -126,6 +126,7 @@ export default function NotificationsPage() {
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState<Filter>("all");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [isMarkingAll, setIsMarkingAll] = useState(false);
   const unreadOnly = filter === "unread";
 
   const queryKey = useMemo(() => ["notifications", unreadOnly], [unreadOnly]);
@@ -160,12 +161,12 @@ export default function NotificationsPage() {
   };
 
   const markAllRead = async () => {
-    setUpdatingId("all");
+    setIsMarkingAll(true);
     try {
       await notificationsApi.markAllRead();
       await refreshNotifications();
     } finally {
-      setUpdatingId(null);
+      setIsMarkingAll(false);
     }
   };
 
@@ -185,10 +186,10 @@ export default function NotificationsPage() {
           <Button
             variant="outline"
             size="sm"
-            disabled={unreadCount === 0 || updatingId === "all"}
+            disabled={unreadCount === 0 || isMarkingAll}
             onClick={markAllRead}
           >
-            {updatingId === "all" ? (
+            {isMarkingAll ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <CheckCheck className="h-4 w-4" />
