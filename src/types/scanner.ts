@@ -2,6 +2,7 @@ export type ScannerTranslationSource =
   | "DICTIONARY"
   | "TRANSLATION_CACHE"
   | "TRANSLATION_API"
+  | "TAXONOMY"
   | "FALLBACK";
 
 export interface BoundingBox {

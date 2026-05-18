@@ -33,6 +33,8 @@ const translationSourceLabel = (object: DetectedObject) => {
       return "Cached";
     case "TRANSLATION_API":
       return "Translated";
+    case "TAXONOMY":
+      return "Taxonomy";
     case "FALLBACK":
       return "Needs review";
     default:
