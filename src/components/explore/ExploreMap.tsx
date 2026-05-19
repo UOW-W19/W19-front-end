@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import type { Meetup, NearbyLearner } from '@/types/meetup';
-import { MapPin } from 'lucide-react';
+import { LocateFixed, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
@@ -256,6 +256,19 @@ export default function ExploreMap({ meetups, learners, onMeetupClick, onLearner
     setMapboxToken(cleaned);
     setTokenDraft('');
     setMapError(null);
+  };
+
+  const recenterOnUser = () => {
+    if (!map.current || !userLocation) return;
+    if (!isValidLngLat(userLocation.longitude, userLocation.latitude)) return;
+
+    userInteractedRef.current = false;
+    hasCenteredOnUserRef.current = true;
+    map.current.easeTo({
+      center: [userLocation.longitude, userLocation.latitude],
+      zoom: Math.max(map.current.getZoom(), USER_FOCUS_ZOOM),
+      duration: 650,
+    });
   };
 
   // Initialize map (re-runs when token changes)
@@ -664,6 +677,21 @@ export default function ExploreMap({ meetups, learners, onMeetupClick, onLearner
         <div className="absolute inset-0 bg-muted flex items-center justify-center">
           <div className="animate-pulse text-muted-foreground">Loading map...</div>
         </div>
+      )}
+
+      {userLocation && (
+        <Button
+          type="button"
+          size="icon"
+          variant="secondary"
+          onClick={recenterOnUser}
+          disabled={!isMapReady}
+          className="absolute left-3 top-3 h-10 w-10 rounded-full bg-background/95 shadow-md backdrop-blur-sm"
+          aria-label="Recenter map on your location"
+          title="Recenter map on your location"
+        >
+          <LocateFixed className="h-4 w-4" />
+        </Button>
       )}
 
       {/* Legend */}
