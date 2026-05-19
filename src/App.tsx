@@ -4,10 +4,10 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { AuthProvider, useAuth } from "@/contexts";
 import { StompProvider } from "@/contexts/StompContext";
+import MessagesPage from "./pages/MessagesPage";
 
 const FeedPage        = lazy(() => import("./pages/FeedPage"));
 const ExplorePage     = lazy(() => import("./pages/ExplorePage"));
-const MessagesPage    = lazy(() => import("./pages/MessagesPage"));
 const LearnPage       = lazy(() => import("./pages/LearnPage"));
 const ProfilePage     = lazy(() => import("./pages/ProfilePage"));
 const UserProfilePage = lazy(() => import("./pages/UserProfilePage"));

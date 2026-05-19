@@ -6,7 +6,9 @@ import { ConversationList } from "@/components/messages/ConversationList";
 import { ChatWindow } from "@/components/messages/ChatWindow";
 import { CreateGroupModal } from "@/components/messages/CreateGroupModal";
 import { messagesApi } from "@/services/api/messages";
+import { usersApi } from "@/services/api/users";
 import type { Conversation, Message } from "@/types/message";
+import type { UserProfile } from "@/types/api";
 import { useAuth } from "@/contexts";
 import { useChatSubscription } from "@/hooks/useChatSubscription";
 
@@ -15,8 +17,32 @@ const appendUniqueMessage = (messages: Message[], newMessage: Message) => {
   return [...messages, newMessage];
 };
 
+const draftConversationId = (userId: string) => `draft:${userId}`;
+const isDraftConversationId = (conversationId: string | null) => !!conversationId?.startsWith("draft:");
+
+const toConversationParticipant = (
+  profile: Partial<UserProfile> & { id: string; displayName?: string; username?: string },
+): UserProfile => ({
+  id: profile.id,
+  email: profile.email ?? "",
+  username: profile.username ?? profile.displayName?.toLowerCase().replace(/\s+/g, "_") ?? "user",
+  displayName: profile.displayName ?? profile.username ?? "Unknown User",
+  avatarUrl: profile.avatarUrl,
+  bio: profile.bio,
+  location: profile.location,
+  latitude: profile.latitude,
+  longitude: profile.longitude,
+  createdAt: profile.createdAt ?? new Date().toISOString(),
+  languages: profile.languages ?? [],
+  roles: profile.roles ?? [],
+  followersCount: profile.followersCount ?? 0,
+  followingCount: profile.followingCount ?? 0,
+  postsCount: profile.postsCount ?? 0,
+});
+
 export default function MessagesPage() {
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
+  const [draftConversation, setDraftConversation] = useState<Conversation | null>(null);
   const [isStartingChat, setIsStartingChat] = useState(false);
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const startingForUserRef = useRef<string | null>(null);
@@ -26,8 +52,13 @@ export default function MessagesPage() {
   const { user } = useAuth();
 
   const handleSelectConversation = (conversation: Conversation) => {
+    if (!isDraftConversationId(conversation.id)) {
+      setDraftConversation(null);
+    }
     setSelectedConversationId(conversation.id);
-    queryClient.invalidateQueries({ queryKey: ['messages', conversation.id] });
+    if (!isDraftConversationId(conversation.id)) {
+      queryClient.invalidateQueries({ queryKey: ['messages', conversation.id] });
+    }
   };
 
   // Fetch conversations
@@ -40,11 +71,18 @@ export default function MessagesPage() {
   const conversationIds = useMemo(() => conversations.map(c => c.id), [conversations]);
   useChatSubscription(conversationIds, selectedConversationId);
 
+  const displayedConversations = useMemo(() => {
+    if (!draftConversation || conversations.some(c => c.id === draftConversation.id)) {
+      return conversations;
+    }
+    return [draftConversation, ...conversations];
+  }, [conversations, draftConversation]);
+
   // Fetch messages for selected conversation
   const { data: messages = [] } = useQuery({
     queryKey: ['messages', selectedConversationId],
     queryFn: () => selectedConversationId ? messagesApi.getMessages(selectedConversationId) : Promise.resolve([]),
-    enabled: !!selectedConversationId,
+    enabled: !!selectedConversationId && !isDraftConversationId(selectedConversationId),
     refetchInterval: 60000,
   });
 
@@ -99,14 +137,22 @@ export default function MessagesPage() {
 
   // Send message mutation
   const sendMessageMutation = useMutation({
-    mutationFn: ({ content, image }: { content: string; image?: File }) => {
+    mutationFn: async ({ content, image }: { content: string; image?: File }) => {
       if (!selectedConversationId) throw new Error("No conversation selected");
+      if (isDraftConversationId(selectedConversationId)) {
+        const recipientId = selectedConversationId.slice("draft:".length);
+        return messagesApi.startConversation(recipientId, content, image);
+      }
       return messagesApi.sendMessage({ conversationId: selectedConversationId, content, image });
     },
     onSuccess: (newMessage) => {
-      queryClient.setQueryData(['messages', selectedConversationId], (old: Message[] = []) => {
+      queryClient.setQueryData(['messages', newMessage.conversationId], (old: Message[] = []) => {
         return appendUniqueMessage(old, newMessage);
       });
+      if (isDraftConversationId(selectedConversationId)) {
+        setDraftConversation(null);
+        setSelectedConversationId(newMessage.conversationId);
+      }
       queryClient.invalidateQueries({ queryKey: ['conversations'] });
     },
   });
@@ -127,6 +173,7 @@ export default function MessagesPage() {
     );
 
     if (existing) {
+      setDraftConversation(null);
       setSelectedConversationId(existing.id);
       navigate('/messages', { replace: true });
       return;
@@ -136,10 +183,20 @@ export default function MessagesPage() {
     startingForUserRef.current = userId;
     setIsStartingChat(true);
 
-    messagesApi.findOrCreateDm(userId)
-      .then(async (conversation) => {
-        await queryClient.refetchQueries({ queryKey: ['conversations'] });
-        setSelectedConversationId(conversation.id);
+    usersApi.getProfile(userId)
+      .then((profile) => {
+        const draft: Conversation = {
+          id: draftConversationId(userId),
+          participants: [
+            toConversationParticipant(user ?? { id: "current-user", displayName: "You" }),
+            toConversationParticipant(profile),
+          ],
+          unreadCount: 0,
+          updatedAt: new Date().toISOString(),
+          isGroup: false,
+        };
+        setDraftConversation(draft);
+        setSelectedConversationId(draft.id);
       })
       .catch(err => {
         console.error("Failed to open conversation:", err);
@@ -154,13 +211,14 @@ export default function MessagesPage() {
 
   // Mark as read when selecting a conversation
   useEffect(() => {
-    if (selectedConversationId) {
-      messagesApi.markAsRead(selectedConversationId);
-      queryClient.invalidateQueries({ queryKey: ['conversations'] });
+    if (selectedConversationId && !isDraftConversationId(selectedConversationId)) {
+      messagesApi.markAsRead(selectedConversationId)
+        .then(() => queryClient.invalidateQueries({ queryKey: ['conversations'] }))
+        .catch(err => console.warn("Failed to mark conversation as read:", err));
     }
   }, [selectedConversationId, queryClient]);
 
-  const selectedConversation = conversations.find(c => c.id === selectedConversationId);
+  const selectedConversation = displayedConversations.find(c => c.id === selectedConversationId);
 
   // Unique participants from DM conversations (excluding self) for group creation
   const groupCandidates = useMemo(() => {
@@ -200,7 +258,7 @@ export default function MessagesPage() {
           </div>
         ) : (
           <ConversationList
-            conversations={conversations}
+            conversations={displayedConversations}
             selectedId={selectedConversationId || undefined}
             onSelect={handleSelectConversation}
             onNewGroup={() => setShowCreateGroup(true)}
