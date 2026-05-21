@@ -135,6 +135,10 @@ export default function FeedPage() {
   return (
     <PullToRefresh onRefresh={handleRefresh} className="h-full">
       <div className="h-full overflow-y-auto pb-24 scrollbar-hide w-full max-w-2xl mx-auto px-4 py-4 overflow-x-hidden">
+        {/* Header */}
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-2xl font-bold">Community</h1>
+      </div>
         {/* Header with filters and post button */}
         <div className="mb-4 flex items-center justify-between gap-3">
           {/* Language dropdown */}

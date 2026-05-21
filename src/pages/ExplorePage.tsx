@@ -184,14 +184,14 @@ export default function ExplorePage() {
       {/* Header with Messages button */}
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold">Explore</h1>
-        <Button
+        {/* <Button
           variant="outline"
           size="icon"
           onClick={() => navigate('/messages')}
           className="rounded-full"
         >
           <MessageCircle className="h-5 w-5" />
-        </Button>
+        </Button> */}
       </div>
 
       {/* Location status */}
@@ -240,17 +240,17 @@ export default function ExplorePage() {
             <div
               key={learner.id}
               onClick={() => handleLearnerClick(learner)}
-              className="flex flex-col items-center rounded-2xl border border-border bg-card p-4 text-center transition-all hover:shadow-soft cursor-pointer active:scale-95"
+              className="flex flex-col items-center rounded-2xl border border-border bg-card p-3 text-center transition-all hover:shadow-soft cursor-pointer active:scale-95"
             >
-              <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-lavender to-accent text-lg font-semibold text-accent-foreground">
+              <div className="mb-1 flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-lavender to-accent text-sm font-semibold text-accent-foreground">
                 {learner.displayName[0]}
               </div>
-              <p className="font-medium text-foreground text-sm">{learner.displayName}</p>
+              <p className="font-medium text-foreground text-xs leading-tight">{learner.displayName}</p>
               <div className="flex gap-1 mt-1">
                 {learner.languages
                   .filter((l) => l.isLearning)
                   .map((l, i) => (
-                    <span key={i} className="text-sm" title={l.name}>
+                    <span key={i} className="text-xs" title={l.name}>
                       {l.flagEmoji}
                     </span>
                   ))}
