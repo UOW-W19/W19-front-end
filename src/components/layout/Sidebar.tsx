@@ -28,7 +28,7 @@ export function Sidebar() {
       {/* Logo */}
       <div className="flex h-16 items-center gap-3 px-6"
         style={{ borderBottom: '1px solid #9973CE22' }}>
-        <img src="/locale-logo.png" alt="Locale" className="h-9 w-9 object-contain" />
+        <img src="/locale-logo.svg" alt="Locale" className="h-9 w-9 object-contain" />
         <span className="text-xl font-black" style={{ color: '#18112C', fontFamily: 'Lexend, sans-serif' }}>
           Locale
         </span>

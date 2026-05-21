@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { LANGUAGES } from '@/services/api';
 
 function LocaleLogo({ className = "w-20 h-20" }: { className?: string }) {
-  return <img src="/locale-logo.png" alt="Locale logo" className={className} aria-hidden="true" />;
+  return <img src="/locale-logo.svg" alt="Locale logo" className={className} aria-hidden="true" />;
 }
 
 function StepIndicator({ total, current }: { total: number; current: number }) {

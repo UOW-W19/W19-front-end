@@ -50,3 +50,5 @@ Requirements: Node 20+
 
 The app will be available at `http://localhost:5173` (by default).
 *Note: You must also run the Spring Boot backend locally for the API to work.*
+
+Beth was here

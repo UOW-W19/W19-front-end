@@ -19,7 +19,7 @@ export function Header({ title = "Feed" }: HeaderProps) {
         {/* Logo — mobile */}
         <div className="flex items-center gap-2 lg:hidden">
           <img
-            src="/locale-logo.png"
+            src="/locale-logo.svg"
             alt="Locale"
             className="h-8 w-8 object-contain"
           />
