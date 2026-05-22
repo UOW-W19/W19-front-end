@@ -295,8 +295,8 @@ export default function LearnPage() {
     const percentage = Math.round((correctCount / results.length) * 100);
 
     return (
-      <div className="min-h-full overflow-y-auto pb-24 scrollbar-hide mx-auto max-w-md px-4 py-6 flex flex-col">
-        <div className="text-center mb-8">
+      <div className="h-full overflow-hidden mx-auto max-w-md px-4 py-6 pb-24 flex flex-col">
+        <div className="text-center mb-6 flex-shrink-0">
           <div className="inline-flex items-center justify-center h-20 w-20 rounded-full bg-primary/10 mb-4">
             <Sparkles className="h-10 w-10 text-primary" />
           </div>
@@ -307,7 +307,7 @@ export default function LearnPage() {
           <p className="text-3xl font-bold text-foreground mt-2">{percentage}%</p>
         </div>
 
-        <div className="flex-1 space-y-2 mb-6">
+        <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1 pb-3 scrollbar-hide">
           {results.map((result, index) => {
             const masteryChange = result.newMastery - result.oldMastery;
 
@@ -349,7 +349,7 @@ export default function LearnPage() {
           })}
         </div>
 
-        <div className="flex gap-4">
+        <div className="flex flex-shrink-0 gap-4 border-t border-border bg-background pt-4">
           <Button
             variant="outline"
             onClick={exitPractice}
