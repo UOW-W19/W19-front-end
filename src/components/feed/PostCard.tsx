@@ -1,13 +1,17 @@
 import { useState, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { MapPin, Heart, MessageCircle, Share2, Send, X, Loader2, Languages, MoreHorizontal, Trash2, Flag, BookmarkPlus, UserPlus, UserCheck, Bookmark } from "lucide-react";
+import { MapPin, Heart, MessageCircle, Share2, Send, X, Loader2, Languages, MoreHorizontal, Trash2, Flag, BookmarkPlus, UserPlus, UserCheck, Bookmark, ScanLine, Save, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/useAuth";
 import { commentsApi, postsApi, wordsApi, friendsApi } from "@/services/api";
+import { saveDetectedObject as saveDetectedObjectById, scanImage } from "@/services/api/scanner";
+import { learnKeys } from "@/hooks/useLearnApi";
 import type { FriendRequestResponse } from "@/types/api";
 import { LANGUAGES } from "@/services/api";
 import type { Post } from "@/types";
 import type { ApiComment } from "@/types/api";
+import type { DetectedObject } from "@/types/scanner";
 
 export interface PostCardProps {
   post: Post;
@@ -25,8 +29,27 @@ const formatRelativeTime = (dateStr: string): string => {
   return `${Math.floor(diffHours / 24)}d ago`;
 };
 
+const confidenceLabel = (confidence: number) => `${Math.round(confidence * 100)}%`;
+
+const detectedObjectKey = (object: DetectedObject) =>
+  object.id ?? `${object.label}:${object.languageCode}:${object.learningWord}`;
+
+const imageUrlToFile = async (imageUrl: string, postId: string): Promise<File> => {
+  const response = await fetch(imageUrl);
+  if (!response.ok) {
+    throw new Error("Could not load this image for scanning");
+  }
+
+  const blob = await response.blob();
+  const extension = blob.type.split("/")[1] || "jpg";
+  return new File([blob], `post-${postId}.${extension}`, {
+    type: blob.type || "image/jpeg",
+  });
+};
+
 export function PostCard({ post, onLikeToggle }: PostCardProps) {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [isLiked, setIsLiked] = useState(post.isLiked ?? false);
   const [likesCount, setLikesCount] = useState(post.reactions.likes);
   const [showComments, setShowComments] = useState(false);
@@ -55,6 +78,12 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
   const [isAutoTranslating, setIsAutoTranslating] = useState(false);
   const [isSavingWord, setIsSavingWord] = useState(false);
   const [savedWordDone, setSavedWordDone] = useState(false);
+  const [isScanningPostImage, setIsScanningPostImage] = useState(false);
+  const [postImageScanOpen, setPostImageScanOpen] = useState(false);
+  const [postImageScanError, setPostImageScanError] = useState("");
+  const [postImageDetections, setPostImageDetections] = useState<DetectedObject[]>([]);
+  const [postImageSaveStates, setPostImageSaveStates] = useState<Record<string, 'saved' | 'duplicate' | 'error'>>({});
+  const [postImageSavingKeys, setPostImageSavingKeys] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     setIsLiked(post.isLiked ?? false);
@@ -267,6 +296,58 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
     }
   };
 
+  const handleScanPostImage = async () => {
+    if (!post.image || isScanningPostImage) return;
+
+    if (postImageDetections.length > 0) {
+      setPostImageScanOpen((current) => !current);
+      return;
+    }
+
+    setPostImageScanOpen(true);
+    setPostImageScanError("");
+    setIsScanningPostImage(true);
+
+    try {
+      const imageFile = await imageUrlToFile(post.image, post.id);
+      const result = await scanImage(imageFile);
+      setPostImageDetections(result.detectedObjects);
+    } catch (err) {
+      setPostImageScanError(err instanceof Error ? err.message : "Failed to scan post image");
+    } finally {
+      setIsScanningPostImage(false);
+    }
+  };
+
+  const handleSaveDetectedPostObject = async (object: DetectedObject) => {
+    const key = detectedObjectKey(object);
+    if (!object.id) {
+      setPostImageSaveStates((current) => ({ ...current, [key]: "error" }));
+      return;
+    }
+
+    setPostImageSavingKeys((current) => new Set(current).add(key));
+
+    try {
+      await saveDetectedObjectById(object.id);
+      setPostImageSaveStates((current) => ({ ...current, [key]: "saved" }));
+      queryClient.invalidateQueries({ queryKey: learnKeys.words() });
+      queryClient.invalidateQueries({ queryKey: learnKeys.stats() });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "";
+      setPostImageSaveStates((current) => ({
+        ...current,
+        [key]: message === "Word already saved" ? "duplicate" : "error",
+      }));
+    } finally {
+      setPostImageSavingKeys((current) => {
+        const next = new Set(current);
+        next.delete(key);
+        return next;
+      });
+    }
+  };
+
   const langInfo = LANGUAGES.find((l) => l.code === post.originalLanguage);
 
   const authorInitial = post.author.name.charAt(0).toUpperCase();
@@ -423,9 +504,83 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
 
       {/* Post Image */}
       {post.image && (
-        <div className="mb-4 -mx-4 sm:mx-0 sm:rounded-xl overflow-hidden">
-          <img src={post.image} alt="Post" className="w-full h-auto max-h-80 object-cover" />
-        </div>
+        <>
+          <div className="mb-3 -mx-4 sm:mx-0 sm:rounded-xl overflow-hidden">
+            <img src={post.image} alt="Post" className="w-full h-auto max-h-80 object-cover" />
+          </div>
+          <div className="mb-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleScanPostImage}
+              disabled={isScanningPostImage}
+              className="h-9 rounded-full gap-2"
+            >
+              {isScanningPostImage ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <ScanLine className="h-4 w-4" />
+              )}
+              {isScanningPostImage
+                ? "Scanning"
+                : postImageDetections.length > 0 && postImageScanOpen
+                  ? "Hide image vocab"
+                  : "Scan image vocab"}
+            </Button>
+
+            {postImageScanOpen && (
+              <div className="mt-3 rounded-xl border border-border bg-muted/30 p-3">
+                {postImageScanError ? (
+                  <p className="text-sm text-destructive">{postImageScanError}</p>
+                ) : isScanningPostImage ? (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Identifying objects...</span>
+                  </div>
+                ) : postImageDetections.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No objects detected in this image.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {postImageDetections.map((object) => {
+                      const key = detectedObjectKey(object);
+                      const saveState = postImageSaveStates[key];
+                      const isSaving = postImageSavingKeys.has(key);
+                      const isSaved = saveState === "saved";
+                      const isDuplicate = saveState === "duplicate";
+
+                      return (
+                        <div key={key} className="flex items-center justify-between gap-3 rounded-lg bg-card px-3 py-2">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-foreground">{object.learningWord}</p>
+                            <p className="truncate text-xs text-muted-foreground">
+                              {object.nativeWord} - {confidenceLabel(object.confidence)}
+                            </p>
+                          </div>
+                          <Button
+                            variant={isSaved || isDuplicate ? "secondary" : "ghost"}
+                            size="sm"
+                            disabled={isSaved || isDuplicate || isSaving}
+                            onClick={() => handleSaveDetectedPostObject(object)}
+                            className="h-8 flex-shrink-0 gap-1.5"
+                          >
+                            {isSaving ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : isSaved ? (
+                              <Check className="h-3.5 w-3.5" />
+                            ) : (
+                              <Save className="h-3.5 w-3.5" />
+                            )}
+                            {isDuplicate ? "Duplicate" : isSaved ? "Saved" : "Save"}
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </>
       )}
 
       {/* Actions */}
