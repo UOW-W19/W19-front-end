@@ -21,6 +21,11 @@ type LocationState =
 
 // Default fallback (NYC)
 const DEFAULT_LOCATION = { latitude: 40.7128, longitude: -74.0060 };
+const LOCATION_CACHE_TTL_MS = 5 * 60 * 1000;
+
+let cachedLocation:
+  | { latitude: number; longitude: number; timestamp: number }
+  | null = null;
 
 export default function ExplorePage() {
   const navigate = useNavigate();
@@ -35,7 +40,16 @@ export default function ExplorePage() {
   const [locationState, setLocationState] = useState<LocationState>({ status: 'loading' });
 
   // Get user's real location
-  const requestLocation = useCallback(() => {
+  const requestLocation = useCallback((forceRefresh = false) => {
+    if (!forceRefresh && cachedLocation && Date.now() - cachedLocation.timestamp < LOCATION_CACHE_TTL_MS) {
+      setLocationState({
+        status: 'granted',
+        latitude: cachedLocation.latitude,
+        longitude: cachedLocation.longitude,
+      });
+      return;
+    }
+
     if (!navigator.geolocation) {
       setLocationState({
         status: 'unavailable',
@@ -48,6 +62,11 @@ export default function ExplorePage() {
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
+        cachedLocation = {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          timestamp: Date.now(),
+        };
         setLocationState({
           status: 'granted',
           latitude: position.coords.latitude,
@@ -209,7 +228,7 @@ export default function ExplorePage() {
               <MapPin className="h-4 w-4" />
               <span>{locationState.message}</span>
             </div>
-            <Button size="sm" variant="outline" onClick={requestLocation}>
+            <Button size="sm" variant="outline" onClick={() => requestLocation(true)}>
               Retry
             </Button>
           </div>
