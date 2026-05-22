@@ -12,6 +12,8 @@ export interface Post {
   location: string;
   distance: string;
   image?: string;
+  images?: string[];
+  languageCode?: string;
   reactions: { likes: number; comments: number };
   time: string;
   isLiked?: boolean;

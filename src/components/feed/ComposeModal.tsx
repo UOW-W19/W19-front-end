@@ -72,7 +72,7 @@ export function ComposeModal({ isOpen, onClose, onSubmit }: ComposeModalProps) {
         flag: selectedLanguage.flag,
       },
       content: content.trim(),
-      translation: translation.trim() || "Translation pending...",
+      translation: translation.trim(),
       location: "Your Location",
       distance: "0 km",
       image: selectedImage || undefined,
