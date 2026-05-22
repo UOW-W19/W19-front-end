@@ -15,13 +15,13 @@ export function ScannerAnnotationPill({
 
   return (
     <div
-      className="absolute left-1 z-10 max-w-[calc(100%-0.5rem)] rounded-md border border-white/40 bg-foreground/90 px-2 py-1 text-primary-foreground shadow-md backdrop-blur-sm"
+      className="absolute left-1 z-10 min-w-24 max-w-44 rounded-md border border-white/40 bg-foreground/90 px-2 py-1 text-primary-foreground shadow-md backdrop-blur-sm"
       style={{ top: verticalOffset }}
     >
-      <p className="truncate text-xs font-semibold leading-tight">
+      <p className="whitespace-normal break-words text-xs font-semibold leading-tight">
         {object.learningWord}
       </p>
-      <p className="mt-0.5 truncate text-[10px] leading-tight text-primary-foreground/75">
+      <p className="mt-0.5 whitespace-normal break-words text-[10px] leading-tight text-primary-foreground/75">
         {object.nativeWord} - {confidenceLabel(object.confidence)}
       </p>
     </div>
