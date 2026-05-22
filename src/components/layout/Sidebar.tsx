@@ -7,8 +7,11 @@ import {
   User,
   Settings,
   Globe,
-  Camera
+  Camera,
+  ShieldCheck
 } from "lucide-react";
+import { useAuth } from "@/contexts";
+import { isAdminUser } from "@/lib/roles";
 import { cn } from "@/lib/utils";
 import type { NavItem } from "@/types";
 
@@ -27,6 +30,10 @@ const secondaryNavItems: NavItem[] = [
 
 export function Sidebar() {
   const location = useLocation();
+  const { user } = useAuth();
+  const navItems = isAdminUser(user)
+    ? [...mainNavItems, { to: "/admin", icon: ShieldCheck, label: "Admin" }]
+    : mainNavItems;
 
   const isActive = (path: string) => {
     if (path === "/") return location.pathname === "/";
@@ -45,7 +52,7 @@ export function Sidebar() {
 
       {/* Main navigation */}
       <nav className="mt-6 flex-1 space-y-1 px-3">
-        {mainNavItems.map((item) => (
+        {navItems.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}

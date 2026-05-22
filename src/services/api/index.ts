@@ -12,4 +12,5 @@ export * from './scanner';
 export * from './words';
 export * from './friends';
 export * from './notifications';
+export * from './admin';
 export { LANGUAGES, getLanguageByCode, getLanguageByName, API_BASE_URL } from './config';
