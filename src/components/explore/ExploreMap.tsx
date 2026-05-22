@@ -492,8 +492,19 @@ export default function ExploreMap({ meetups, learners, onMeetupClick, onLearner
       if (!isValidLngLat(learner.coordinates.lng, learner.coordinates.lat)) return;
 
       const el = document.createElement('div');
-      el.className = 'learner-marker w-8 h-8 bg-gradient-to-br from-accent to-accent/80 rounded-full flex items-center justify-center shadow-md border-2 border-white text-white text-xs font-semibold';
-      el.innerHTML = `<span>${learner.displayName[0]}</span>`;
+      el.className = 'learner-marker w-8 h-8 bg-gradient-to-br from-accent to-accent/80 rounded-full flex items-center justify-center shadow-md border-2 border-white text-white text-xs font-semibold overflow-hidden';
+
+      if (learner.avatarUrl) {
+        const img = document.createElement('img');
+        img.src = learner.avatarUrl;
+        img.alt = learner.displayName;
+        img.className = 'h-full w-full rounded-full object-cover';
+        el.appendChild(img);
+      } else {
+        const fallback = document.createElement('span');
+        fallback.textContent = learner.displayName[0]?.toUpperCase() ?? 'U';
+        el.appendChild(fallback);
+      }
 
       el.addEventListener('click', () => onLearnerClick?.(learner));
 

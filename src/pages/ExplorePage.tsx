@@ -10,6 +10,7 @@ import MeetupCard from '@/components/explore/MeetupCard';
 import MeetupDetailSheet from '@/components/explore/MeetupDetailSheet';
 import CreateMeetupModal from '@/components/explore/CreateMeetupModal';
 import ExploreMap from '@/components/explore/ExploreMap';
+import UserAvatar from '@/components/common/UserAvatar';
 import { useAuth } from '@/contexts';
 
 type LocationState =
@@ -236,9 +237,12 @@ export default function ExplorePage() {
               onClick={() => handleLearnerClick(learner)}
               className="flex flex-col items-center rounded-2xl border border-border bg-card p-4 text-center transition-all hover:shadow-soft cursor-pointer active:scale-95"
             >
-              <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-lavender to-accent text-lg font-semibold text-accent-foreground">
-                {learner.displayName[0]}
-              </div>
+              <UserAvatar
+                name={learner.displayName}
+                avatarUrl={learner.avatarUrl}
+                className="mb-2 h-12 w-12"
+                fallbackClassName="text-lg font-semibold"
+              />
               <p className="font-medium text-foreground text-sm">{learner.displayName}</p>
               <div className="flex gap-1 mt-1">
                 {learner.languages
