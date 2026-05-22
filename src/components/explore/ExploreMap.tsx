@@ -25,6 +25,8 @@ type LngLat = { lng: number; lat: number };
 const DEFAULT_CENTER: LngLat = { lng: -73.98, lat: 40.76 };
 const DEFAULT_ZOOM = 12;
 const USER_FOCUS_ZOOM = 13;
+const STACK_OFFSET_METERS = 12;
+const METERS_PER_DEGREE_LAT = 111_320;
 
 const isValidLngLat = (lng: unknown, lat: unknown): boolean => {
   if (!Number.isFinite(lng) || !Number.isFinite(lat)) return false;
@@ -156,6 +158,26 @@ const computeCenterAndZoom = (coords: LngLat[]): { center: LngLat; zoom: number 
                 8;
 
   return { center, zoom };
+};
+
+const markerStackKey = (lng: number, lat: number) =>
+  `${lat.toFixed(5)}:${lng.toFixed(5)}`;
+
+const offsetStackedCoordinate = (
+  lng: number,
+  lat: number,
+  stackIndex: number
+): [number, number] => {
+  if (stackIndex === 0) return [lng, lat];
+
+  const angle = ((stackIndex - 1) % 8) * (Math.PI / 4);
+  const ring = Math.floor((stackIndex - 1) / 8) + 1;
+  const distanceMeters = STACK_OFFSET_METERS * ring;
+  const latOffset = (Math.sin(angle) * distanceMeters) / METERS_PER_DEGREE_LAT;
+  const lngScale = METERS_PER_DEGREE_LAT * Math.max(0.2, Math.cos((lat * Math.PI) / 180));
+  const lngOffset = (Math.cos(angle) * distanceMeters) / lngScale;
+
+  return [lng + lngOffset, lat + latOffset];
 };
 
 const buildStaticMapUrl = ({
@@ -467,6 +489,14 @@ export default function ExploreMap({ meetups, learners, onMeetupClick, onLearner
     // Clear existing markers
     markersRef.current.forEach(m => m.remove());
     markersRef.current = [];
+    const stackCounts = new Map<string, number>();
+
+    const nextMarkerLngLat = (lng: number, lat: number): [number, number] => {
+      const key = markerStackKey(lng, lat);
+      const stackIndex = stackCounts.get(key) ?? 0;
+      stackCounts.set(key, stackIndex + 1);
+      return offsetStackedCoordinate(lng, lat, stackIndex);
+    };
 
     // Add meetup markers
     meetups.forEach((meetup) => {
@@ -480,7 +510,7 @@ export default function ExploreMap({ meetups, learners, onMeetupClick, onLearner
       el.addEventListener('click', () => onMeetupClick?.(meetup));
 
       const marker = new mapboxgl.Marker(el)
-        .setLngLat([meetup.coordinates.lng, meetup.coordinates.lat])
+        .setLngLat(nextMarkerLngLat(meetup.coordinates.lng, meetup.coordinates.lat))
         .addTo(map.current!);
 
       markersRef.current.push(marker);
@@ -509,7 +539,7 @@ export default function ExploreMap({ meetups, learners, onMeetupClick, onLearner
       el.addEventListener('click', () => onLearnerClick?.(learner));
 
       const marker = new mapboxgl.Marker(el)
-        .setLngLat([learner.coordinates.lng, learner.coordinates.lat])
+        .setLngLat(nextMarkerLngLat(learner.coordinates.lng, learner.coordinates.lat))
         .addTo(map.current!);
 
       markersRef.current.push(marker);
