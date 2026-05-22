@@ -209,6 +209,26 @@ export default function MessagesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.search, loadingConversations]);
 
+  // Handle opening a specific conversation from notifications (?conversationId=...)
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const conversationId = params.get('conversationId');
+
+    if (!conversationId || loadingConversations) return;
+    if (isDraftConversationId(conversationId)) {
+      navigate('/messages', { replace: true });
+      return;
+    }
+
+    const existing = conversations.find(c => c.id === conversationId);
+    if (!existing) return;
+
+    setDraftConversation(null);
+    setSelectedConversationId(existing.id);
+    queryClient.invalidateQueries({ queryKey: ['messages', existing.id] });
+    navigate('/messages', { replace: true });
+  }, [location.search, loadingConversations, conversations, navigate, queryClient]);
+
   // Mark as read when selecting a conversation
   useEffect(() => {
     if (selectedConversationId && !isDraftConversationId(selectedConversationId)) {

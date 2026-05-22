@@ -43,7 +43,12 @@ function targetFor(notification: AppNotification) {
     return "/friends?tab=requests";
   }
   if (target.startsWith("/friends")) return "/friends";
-  if (target.startsWith("/conversations/")) return "/messages";
+  if (target.startsWith("/conversations/")) {
+    const conversationId = target.replace("/conversations/", "").split(/[/?#]/)[0];
+    return conversationId
+      ? `/messages?conversationId=${encodeURIComponent(conversationId)}`
+      : "/messages";
+  }
   if (target.startsWith("/meetups/")) return "/explore";
   if (target.startsWith("/posts/")) return "/";
   if (target.startsWith("/saved-words/")) return "/learn";
