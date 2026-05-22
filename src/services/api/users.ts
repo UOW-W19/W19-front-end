@@ -96,6 +96,19 @@ export interface UserPostsResponse {
   nextCursor?: string;
 }
 
+type PublicProfileLanguage = PublicUserProfile['languages'][number];
+
+const dedupeLanguagesByCode = (languages: PublicProfileLanguage[]) => {
+  const byCode = new Map<string, PublicProfileLanguage>();
+  for (const language of languages) {
+    const code = language.code.trim().toLowerCase();
+    if (!byCode.has(code)) {
+      byCode.set(code, { ...language, code });
+    }
+  }
+  return Array.from(byCode.values());
+};
+
 // Helper for API requests
 const apiRequest = async <T>(
   endpoint: string,
@@ -152,13 +165,13 @@ export const transformPublicProfile = (profile: BackendPublicProfile): PublicUse
   bio: profile.bio,
   location: profile.location,
   createdAt: profile.created_at,
-  languages: (profile.languages || []).map(lang => ({
+  languages: dedupeLanguagesByCode((profile.languages || []).map(lang => ({
     code: lang.code,
     name: lang.name,
     flagEmoji: lang.flag_emoji,
     proficiency: lang.proficiency as 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED' | 'NATIVE',
     isLearning: lang.is_learning,
-  })),
+  }))),
   followersCount: profile.followers_count,
   followingCount: profile.following_count,
   postsCount: profile.posts_count,
