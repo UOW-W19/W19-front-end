@@ -280,10 +280,23 @@ export default function ScannerPage() {
                       height: `${object.box.height * 100}%`,
                     }}
                   >
-                    <ScannerAnnotationPill object={object} offsetIndex={index} />
+                    <span className="absolute left-1 top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[11px] font-bold leading-none text-primary-foreground shadow">
+                      {index + 1}
+                    </span>
                   </div>
                 );
               })}
+              {detectedObjects.length > 0 && (
+                <div className="absolute inset-x-2 top-2 z-20 flex max-h-[45%] flex-wrap items-start gap-1.5 overflow-y-auto rounded-lg p-1 scrollbar-hide">
+                  {detectedObjects.map((object, index) => (
+                    <ScannerAnnotationPill
+                      key={`pill-${objectKey(object)}`}
+                      object={object}
+                      offsetIndex={index}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           )}
           {scanSessionId && (
