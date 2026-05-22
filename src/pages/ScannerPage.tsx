@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import ScannerAnnotationPill from "@/components/scanner/ScannerAnnotationPill";
 import { saveDetectedObject as saveDetectedObjectById, scanImage } from "@/services/api/scanner";
 import { learnKeys } from "@/hooks/useLearnApi";
 import type { DetectedObject } from "@/types/scanner";
@@ -265,7 +266,7 @@ export default function ScannerPage() {
                 alt="Scanned object"
                 className="block w-full h-auto"
               />
-              {detectedObjects.map((object) => {
+              {detectedObjects.map((object, index) => {
                 if (!object.box) return null;
 
                 return (
@@ -279,9 +280,7 @@ export default function ScannerPage() {
                       height: `${object.box.height * 100}%`,
                     }}
                   >
-                    <span className="absolute left-0 top-0 max-w-full truncate bg-primary px-1.5 py-0.5 text-[11px] font-medium text-primary-foreground">
-                      {object.nativeWord}
-                    </span>
+                    <ScannerAnnotationPill object={object} offsetIndex={index} />
                   </div>
                 );
               })}
