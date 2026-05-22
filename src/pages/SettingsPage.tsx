@@ -3,14 +3,9 @@ import { Link, useNavigate } from "react-router-dom";
 import {
   User,
   Bell,
-  Shield,
-  Palette,
   Globe,
-  HelpCircle,
   LogOut,
   ChevronRight,
-  Moon,
-  Sun,
   MapPin,
   Loader2,
 } from "lucide-react";
@@ -22,22 +17,14 @@ const settingsSections = [
   {
     title: "Account",
     items: [
-      { icon: User,       label: "Edit Profile",        to: "/settings/profile",        ready: false },
-      { icon: Globe,      label: "Languages",            to: "/settings/languages",      ready: false },
-      { icon: Shield,     label: "Privacy & Security",   to: "/settings/privacy",        ready: false },
+      { icon: User,       label: "Edit Profile",        to: "/profile" },
+      { icon: Globe,      label: "Languages",            to: "/profile" },
     ],
   },
   {
     title: "Preferences",
     items: [
-      { icon: Bell,       label: "Notifications",        to: "/settings/notifications",  ready: true  },
-      { icon: Palette,    label: "Appearance",           to: "/settings/appearance",     ready: false },
-    ],
-  },
-  {
-    title: "Support",
-    items: [
-      { icon: HelpCircle, label: "Help & FAQ",           to: "/help",                    ready: false },
+      { icon: Bell,       label: "Notifications",        to: "/settings/notifications" },
     ],
   },
 ];
@@ -90,24 +77,6 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {/* Theme toggle card */}
-      <div className="mb-6 rounded-2xl border border-border bg-card p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted">
-              <Sun className="h-5 w-5 text-muted-foreground" />
-            </div>
-            <div>
-              <p className="font-medium text-foreground">Appearance</p>
-              <p className="text-sm text-muted-foreground">Light mode</p>
-            </div>
-          </div>
-          <button className="rounded-full bg-muted p-2 hover:bg-muted/80 transition-colors">
-            <Moon className="h-5 w-5 text-muted-foreground" />
-          </button>
-        </div>
-      </div>
-
       {/* Location Visibility control */}
       <div className="mb-6 rounded-2xl border border-border bg-card p-4">
         <div className="flex items-center gap-3 mb-3">
@@ -144,30 +113,18 @@ export default function SettingsPage() {
           </h2>
           <div className="rounded-2xl border border-border bg-card divide-y divide-border overflow-hidden">
             {section.items.map((item) => {
-              const inner = (
-                <>
-                  <div className="flex items-center gap-3">
-                    <item.icon className="h-5 w-5 text-muted-foreground" />
-                    <span className="font-medium text-foreground">{item.label}</span>
-                  </div>
-                  <ChevronRight className="h-5 w-5 text-muted-foreground" />
-                </>
-              );
-              return item.ready ? (
+              return (
                 <Link
                   key={item.label}
                   to={item.to}
                   className="flex w-full items-center justify-between p-4 transition-colors hover:bg-muted/50"
                 >
-                  {inner}
+                  <div className="flex items-center gap-3">
+                    <item.icon className="h-5 w-5 text-muted-foreground" />
+                    <span className="font-medium text-foreground">{item.label}</span>
+                  </div>
+                  <ChevronRight className="h-5 w-5 text-muted-foreground" />
                 </Link>
-              ) : (
-                <div
-                  key={item.label}
-                  className="flex w-full items-center justify-between p-4 cursor-not-allowed opacity-50"
-                >
-                  {inner}
-                </div>
               );
             })}
           </div>
