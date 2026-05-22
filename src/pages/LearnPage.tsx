@@ -99,6 +99,7 @@ export default function LearnPage() {
   // Lesson state
   const [lessonBank, setLessonBank] = useState<WordBank | null>(null);
   const [lessonStep, setLessonStep] = useState(1);
+  const [lessonTokens, setLessonTokens] = useState<string[]>([]); // correct order
   const [chipPool, setChipPool] = useState<string[]>([]);
   const [placedChips, setPlacedChips] = useState<string[]>([]);
   const [writeInput, setWriteInput] = useState('');
@@ -250,9 +251,16 @@ export default function LearnPage() {
 
   const startLesson = useCallback((bank: WordBank) => {
     const tokens = bank.words[0]?.word.split(/\s+/).filter(Boolean) ?? [];
-    const shuffled = [...tokens].sort(() => Math.random() - 0.5);
+    // Shuffle until order differs from the correct order (for multi-word phrases)
+    let shuffled = [...tokens].sort(() => Math.random() - 0.5);
+    if (tokens.length > 1) {
+      while (shuffled.join(' ') === tokens.join(' ')) {
+        shuffled = [...tokens].sort(() => Math.random() - 0.5);
+      }
+    }
     setLessonBank(bank);
     setLessonStep(1);
+    setLessonTokens(tokens);
     setChipPool(shuffled);
     setPlacedChips([]);
     setWriteInput('');
@@ -483,6 +491,7 @@ export default function LearnPage() {
       setMode('idle');
       setLessonBank(null);
       setLessonStep(1);
+      setLessonTokens([]);
       setChipPool([]);
       setPlacedChips([]);
       setWriteInput('');
@@ -610,47 +619,73 @@ export default function LearnPage() {
         )}
 
         {/* Step 2 — Drag and Drop */}
-        {lessonStep === 2 && (
-          <div className="flex-1 flex flex-col">
-            <h3 className="font-semibold text-foreground mb-1">Drag and Drop</h3>
-            <p className="text-sm text-muted-foreground mb-3">"{word.translation}"</p>
+        {lessonStep === 2 && (() => {
+          const allPlaced = chipPool.length === 0 && placedChips.length === lessonTokens.length;
+          const isCorrect = allPlaced && placedChips.join(' ') === lessonTokens.join(' ');
 
-            {/* Target drop zone */}
-            <div className="flex flex-wrap gap-2 p-3 rounded-xl bg-muted/30 border border-border min-h-[52px] mb-3">
-              {placedChips.length > 0 ? placedChips.map((chip, i) => (
-                <button
-                  key={i}
-                  onClick={() => removeChip(chip, i)}
-                  className="px-3 py-1.5 rounded-lg bg-primary/15 text-primary border border-primary/30 text-sm font-medium hover:bg-primary/25 transition-colors"
-                >
-                  {chip}
-                </button>
-              )) : (
-                <span className="text-xs text-muted-foreground self-center">Tap chips to build the phrase</span>
+          return (
+            <div className="flex-1 flex flex-col">
+              <h3 className="font-semibold text-foreground mb-1">Drag and Drop</h3>
+              <p className="text-sm text-muted-foreground mb-3">"{word.translation}"</p>
+
+              {/* Target drop zone */}
+              <div className={cn(
+                "flex flex-wrap gap-2 p-3 rounded-xl border min-h-[52px] mb-3 transition-colors",
+                isCorrect ? "bg-sage/10 border-sage/40" : "bg-muted/30 border-border"
+              )}>
+                {placedChips.length > 0 ? placedChips.map((chip, i) => (
+                  <button
+                    key={i}
+                    onClick={() => removeChip(chip, i)}
+                    className={cn(
+                      "px-3 py-1.5 rounded-lg border text-sm font-medium transition-colors",
+                      isCorrect
+                        ? "bg-sage/20 text-sage border-sage/40"
+                        : "bg-primary/15 text-primary border-primary/30 hover:bg-primary/25"
+                    )}
+                  >
+                    {chip}
+                  </button>
+                )) : (
+                  <span className="text-xs text-muted-foreground self-center">Tap chips to build the phrase</span>
+                )}
+              </div>
+
+              {/* Feedback message */}
+              {allPlaced && (
+                <p className={cn(
+                  "text-xs font-medium mb-3 text-center",
+                  isCorrect ? "text-sage" : "text-destructive"
+                )}>
+                  {isCorrect ? "Correct! Great job." : "Not quite — tap chips to reorder."}
+                </p>
               )}
-            </div>
 
-            {/* Available chips */}
-            <div className="flex flex-wrap gap-2 p-3 rounded-xl bg-muted/20 border border-border/50 mb-6">
-              {chipPool.map((chip, i) => (
-                <button
-                  key={i}
-                  onClick={() => placeChip(chip, i)}
-                  className="px-3 py-1.5 rounded-lg bg-card border border-border text-sm font-medium hover:bg-primary/5 hover:border-primary/30 transition-colors"
-                >
-                  {chip}
-                </button>
-              ))}
-              {chipPool.length === 0 && (
-                <span className="text-xs text-muted-foreground self-center">All chips placed</span>
-              )}
-            </div>
+              {/* Available chips */}
+              <div className="flex flex-wrap gap-2 p-3 rounded-xl bg-muted/20 border border-border/50 mb-6">
+                {chipPool.map((chip, i) => (
+                  <button
+                    key={i}
+                    onClick={() => placeChip(chip, i)}
+                    className="px-3 py-1.5 rounded-lg bg-card border border-border text-sm font-medium hover:bg-primary/5 hover:border-primary/30 transition-colors"
+                  >
+                    {chip}
+                  </button>
+                ))}
+                {chipPool.length === 0 && !isCorrect && (
+                  <span className="text-xs text-muted-foreground self-center">Tap a placed chip to return it</span>
+                )}
+                {isCorrect && (
+                  <span className="text-xs text-sage self-center">All chips in order</span>
+                )}
+              </div>
 
-            <Button onClick={advanceStep} className="w-full h-12 rounded-xl mt-auto">
-              Continue
-            </Button>
-          </div>
-        )}
+              <Button onClick={advanceStep} disabled={!isCorrect} className="w-full h-12 rounded-xl mt-auto">
+                Continue
+              </Button>
+            </div>
+          );
+        })()}
 
         {/* Step 3 — Write yourself */}
         {lessonStep === 3 && (
