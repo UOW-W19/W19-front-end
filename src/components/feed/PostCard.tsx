@@ -212,6 +212,7 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
       await postsApi.deletePost(post.id);
     } catch (err) {
       console.error("Failed to delete post:", err);
+      setIsDeleted(false);
     }
   };
 

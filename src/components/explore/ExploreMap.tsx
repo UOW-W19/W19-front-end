@@ -734,7 +734,7 @@ export default function ExploreMap({ meetups, learners, onMeetupClick, onLearner
           variant="outline"
           onClick={recenterOnUser}
           disabled={!isMapReady}
-          className="absolute left-3 top-3 h-10 w-10 rounded-full border border-foreground/20 bg-white text-purple shadow-lg shadow-black/20 backdrop-blur-sm hover:bg-white hover:text-purple-dark focus-visible:ring-2 focus-visible:ring-purple focus-visible:ring-offset-2 disabled:opacity-60"
+          className="absolute left-3 top-3 h-10 w-10 rounded-full border border-foreground/20 bg-white text-purple shadow-lg shadow-black/20 backdrop-blur-sm hover:bg-white hover:text-purple focus-visible:ring-2 focus-visible:ring-purple focus-visible:ring-offset-2 disabled:opacity-60"
           aria-label="Recenter map on your location"
           title="Recenter map on your location"
         >
