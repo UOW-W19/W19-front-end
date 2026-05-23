@@ -7,6 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 
 export interface ComposePostPayload extends Omit<Post, "id" | "time" | "reactions"> {
   imageFile?: File;
+  imageFiles?: File[];
 }
 
 export interface ComposeModalProps {
@@ -30,9 +31,10 @@ export function ComposeModal({ isOpen, onClose, onSubmit }: ComposeModalProps) {
   const [translation, setTranslation] = useState("");
   const [selectedLanguage, setSelectedLanguage] = useState(languages[0]);
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
+  const [selectedImages, setSelectedImages] = useState<string[]>([]);
+  const [selectedImageFiles, setSelectedImageFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const MAX_IMAGES = 3;
 
   useEffect(() => {
     if (isOpen) {
@@ -41,23 +43,28 @@ export function ComposeModal({ isOpen, onClose, onSubmit }: ComposeModalProps) {
   }, [isOpen]);
 
   const handleImageSelect = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setSelectedImageFile(file);
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+
+    const remaining = MAX_IMAGES - selectedImages.length;
+    const toAdd = files.slice(0, remaining);
+
+    toAdd.forEach((file) => {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setSelectedImage(reader.result as string);
+        setSelectedImages((prev) => [...prev, reader.result as string]);
+        setSelectedImageFiles((prev) => [...prev, file]);
       };
       reader.readAsDataURL(file);
-    }
+    });
+
+    // Reset input so the same file can be re-selected
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const removeImage = () => {
-    setSelectedImage(null);
-    setSelectedImageFile(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
+  const removeImage = (index: number) => {
+    setSelectedImages((prev) => prev.filter((_, i) => i !== index));
+    setSelectedImageFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = () => {
@@ -75,14 +82,16 @@ export function ComposeModal({ isOpen, onClose, onSubmit }: ComposeModalProps) {
       translation: translation.trim(),
       location: "Your Location",
       distance: "0 km",
-      image: selectedImage || undefined,
-      imageFile: selectedImageFile || undefined,
+      image: selectedImages[0] || undefined,
+      images: selectedImages.length > 0 ? selectedImages : undefined,
+      imageFile: selectedImageFiles[0] || undefined,
+      imageFiles: selectedImageFiles.length > 0 ? selectedImageFiles : undefined,
     });
 
     setContent("");
     setTranslation("");
-    setSelectedImage(null);
-    setSelectedImageFile(null);
+    setSelectedImages([]);
+    setSelectedImageFiles([]);
     onClose();
   };
 
@@ -179,20 +188,40 @@ export function ComposeModal({ isOpen, onClose, onSubmit }: ComposeModalProps) {
               ref={fileInputRef}
               type="file"
               accept="image/*"
+              multiple
               onChange={handleImageSelect}
               className="hidden"
               id="image-upload"
             />
 
-            {selectedImage ? (
-              <div className="relative rounded-2xl overflow-hidden">
-                <img src={selectedImage} alt="Selected" className="w-full h-40 object-cover" />
-                <button
-                  onClick={removeImage}
-                  className="absolute top-2 right-2 p-1.5 bg-foreground/60 hover:bg-foreground/80 rounded-full transition-colors"
-                >
-                  <X className="w-4 h-4 text-background" />
-                </button>
+            {selectedImages.length > 0 ? (
+              <div className="space-y-2">
+                {/* Thumbnail row */}
+                <div className="flex gap-2 flex-wrap">
+                  {selectedImages.map((src, i) => (
+                    <div key={i} className="relative w-24 h-24 rounded-xl overflow-hidden flex-shrink-0">
+                      <img src={src} alt={`Photo ${i + 1}`} className="w-full h-full object-cover" />
+                      <button
+                        onClick={() => removeImage(i)}
+                        className="absolute top-1 right-1 p-1 bg-foreground/60 rounded-full transition-colors"
+                      >
+                        <X className="w-3 h-3 text-background" />
+                      </button>
+                    </div>
+                  ))}
+
+                  {/* Add more slot — visible until MAX_IMAGES reached */}
+                  {selectedImages.length < MAX_IMAGES && (
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="w-24 h-24 rounded-xl border-2 border-dashed border-border flex flex-col items-center justify-center gap-1 text-muted-foreground hover:border-primary/50 hover:bg-muted/50 transition-colors flex-shrink-0"
+                    >
+                      <ImagePlus className="h-5 w-5" />
+                      <span className="text-[10px] font-medium">Add</span>
+                    </button>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">{selectedImages.length}/{MAX_IMAGES} photos</p>
               </div>
             ) : (
               <button
@@ -200,7 +229,7 @@ export function ComposeModal({ isOpen, onClose, onSubmit }: ComposeModalProps) {
                 className="w-full flex items-center justify-center gap-2 p-4 rounded-2xl border-2 border-dashed border-border hover:border-primary/50 hover:bg-muted/50 transition-colors text-muted-foreground"
               >
                 <ImagePlus className="h-5 w-5" />
-                <span className="text-sm font-medium">Add a photo</span>
+                <span className="text-sm font-medium">Add up to 3 photos</span>
               </button>
             )}
           </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import {
   MapPin, Heart, MessageCircle, Send, X,
@@ -26,6 +26,7 @@ export function PostCard({ post, isOwnPost, showTranslationByDefault = false, on
   const [showTranslation, setShowTranslation] = useState(showTranslationByDefault);
   const [isSaved, setIsSaved] = useState(false);
   const [imageIndex, setImageIndex] = useState(0);
+  const touchStartX = useRef<number | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const images = post.images?.length ? post.images : post.image ? [post.image] : [];
@@ -130,45 +131,122 @@ export function PostCard({ post, isOwnPost, showTranslationByDefault = false, on
         )}
       </div>
 
-      {/* Photo carousel */}
+      {/* Photo carousel — card-stack visual with swipe */}
       {images.length > 0 && (
-        <div className="mb-4 -mx-4 sm:mx-0 sm:rounded-xl overflow-hidden relative group">
-          <img
-            src={images[imageIndex]}
-            alt="Post"
-            className="w-full h-auto max-h-80 object-cover"
-          />
-          {/* Prev / Next — only shown with multiple images */}
-          {images.length > 1 && (
+        <div
+          className="mb-4 relative"
+          style={{ height: images.length > 1 ? "220px" : "auto" }}
+          onTouchStart={(e) => { touchStartX.current = e.touches[0].clientX; }}
+          onTouchEnd={(e) => {
+            if (touchStartX.current === null) return;
+            const delta = e.changedTouches[0].clientX - touchStartX.current;
+            if (delta < -40 && imageIndex < images.length - 1) setImageIndex(i => i + 1);
+            if (delta > 40 && imageIndex > 0) setImageIndex(i => i - 1);
+            touchStartX.current = null;
+          }}
+        >
+          {images.length > 1 ? (
+            /* Stack: back cards peek at the right, top card sits left-anchored */
             <>
-              <button
-                onClick={() => setImageIndex(i => Math.max(0, i - 1))}
-                disabled={imageIndex === 0}
-                className="absolute left-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center shadow transition-opacity opacity-0 group-hover:opacity-100 disabled:opacity-0"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-              <button
-                onClick={() => setImageIndex(i => Math.min(images.length - 1, i + 1))}
-                disabled={imageIndex === images.length - 1}
-                className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center shadow transition-opacity opacity-0 group-hover:opacity-100 disabled:opacity-0"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
-              {/* Dots */}
-              <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5">
-                {images.map((_, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setImageIndex(i)}
-                    className={cn(
-                      "h-1.5 rounded-full transition-all",
-                      i === imageIndex ? "w-4 bg-white" : "w-1.5 bg-white/60"
-                    )}
+              {/* Third card — furthest back, peeking most to the right */}
+              {images.length > 2 && imageIndex < images.length - 2 && (
+                <div
+                  className="absolute overflow-hidden rounded-2xl shadow-sm"
+                  style={{
+                    top: 8,
+                    left: 0,
+                    right: "-18px",
+                    bottom: 8,
+                    zIndex: 1,
+                    transform: "translateX(18px) scale(0.93)",
+                    transformOrigin: "left center",
+                  }}
+                >
+                  <img
+                    src={images[imageIndex + 2]}
+                    alt=""
+                    className="w-full h-full object-cover"
+                    style={{ opacity: 0.55 }}
+                    aria-hidden="true"
                   />
-                ))}
+                </div>
+              )}
+
+              {/* Second card — peeks right behind the top card */}
+              {imageIndex < images.length - 1 && (
+                <div
+                  className="absolute overflow-hidden rounded-2xl shadow"
+                  style={{
+                    top: 4,
+                    left: 0,
+                    right: "-10px",
+                    bottom: 4,
+                    zIndex: 2,
+                    transform: "translateX(10px) scale(0.965)",
+                    transformOrigin: "left center",
+                  }}
+                >
+                  <img
+                    src={images[imageIndex + 1]}
+                    alt=""
+                    className="w-full h-full object-cover"
+                    style={{ opacity: 0.75 }}
+                    aria-hidden="true"
+                  />
+                </div>
+              )}
+
+              {/* Active (top) card */}
+              <div
+                className="absolute overflow-hidden rounded-2xl shadow-md"
+                style={{ top: 0, left: 0, right: 0, bottom: 0, zIndex: 3 }}
+              >
+                <img
+                  src={images[imageIndex]}
+                  alt={`Photo ${imageIndex + 1} of ${images.length}`}
+                  className="w-full h-full object-cover"
+                />
+
+                {/* Prev / Next buttons */}
+                <button
+                  onClick={() => setImageIndex(i => Math.max(0, i - 1))}
+                  disabled={imageIndex === 0}
+                  className="absolute left-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-background/70 backdrop-blur-sm flex items-center justify-center shadow disabled:opacity-0 transition-opacity"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => setImageIndex(i => Math.min(images.length - 1, i + 1))}
+                  disabled={imageIndex === images.length - 1}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-background/70 backdrop-blur-sm flex items-center justify-center shadow disabled:opacity-0 transition-opacity"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+
+                {/* Dots */}
+                <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5">
+                  {images.map((_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setImageIndex(i)}
+                      className={cn(
+                        "h-1.5 rounded-full transition-all",
+                        i === imageIndex ? "w-4 bg-white" : "w-1.5 bg-white/60"
+                      )}
+                    />
+                  ))}
+                </div>
               </div>
             </>
+          ) : (
+            /* Single image */
+            <div className="rounded-2xl overflow-hidden">
+              <img
+                src={images[0]}
+                alt="Post"
+                className="w-full h-auto max-h-80 object-cover"
+              />
+            </div>
           )}
         </div>
       )}

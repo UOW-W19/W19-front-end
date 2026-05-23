@@ -1,17 +1,17 @@
 import { NavLink, useLocation } from "react-router-dom";
-import { MapPin, Compass, Plus, MessageSquare, User } from "lucide-react";
+import { MapPin, Compass, Plus, MessageSquare, GraduationCap } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// Figma design: 5 icons — MapPin, Compass, + (scanner, raised purple circle), MessageSquare, User
+// Figma design: 5 icons — MapPin, Compass, + (scanner, raised purple circle), MessageSquare, GraduationCap
 // Active icon gets a purple filled circle background
 // Scanner (+) is always elevated in a purple pill regardless of active state
 
 const navItems = [
-  { to: "/explore",  icon: MapPin,        label: "Explore"  },
-  { to: "/",         icon: Compass,       label: "Feed"     },
-  { to: "/scanner",  icon: Plus,          label: "Scan"     },  // centre elevated
-  { to: "/messages", icon: MessageSquare, label: "Messages" },
-  { to: "/profile",  icon: User,          label: "Profile"  },
+  { to: "/explore",  icon: MapPin,         label: "Explore"  },
+  { to: "/",         icon: Compass,        label: "Feed"     },
+  { to: "/scanner",  icon: Plus,           label: "Scan"     },  // centre elevated
+  { to: "/messages", icon: MessageSquare,  label: "Messages" },
+  { to: "/learn",    icon: GraduationCap,  label: "Learn"    },
 ];
 
 export function BottomNav() {

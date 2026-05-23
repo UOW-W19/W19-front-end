@@ -1,4 +1,4 @@
-import { Bell, Search, Users } from "lucide-react";
+import { Bell, Search } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
@@ -17,7 +17,7 @@ export function Header({ title = "Feed" }: HeaderProps) {
     >
       <div className="flex h-14 items-center justify-between px-4">
         {/* Logo — mobile */}
-        <div className="flex items-center gap-2 lg:hidden">
+        <Link to="/" className="flex items-center gap-2 lg:hidden" aria-label="Go to feed">
           <img
             src="/locale-logo.svg"
             alt="Locale"
@@ -26,7 +26,7 @@ export function Header({ title = "Feed" }: HeaderProps) {
           <span className="text-lg font-black" style={{ color: '#18112C', fontFamily: 'Lexend, sans-serif' }}>
             Locale
           </span>
-        </div>
+        </Link>
 
         {/* Desktop title */}
         <h1 className="hidden text-xl font-black text-foreground lg:block" style={{ color: '#18112C' }}>
@@ -39,13 +39,6 @@ export function Header({ title = "Feed" }: HeaderProps) {
             className="h-11 w-11 rounded-full active:scale-95"
             aria-label="Search">
             <Search className="h-5 w-5" style={{ color: '#18112C' }} />
-          </Button>
-
-          <Button variant="ghost" size="icon" asChild
-            className="h-11 w-11 rounded-full active:scale-95">
-            <Link to="/friends" aria-label="Friends">
-              <Users className="h-5 w-5" style={{ color: '#18112C' }} />
-            </Link>
           </Button>
 
           <Button variant="ghost" size="icon"

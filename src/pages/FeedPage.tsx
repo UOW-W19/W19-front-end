@@ -108,6 +108,11 @@ export default function FeedPage() {
       if (!uiPost.translation && newPostData.translation) {
         uiPost.translation = newPostData.translation;
       }
+      // Preserve all local image previews (backend only stores the first)
+      if (newPostData.images && newPostData.images.length > 0) {
+        uiPost.images = newPostData.images;
+        uiPost.image = newPostData.images[0];
+      }
       setPosts(prev => [uiPost, ...prev]);
     } catch (error) {
       console.error('[FeedPage] Failed to create post:', error);

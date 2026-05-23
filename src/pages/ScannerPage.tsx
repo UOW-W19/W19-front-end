@@ -184,7 +184,16 @@ export default function ScannerPage() {
                 Subscribe
               </button>
             )}
-            <button onClick={() => setShowScanPopup(false)} className="opacity-60 hover:opacity-100 transition-opacity">
+            <button
+              onClick={() => {
+                if (scansRemaining === 0) {
+                  setScansRemaining(3);
+                  localStorage.setItem('scansRemaining', '3');
+                }
+                setShowScanPopup(false);
+              }}
+              className="opacity-60 hover:opacity-100 transition-opacity"
+            >
               <X className="h-4 w-4" />
             </button>
           </div>
