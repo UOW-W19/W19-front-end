@@ -493,7 +493,7 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
             className={`group block cursor-zoom-in overflow-hidden bg-muted text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
               hasMultipleImages
                 ? "absolute inset-y-0 left-0 right-4 z-30 rounded-2xl shadow-md"
-                : "-mx-4 w-[calc(100%+2rem)] sm:mx-0 sm:w-full sm:rounded-xl"
+                : "w-full rounded-xl"
             }`}
             aria-label="Open post image"
           >
