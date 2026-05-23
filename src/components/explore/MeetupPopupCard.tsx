@@ -23,7 +23,9 @@ export default function MeetupPopupCard({ meetup, onClose, onJoin, onLeave }: Me
   const maxAttendees = meetup.maxAttendees || Infinity;
   const isFull = meetup.attendeeCount >= maxAttendees;
   const spotsLeft = maxAttendees === Infinity ? Infinity : maxAttendees - meetup.attendeeCount;
-  const formattedDate = format(parseISO(meetup.meetupDate), 'MMM d, h:mm a');
+
+  const parsedDate = parseISO(meetup.meetupDate);
+  const formattedDate = format(parsedDate, 'MMM d, h:mm a');
 
   const handleJoin = async () => {
     if (!user) {
@@ -69,6 +71,7 @@ export default function MeetupPopupCard({ meetup, onClose, onJoin, onLeave }: Me
         </button>
       </div>
 
+      {/* Compact info row */}
       <div className="flex flex-wrap gap-x-4 gap-y-1">
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <Calendar className="h-3 w-3 shrink-0" />
