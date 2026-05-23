@@ -29,6 +29,22 @@ const PROFICIENCY_OPTIONS: { value: ProficiencyLevel; label: string }[] = [
   { value: "BEGINNER", label: "Beginner" },
 ];
 
+const initialsFor = (name: string) =>
+  name
+    .trim()
+    .split(/\s+/)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2) || "U";
+
+const formatPostDate = (value: string) =>
+  new Intl.DateTimeFormat("en-AU", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(new Date(value));
+
 export default function ProfilePage() {
   const { user, updateProfile } = useAuth();
   const userId = user?.id;
@@ -73,12 +89,8 @@ export default function ProfilePage() {
           author: {
             id: p.author.id,
             name: p.author.displayName,
-            avatar: p.author.displayName
-              .split(" ")
-              .map((n) => n[0])
-              .join("")
-              .toUpperCase()
-              .slice(0, 2),
+            avatar: initialsFor(p.author.displayName),
+            avatarUrl: p.author.avatarUrl,
             language: p.author.language ?? "",
             flag: p.author.flagEmoji ?? "",
           },
@@ -88,8 +100,9 @@ export default function ProfilePage() {
           location: p.location ?? "",
           distance: p.distance ?? "",
           image: p.imageUrl,
+          imageUrls: p.imageUrls,
           reactions: p.reactions,
-          time: new Date(p.createdAt).toLocaleDateString(),
+          time: formatPostDate(p.createdAt),
           isLiked: p.userReaction != null,
         }));
         setPosts(adapted);
@@ -108,7 +121,8 @@ export default function ProfilePage() {
           author: {
             id: p.author.id,
             name: p.author.displayName,
-            avatar: p.author.displayName.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2),
+            avatar: initialsFor(p.author.displayName),
+            avatarUrl: p.author.avatarUrl,
             language: p.author.language ?? '',
             flag: p.author.flagEmoji ?? '',
             location: p.author.location,
@@ -120,8 +134,9 @@ export default function ProfilePage() {
           location: p.location ?? '',
           distance: p.distance ?? '',
           image: p.imageUrl,
+          imageUrls: p.imageUrls,
           reactions: p.reactions,
-          time: new Date(p.createdAt).toLocaleDateString(),
+          time: formatPostDate(p.createdAt),
           isLiked: p.userReaction != null,
           isSaved: p.isSaved ?? true,
         }));

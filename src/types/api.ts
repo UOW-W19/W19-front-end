@@ -93,6 +93,7 @@ export interface ApiPost {
   originalLanguage: string;
   translation?: string;
   imageUrl?: string;
+  imageUrls?: string[];
 
   // Location
   latitude?: number;
@@ -113,6 +114,7 @@ export interface CreatePostRequest {
   content: string;
   originalLanguage?: string;
   image?: File;
+  images?: File[];
   imageUrl?: string;
   latitude?: number;
   longitude?: number;
@@ -302,6 +304,43 @@ export interface FriendRequestResponse {
     avatarUrl?: string;
   };
   createdAt: string;
+}
+
+// ============ NOTIFICATIONS ============
+export type NotificationType =
+  | 'FRIEND_REQUEST'
+  | 'FRIEND_ACCEPTED'
+  | 'MESSAGE'
+  | 'FRIEND_POST'
+  | 'POST_REACTION'
+  | 'POST_COMMENT'
+  | 'MEETUP_JOINED'
+  | 'MEETUP_UPDATED'
+  | 'MEETUP_REMINDER'
+  | 'SAVED_WORD'
+  | 'SCAN_DETECTED_WORD';
+
+export interface NotificationActor {
+  id: string;
+  username: string;
+  displayName: string;
+  avatarUrl?: string;
+}
+
+export interface AppNotification {
+  id: string;
+  type: NotificationType;
+  title: string;
+  body?: string;
+  targetUrl?: string;
+  readAt?: string;
+  createdAt: string;
+  actor?: NotificationActor | null;
+}
+
+export interface NotificationCenterSummary {
+  unreadNotifications: number;
+  total: number;
 }
 
 // ============ SETTINGS ============

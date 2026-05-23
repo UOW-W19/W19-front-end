@@ -4,6 +4,7 @@ export interface Post {
     id: string;
     name: string;
     avatar: string;
+    avatarUrl?: string;
     language: string;
     flag: string;
     location?: string;
@@ -15,6 +16,7 @@ export interface Post {
   location: string;
   distance: string;
   image?: string;
+  imageUrls?: string[];
   reactions: { likes: number; comments: number };
   time: string;
   isLiked?: boolean;

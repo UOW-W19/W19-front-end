@@ -7,10 +7,12 @@ export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 // Supported languages
 export const LANGUAGES: Language[] = [
   { code: 'en', name: 'English', flag: '🇺🇸' },
-  { code: 'vi', name: 'Vietnamese', flag: '🇻🇳' },
-  { code: 'zh', name: 'Chinese', flag: '🇨🇳' },
-  { code: 'ko', name: 'Korean', flag: '🇰🇷' },
+  { code: 'es', name: 'Spanish', flag: '🇪🇸' },
+  { code: 'fr', name: 'French', flag: '🇫🇷' },
   { code: 'ja', name: 'Japanese', flag: '🇯🇵' },
+  { code: 'pt', name: 'Portuguese', flag: '🇵🇹' },
+  { code: 'ko', name: 'Korean', flag: '🇰🇷' },
+  { code: 'vi', name: 'Vietnamese', flag: '🇻🇳' },
 ];
 
 export const getLanguageByCode = (code: string): Language | undefined =>

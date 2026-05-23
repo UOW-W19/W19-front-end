@@ -4,10 +4,10 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { AuthProvider, useAuth } from "@/contexts";
 import { StompProvider } from "@/contexts/StompContext";
+import MessagesPage from "./pages/MessagesPage";
 
 const FeedPage        = lazy(() => import("./pages/FeedPage"));
 const ExplorePage     = lazy(() => import("./pages/ExplorePage"));
-const MessagesPage    = lazy(() => import("./pages/MessagesPage"));
 const LearnPage       = lazy(() => import("./pages/LearnPage"));
 const ProfilePage     = lazy(() => import("./pages/ProfilePage"));
 const UserProfilePage = lazy(() => import("./pages/UserProfilePage"));
@@ -16,6 +16,8 @@ const InstallPage     = lazy(() => import("./pages/InstallPage"));
 const AuthPage        = lazy(() => import("./pages/AuthPage"));
 const ScannerPage     = lazy(() => import("./pages/ScannerPage"));
 const FriendsPage     = lazy(() => import("./pages/FriendsPage"));
+const NotificationsPage = lazy(() => import("./pages/NotificationsPage"));
+const NotificationsSettingsPage = lazy(() => import("./pages/NotificationsSettingsPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -69,9 +71,11 @@ const AppRoutes = () => (
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/user/:userId" element={<UserProfilePage />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/settings/notifications" element={<NotificationsSettingsPage />} />
         <Route path="/install" element={<InstallPage />} />
         <Route path="/scanner" element={<ScannerPage />} />
         <Route path="/friends" element={<FriendsPage />} />
+        <Route path="/notifications" element={<NotificationsPage />} />
       </Route>
     </Routes>
   </Suspense>

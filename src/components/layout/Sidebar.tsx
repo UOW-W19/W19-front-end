@@ -6,7 +6,6 @@ import {
   BookOpen,
   User,
   Settings,
-  Globe,
   Camera
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -34,58 +33,57 @@ export function Sidebar() {
   };
 
   return (
-    <aside className="hidden md:flex h-screen w-64 flex-col border-r border-sidebar-border bg-sidebar">
+    <aside className="hidden h-screen w-64 flex-col border-r border-purple/20 bg-card lg:flex">
       {/* Logo */}
-      <div className="flex h-16 items-center gap-3 border-b border-sidebar-border px-6">
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary">
-          <Globe className="h-5 w-5 text-primary-foreground" />
-        </div>
-        <span className="text-xl font-semibold text-sidebar-foreground">Locale</span>
+      <div className="flex h-16 items-center gap-3 border-b border-purple/20 px-6">
+        <img src="/locale-logo.svg" alt="Locale" className="h-9 w-9 object-contain" />
+        <span className="text-xl font-black text-sidebar-foreground">Locale</span>
       </div>
 
       {/* Main navigation */}
-      <nav className="mt-6 flex-1 space-y-1 px-3">
-        {mainNavItems.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            className={cn(
-              "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-200",
-              "hover:bg-sidebar-accent/50",
-              isActive(item.to)
-                ? "bg-primary/10 text-primary"
-                : "text-sidebar-foreground"
-            )}
-          >
-            <item.icon
+      <nav className="mt-4 flex-1 space-y-1 px-3" aria-label="Main navigation">
+        {mainNavItems.map((item) => {
+          const active = isActive(item.to);
+          return (
+            <NavLink
+              key={item.to}
+              to={item.to}
               className={cn(
-                "h-5 w-5",
-                isActive(item.to) ? "stroke-[2.5px]" : "stroke-[1.75px]"
+                "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition-all duration-200",
+                "hover:bg-purple/10 focus-visible:ring-purple",
+                active ? "bg-purple/10 text-purple" : "text-sidebar-foreground"
               )}
-            />
-            {item.label}
-          </NavLink>
-        ))}
+              aria-current={active ? "page" : undefined}
+            >
+              <item.icon
+                className={cn("h-5 w-5", active ? "stroke-[2.5px]" : "stroke-[1.75px]")}
+              />
+              {item.label}
+            </NavLink>
+          );
+        })}
       </nav>
 
       {/* Secondary navigation */}
-      <div className="mt-auto border-t border-sidebar-border px-3 py-4">
-        {secondaryNavItems.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            className={cn(
-              "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-200",
-              "hover:bg-sidebar-accent/50",
-              isActive(item.to)
-                ? "bg-primary/10 text-primary"
-                : "text-muted-foreground"
-            )}
-          >
-            <item.icon className="h-5 w-5 stroke-[1.75px]" />
-            {item.label}
-          </NavLink>
-        ))}
+      <div className="mt-auto border-t border-purple/20 px-3 py-4">
+        {secondaryNavItems.map((item) => {
+          const active = isActive(item.to);
+          return (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              className={cn(
+                "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition-all duration-200",
+                "hover:bg-purple/10 focus-visible:ring-purple",
+                active ? "bg-purple/10 text-purple" : "text-muted-foreground"
+              )}
+              aria-current={active ? "page" : undefined}
+            >
+              <item.icon className="h-5 w-5 stroke-[1.75px]" />
+              {item.label}
+            </NavLink>
+          );
+        })}
       </div>
     </aside>
   );

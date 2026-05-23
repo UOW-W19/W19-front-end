@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import type { Meetup, NearbyLearner } from '@/types/meetup';
-import { MapPin } from 'lucide-react';
+import { LocateFixed, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
@@ -12,6 +12,7 @@ interface ExploreMapProps {
   onMeetupClick?: (meetup: Meetup) => void;
   onLearnerClick?: (learner: NearbyLearner) => void;
   userLocation?: { latitude: number; longitude: number };
+  className?: string;
 }
 
 const MAPBOX_TOKEN_STORAGE_KEY = 'locale_mapbox_token';
@@ -25,6 +26,8 @@ type LngLat = { lng: number; lat: number };
 const DEFAULT_CENTER: LngLat = { lng: -73.98, lat: 40.76 };
 const DEFAULT_ZOOM = 12;
 const USER_FOCUS_ZOOM = 13;
+const STACK_OFFSET_METERS = 12;
+const METERS_PER_DEGREE_LAT = 111_320;
 
 const isValidLngLat = (lng: unknown, lat: unknown): boolean => {
   if (!Number.isFinite(lng) || !Number.isFinite(lat)) return false;
@@ -158,6 +161,26 @@ const computeCenterAndZoom = (coords: LngLat[]): { center: LngLat; zoom: number 
   return { center, zoom };
 };
 
+const markerStackKey = (lng: number, lat: number) =>
+  `${lat.toFixed(5)}:${lng.toFixed(5)}`;
+
+const offsetStackedCoordinate = (
+  lng: number,
+  lat: number,
+  stackIndex: number
+): [number, number] => {
+  if (stackIndex === 0) return [lng, lat];
+
+  const angle = ((stackIndex - 1) % 8) * (Math.PI / 4);
+  const ring = Math.floor((stackIndex - 1) / 8) + 1;
+  const distanceMeters = STACK_OFFSET_METERS * ring;
+  const latOffset = (Math.sin(angle) * distanceMeters) / METERS_PER_DEGREE_LAT;
+  const lngScale = METERS_PER_DEGREE_LAT * Math.max(0.2, Math.cos((lat * Math.PI) / 180));
+  const lngOffset = (Math.cos(angle) * distanceMeters) / lngScale;
+
+  return [lng + lngOffset, lat + latOffset];
+};
+
 const buildStaticMapUrl = ({
   meetups,
   learners,
@@ -193,7 +216,7 @@ const buildStaticMapUrl = ({
   return `https://api.mapbox.com/styles/v1/${style}/static/${overlay}${center.lng.toFixed(5)},${center.lat.toFixed(5)},${zoom},0,0/${width}x${height}@2x?access_token=${encodeURIComponent(token)}`;
 };
 
-export default function ExploreMap({ meetups, learners, onMeetupClick, onLearnerClick, userLocation }: ExploreMapProps) {
+export default function ExploreMap({ meetups, learners, onMeetupClick, onLearnerClick, userLocation, className }: ExploreMapProps) {
   const mapContainer = useRef<HTMLDivElement | null>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
@@ -256,6 +279,19 @@ export default function ExploreMap({ meetups, learners, onMeetupClick, onLearner
     setMapboxToken(cleaned);
     setTokenDraft('');
     setMapError(null);
+  };
+
+  const recenterOnUser = () => {
+    if (!map.current || !userLocation) return;
+    if (!isValidLngLat(userLocation.longitude, userLocation.latitude)) return;
+
+    userInteractedRef.current = false;
+    hasCenteredOnUserRef.current = true;
+    map.current.easeTo({
+      center: [userLocation.longitude, userLocation.latitude],
+      zoom: Math.max(map.current.getZoom(), USER_FOCUS_ZOOM),
+      duration: 650,
+    });
   };
 
   // Initialize map (re-runs when token changes)
@@ -454,6 +490,14 @@ export default function ExploreMap({ meetups, learners, onMeetupClick, onLearner
     // Clear existing markers
     markersRef.current.forEach(m => m.remove());
     markersRef.current = [];
+    const stackCounts = new Map<string, number>();
+
+    const nextMarkerLngLat = (lng: number, lat: number): [number, number] => {
+      const key = markerStackKey(lng, lat);
+      const stackIndex = stackCounts.get(key) ?? 0;
+      stackCounts.set(key, stackIndex + 1);
+      return offsetStackedCoordinate(lng, lat, stackIndex);
+    };
 
     // Add meetup markers
     meetups.forEach((meetup) => {
@@ -464,10 +508,13 @@ export default function ExploreMap({ meetups, learners, onMeetupClick, onLearner
       el.className = 'meetup-marker w-9 h-9 bg-gradient-to-br from-primary to-primary/80 rounded-full flex items-center justify-center shadow-lg border-2 border-white text-base cursor-pointer';
       el.innerHTML = `<span class="text-lg">${meetup.language.flagEmoji || '📍'}</span>`;
 
-      el.addEventListener('click', () => onMeetupClick?.(meetup));
+      el.addEventListener('click', (event) => {
+        event.stopPropagation();
+        onMeetupClick?.(meetup);
+      });
 
       const marker = new mapboxgl.Marker(el)
-        .setLngLat([meetup.coordinates.lng, meetup.coordinates.lat])
+        .setLngLat(nextMarkerLngLat(meetup.coordinates.lng, meetup.coordinates.lat))
         .addTo(map.current!);
 
       markersRef.current.push(marker);
@@ -479,13 +526,27 @@ export default function ExploreMap({ meetups, learners, onMeetupClick, onLearner
       if (!isValidLngLat(learner.coordinates.lng, learner.coordinates.lat)) return;
 
       const el = document.createElement('div');
-      el.className = 'learner-marker w-8 h-8 bg-gradient-to-br from-accent to-accent/80 rounded-full flex items-center justify-center shadow-md border-2 border-white text-white text-xs font-semibold';
-      el.innerHTML = `<span>${learner.displayName[0]}</span>`;
+      el.className = 'learner-marker w-8 h-8 bg-gradient-to-br from-accent to-accent/80 rounded-full flex items-center justify-center shadow-md border-2 border-white text-white text-xs font-semibold overflow-hidden';
 
-      el.addEventListener('click', () => onLearnerClick?.(learner));
+      if (learner.avatarUrl) {
+        const img = document.createElement('img');
+        img.src = learner.avatarUrl;
+        img.alt = learner.displayName;
+        img.className = 'h-full w-full rounded-full object-cover';
+        el.appendChild(img);
+      } else {
+        const fallback = document.createElement('span');
+        fallback.textContent = learner.displayName[0]?.toUpperCase() ?? 'U';
+        el.appendChild(fallback);
+      }
+
+      el.addEventListener('click', (event) => {
+        event.stopPropagation();
+        onLearnerClick?.(learner);
+      });
 
       const marker = new mapboxgl.Marker(el)
-        .setLngLat([learner.coordinates.lng, learner.coordinates.lat])
+        .setLngLat(nextMarkerLngLat(learner.coordinates.lng, learner.coordinates.lat))
         .addTo(map.current!);
 
       markersRef.current.push(marker);
@@ -572,7 +633,7 @@ export default function ExploreMap({ meetups, learners, onMeetupClick, onLearner
 
   if (mapError) {
     return (
-      <div className="h-80 w-full rounded-2xl overflow-hidden border border-border bg-muted flex items-center justify-center">
+      <div className={`${className ?? 'h-80 w-full rounded-2xl border border-border'} overflow-hidden bg-muted flex items-center justify-center`}>
         <div className="text-center p-4 w-full max-w-md">
           <MapPin className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
           <p className="text-sm text-muted-foreground">{mapError}</p>
@@ -657,13 +718,28 @@ export default function ExploreMap({ meetups, learners, onMeetupClick, onLearner
   }
 
   return (
-    <div className="relative h-80 w-full rounded-2xl overflow-hidden border border-border">
+    <div className={className ?? 'relative h-80 w-full rounded-2xl overflow-hidden border border-border'}>
       <div ref={mapContainer} className="absolute inset-0" style={{ width: '100%', height: '100%' }} />
 
       {!isMapReady && (
         <div className="absolute inset-0 bg-muted flex items-center justify-center">
           <div className="animate-pulse text-muted-foreground">Loading map...</div>
         </div>
+      )}
+
+      {userLocation && (
+        <Button
+          type="button"
+          size="icon"
+          variant="outline"
+          onClick={recenterOnUser}
+          disabled={!isMapReady}
+          className="absolute left-3 top-3 h-10 w-10 rounded-full border border-foreground/20 bg-white text-purple shadow-lg shadow-black/20 backdrop-blur-sm hover:bg-white hover:text-purple focus-visible:ring-2 focus-visible:ring-purple focus-visible:ring-offset-2 disabled:opacity-60"
+          aria-label="Recenter map on your location"
+          title="Recenter map on your location"
+        >
+          <LocateFixed className="h-4 w-4" />
+        </Button>
       )}
 
       {/* Legend */}

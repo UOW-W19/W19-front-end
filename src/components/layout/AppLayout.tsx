@@ -10,6 +10,7 @@ const routeTitles: Record<string, string> = {
   "/learn": "Learn",
   "/profile": "Profile",
   "/settings": "Settings",
+  "/notifications": "Notifications",
 };
 
 export function AppLayout() {

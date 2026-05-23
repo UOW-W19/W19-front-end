@@ -169,7 +169,11 @@ export function CreateMeetupModal({ isOpen, onClose, onSubmit }: CreateMeetupMod
           <LocationPicker
             onLocationSelect={(loc) => {
               setLocationName(loc.name);
-              setCoords({ lat: loc.lat, lng: loc.lng });
+              setCoords(
+                loc.lat !== undefined && loc.lng !== undefined
+                  ? { lat: loc.lat, lng: loc.lng }
+                  : null
+              );
             }}
           />
 
