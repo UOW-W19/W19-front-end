@@ -8,15 +8,16 @@ import {
   Languages,
   Loader2,
   RotateCcw,
-  Save,
   ScanLine,
   Sparkles,
+  Star,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import ScannerAnnotationPill from "@/components/scanner/ScannerAnnotationPill";
-import { saveDetectedObject as saveDetectedObjectById, scanImage } from "@/services/api/scanner";
+import { scanImage } from "@/services/api/scanner";
+import { createSavedWord } from "@/services/api/learn";
 import { learnKeys } from "@/hooks/useLearnApi";
 import type { DetectedObject } from "@/types/scanner";
 
@@ -142,16 +143,18 @@ export default function ScannerPage() {
 
   const saveDetectedObject = async (object: DetectedObject) => {
     const key = objectKey(object);
-    if (!object.id) {
-      toast.error("Scan result is missing a detection ID");
-      setSaveStates((current) => ({ ...current, [key]: "error" }));
-      return;
-    }
 
     setSavingKeys((current) => new Set(current).add(key));
 
     try {
-      await saveDetectedObjectById(object.id);
+      await createSavedWord({
+        word: object.learningWord,
+        translation: object.nativeWord,
+        language_code: object.languageCode,
+        source: "SCANNER",
+        source_id: object.id,
+        context: `Detected in photo with ${confidenceLabel(object.confidence)} confidence`,
+      });
       setSaveStates((current) => ({ ...current, [key]: "saved" }));
       queryClient.invalidateQueries({ queryKey: learnKeys.words() });
       queryClient.invalidateQueries({ queryKey: learnKeys.stats() });
@@ -436,11 +439,11 @@ export default function ScannerPage() {
                         {isSaving ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
                         ) : isSaved ? (
-                          <Check className="h-4 w-4 text-amber-600" />
+                          <Star className="h-4 w-4 fill-amber-400 text-amber-500" />
                         ) : (
-                          <Save className={`h-4 w-4 ${isDuplicate ? "text-amber-600" : ""}`} />
+                          <Star className={`h-4 w-4 transition-all ${isDuplicate ? "fill-amber-400 text-amber-500" : ""}`} />
                         )}
-                        {isDuplicate ? "Duplicate" : isSaved ? "Saved" : "Save"}
+                        {isDuplicate ? "Added" : isSaved ? "Added" : "Add to word bank"}
                       </Button>
                     </div>
                   </div>

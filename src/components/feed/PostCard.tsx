@@ -266,6 +266,8 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
         postId: post.id,
         context: post.content,
       });
+      queryClient.invalidateQueries({ queryKey: learnKeys.words() });
+      queryClient.invalidateQueries({ queryKey: learnKeys.stats() });
       setSavedWordDone(true);
       setTimeout(() => setShowSaveModal(false), 1200);
     } catch (err) {
