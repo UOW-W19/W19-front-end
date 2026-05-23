@@ -12,6 +12,7 @@ import {
   Loader2,
   MessageCircle,
   MessageSquare,
+  Newspaper,
   UserPlus,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
@@ -26,6 +27,7 @@ const iconByType: Record<NotificationType, typeof Bell> = {
   FRIEND_REQUEST: UserPlus,
   FRIEND_ACCEPTED: Check,
   MESSAGE: MessageCircle,
+  FRIEND_POST: Newspaper,
   POST_REACTION: Heart,
   POST_COMMENT: MessageSquare,
   MEETUP_JOINED: Calendar,

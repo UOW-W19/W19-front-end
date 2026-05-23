@@ -4,6 +4,7 @@ import { X, Globe, MapPin, Sparkles, Send, ImagePlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Post } from "@/types";
 import { useAuth } from "@/contexts";
+import { LANGUAGES } from "@/services/api";
 
 export interface ComposePostPayload extends Omit<Post, "id" | "time" | "reactions"> {
   imageFile?: File;
@@ -16,20 +17,11 @@ export interface ComposeModalProps {
   onSubmit: (post: ComposePostPayload) => void;
 }
 
-const languages = [
-  { code: "es", name: "Spanish", flag: "🇪🇸" },
-  { code: "ja", name: "Japanese", flag: "🇯🇵" },
-  { code: "fr", name: "French", flag: "🇫🇷" },
-  { code: "de", name: "German", flag: "🇩🇪" },
-  { code: "pt", name: "Portuguese", flag: "🇧🇷" },
-  { code: "ko", name: "Korean", flag: "🇰🇷" },
-];
-
 export function ComposeModal({ isOpen, onClose, onSubmit }: ComposeModalProps) {
   const { user } = useAuth();
   const [content, setContent] = useState("");
   const [translation, setTranslation] = useState("");
-  const [selectedLanguage, setSelectedLanguage] = useState(languages[0]);
+  const [selectedLanguage, setSelectedLanguage] = useState(LANGUAGES[0]);
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
   const [selectedImages, setSelectedImages] = useState<Array<{ file: File; preview: string }>>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -158,7 +150,7 @@ export function ComposeModal({ isOpen, onClose, onSubmit }: ComposeModalProps) {
 
             {showLanguageDropdown && (
               <div className="absolute top-full left-0 right-0 mt-2 bg-popover rounded-2xl border border-border shadow-soft z-10 py-2 animate-scale-in max-h-64 overflow-y-auto">
-                {languages.map((lang) => (
+                {LANGUAGES.map((lang) => (
                   <button
                     key={lang.code}
                     onClick={() => {

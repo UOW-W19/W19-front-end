@@ -311,6 +311,7 @@ export type NotificationType =
   | 'FRIEND_REQUEST'
   | 'FRIEND_ACCEPTED'
   | 'MESSAGE'
+  | 'FRIEND_POST'
   | 'POST_REACTION'
   | 'POST_COMMENT'
   | 'MEETUP_JOINED'
