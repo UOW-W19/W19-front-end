@@ -445,6 +445,7 @@ export default function UserProfilePage() {
                     location: apiPost.location || "",
                     distance: apiPost.distance || "",
                     image: apiPost.imageUrl,
+                    imageUrls: apiPost.imageUrls,
                     reactions: apiPost.reactions,
                     time: formatPostDate(apiPost.createdAt),
                     isLiked: apiPost.userReaction === 'LIKE',

@@ -93,6 +93,7 @@ export interface ApiPost {
   originalLanguage: string;
   translation?: string;
   imageUrl?: string;
+  imageUrls?: string[];
 
   // Location
   latitude?: number;
@@ -113,6 +114,7 @@ export interface CreatePostRequest {
   content: string;
   originalLanguage?: string;
   image?: File;
+  images?: File[];
   imageUrl?: string;
   latitude?: number;
   longitude?: number;

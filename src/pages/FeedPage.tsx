@@ -29,6 +29,7 @@ const toUiPost = (apiPost: ApiPost): Post => {
     location: apiPost.location || '',
     distance: apiPost.distance || '',
     image: apiPost.imageUrl,
+    imageUrls: apiPost.imageUrls,
     reactions: {
       likes: apiPost.reactions.likes,
       comments: apiPost.reactions.comments,
@@ -132,6 +133,7 @@ export default function FeedPage() {
     const payload: CreatePostRequest = {
       content: newPostData.content,
       originalLanguage: langCode,
+      images: newPostData.imageFiles?.length ? newPostData.imageFiles : undefined,
       image: newPostData.imageFile || undefined,
     };
     try {

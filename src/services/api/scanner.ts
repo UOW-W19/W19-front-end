@@ -77,6 +77,30 @@ export const scanImage = async (image: File): Promise<ScanResult> => {
   };
 };
 
+export const scanPostImage = async (postId: string): Promise<ScanResult> => {
+  const token = getStoredToken();
+  const response = await fetch(`${API_BASE_URL}/scan/post-image/${postId}`, {
+    method: 'POST',
+    headers: {
+      'ngrok-skip-browser-warning': 'true',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  if (!response.ok) {
+    const fallback = response.status === 503
+      ? 'Object detection service unavailable'
+      : 'Failed to scan post image';
+    throw new ScannerApiError(await readErrorMessage(response, fallback), response.status);
+  }
+
+  const data: BackendScanResponse = await response.json();
+  return {
+    scanSessionId: data.scan_session_id,
+    detectedObjects: (data.detected_objects ?? []).map(transformDetectedObject),
+  };
+};
+
 export const saveDetectedObject = async (detectionId: string): Promise<SavedWordResponse> => {
   const token = getStoredToken();
   const response = await fetch(`${API_BASE_URL}/scan/detections/${detectionId}/save`, {
@@ -99,5 +123,6 @@ export const saveDetectedObject = async (detectionId: string): Promise<SavedWord
 
 export const scannerApi = {
   scanImage,
+  scanPostImage,
   saveDetectedObject,
 };

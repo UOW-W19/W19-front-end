@@ -7,6 +7,7 @@ import { useAuth } from "@/contexts";
 
 export interface ComposePostPayload extends Omit<Post, "id" | "time" | "reactions"> {
   imageFile?: File;
+  imageFiles?: File[];
 }
 
 export interface ComposeModalProps {
@@ -30,25 +31,45 @@ export function ComposeModal({ isOpen, onClose, onSubmit }: ComposeModalProps) {
   const [translation, setTranslation] = useState("");
   const [selectedLanguage, setSelectedLanguage] = useState(languages[0]);
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
+  const [selectedImages, setSelectedImages] = useState<Array<{ file: File; preview: string }>>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const clearSelectedImages = () => {
+    selectedImages.forEach((image) => URL.revokeObjectURL(image.preview));
+    setSelectedImages([]);
+  };
+
+  const handleClose = () => {
+    clearSelectedImages();
+    onClose();
+  };
+
   const handleImageSelect = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setSelectedImageFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setSelectedImage(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+    const files = Array.from(e.target.files ?? [])
+      .filter((file) => file.type.startsWith("image/"))
+      .slice(0, Math.max(0, 3 - selectedImages.length));
+
+    if (files.length === 0) return;
+
+    setSelectedImages((current) => [
+      ...current,
+      ...files.map((file) => ({
+        file,
+        preview: URL.createObjectURL(file),
+      })),
+    ]);
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
     }
   };
 
-  const removeImage = () => {
-    setSelectedImage(null);
-    setSelectedImageFile(null);
+  const removeImage = (index: number) => {
+    setSelectedImages((current) => {
+      const image = current[index];
+      if (image) URL.revokeObjectURL(image.preview);
+      return current.filter((_, currentIndex) => currentIndex !== index);
+    });
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -70,14 +91,15 @@ export function ComposeModal({ isOpen, onClose, onSubmit }: ComposeModalProps) {
       translation: translation.trim() || "Translation pending...",
       location: "Your Location",
       distance: "0 km",
-      image: selectedImage || undefined,
-      imageFile: selectedImageFile || undefined,
+      image: selectedImages[0]?.preview,
+      imageUrls: selectedImages.map((image) => image.preview),
+      imageFile: selectedImages[0]?.file,
+      imageFiles: selectedImages.map((image) => image.file),
     });
 
     setContent("");
     setTranslation("");
-    setSelectedImage(null);
-    setSelectedImageFile(null);
+    clearSelectedImages();
     onClose();
   };
 
@@ -91,7 +113,7 @@ export function ComposeModal({ isOpen, onClose, onSubmit }: ComposeModalProps) {
     >
       <div
         className="absolute inset-0 bg-foreground/40 backdrop-blur-sm animate-fade-in"
-        onClick={onClose}
+        onClick={handleClose}
       />
 
       {/* Modal - full width on mobile, slides up from bottom */}
@@ -104,7 +126,7 @@ export function ComposeModal({ isOpen, onClose, onSubmit }: ComposeModalProps) {
         {/* Header */}
         <div className="flex items-center justify-between px-4 pb-3 border-b border-border">
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="p-2 -m-2 text-muted-foreground active:text-foreground transition-colors"
           >
             <X className="h-6 w-6" />
@@ -174,20 +196,40 @@ export function ComposeModal({ isOpen, onClose, onSubmit }: ComposeModalProps) {
               ref={fileInputRef}
               type="file"
               accept="image/*"
+              multiple
               onChange={handleImageSelect}
               className="hidden"
               id="image-upload"
             />
 
-            {selectedImage ? (
-              <div className="relative rounded-2xl overflow-hidden">
-                <img src={selectedImage} alt="Selected" className="w-full h-40 object-cover" />
-                <button
-                  onClick={removeImage}
-                  className="absolute top-2 right-2 p-1.5 bg-foreground/60 hover:bg-foreground/80 rounded-full transition-colors"
-                >
-                  <X className="w-4 h-4 text-background" />
-                </button>
+            {selectedImages.length > 0 ? (
+              <div className="space-y-3">
+                <div className="grid grid-cols-3 gap-2">
+                  {selectedImages.map((image, index) => (
+                    <div key={image.preview} className="relative aspect-square overflow-hidden rounded-xl border border-border">
+                      <img src={image.preview} alt={`Selected ${index + 1}`} className="h-full w-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => removeImage(index)}
+                        className="absolute right-1.5 top-1.5 rounded-full bg-foreground/70 p-1 text-background transition-colors hover:bg-foreground/90"
+                        aria-label={`Remove photo ${index + 1}`}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                  {selectedImages.length < 3 && (
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex aspect-square items-center justify-center rounded-xl border-2 border-dashed border-border text-muted-foreground transition-colors hover:border-primary/50 hover:bg-muted/50"
+                      aria-label="Add another photo"
+                    >
+                      <ImagePlus className="h-5 w-5" />
+                    </button>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">{selectedImages.length}/3 photos selected</p>
               </div>
             ) : (
               <button

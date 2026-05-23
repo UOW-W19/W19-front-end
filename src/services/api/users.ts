@@ -44,6 +44,7 @@ interface BackendPost {
   content: string;
   original_language?: string;
   image_url?: string;
+  image_urls?: string[];
   latitude?: number;
   longitude?: number;
   distance?: string;
@@ -188,7 +189,12 @@ const transformPost = (post: BackendPost): ApiPost => ({
   id: String(post.id),
   content: post.content,
   originalLanguage: post.original_language ?? 'en',
-  imageUrl: post.image_url,
+  imageUrl: post.image_url ?? post.image_urls?.[0],
+  imageUrls: post.image_urls?.length
+    ? post.image_urls
+    : post.image_url
+      ? [post.image_url]
+      : [],
   latitude: post.latitude,
   longitude: post.longitude,
   distance: post.distance,

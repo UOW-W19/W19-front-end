@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { MapPin, Heart, MessageCircle, Share2, Send, X, Loader2, Languages, MoreHorizontal, Trash2, Flag, BookmarkPlus, UserPlus, UserCheck, Star, ScanLine, Save, Check } from "lucide-react";
+import { MapPin, Heart, MessageCircle, Share2, Send, X, Loader2, Languages, MoreHorizontal, Trash2, Flag, BookmarkPlus, UserPlus, UserCheck, Star, ScanLine, Save, Check, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import UserAvatar from "@/components/common/UserAvatar";
 import { useAuth } from "@/contexts/useAuth";
 import { commentsApi, postsApi, wordsApi, friendsApi } from "@/services/api";
-import { saveDetectedObject as saveDetectedObjectById, scanImage } from "@/services/api/scanner";
+import { saveDetectedObject as saveDetectedObjectById, scanPostImage } from "@/services/api/scanner";
 import { learnKeys } from "@/hooks/useLearnApi";
 import type { FriendRequestResponse } from "@/types/api";
 import { LANGUAGES } from "@/services/api";
@@ -34,19 +34,6 @@ const confidenceLabel = (confidence: number) => `${Math.round(confidence * 100)}
 
 const detectedObjectKey = (object: DetectedObject) =>
   object.id ?? `${object.label}:${object.languageCode}:${object.learningWord}`;
-
-const imageUrlToFile = async (imageUrl: string, postId: string): Promise<File> => {
-  const response = await fetch(imageUrl);
-  if (!response.ok) {
-    throw new Error("Could not load this image for scanning");
-  }
-
-  const blob = await response.blob();
-  const extension = blob.type.split("/")[1] || "jpg";
-  return new File([blob], `post-${postId}.${extension}`, {
-    type: blob.type || "image/jpeg",
-  });
-};
 
 export function PostCard({ post, onLikeToggle }: PostCardProps) {
   const { user } = useAuth();
@@ -86,12 +73,27 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
   const [postImageDetections, setPostImageDetections] = useState<DetectedObject[]>([]);
   const [postImageSaveStates, setPostImageSaveStates] = useState<Record<string, 'saved' | 'duplicate' | 'error'>>({});
   const [postImageSavingKeys, setPostImageSavingKeys] = useState<Set<string>>(new Set());
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [lightboxImageIndex, setLightboxImageIndex] = useState<number | null>(null);
+
+  const postImages = post.imageUrls?.length ? post.imageUrls : post.image ? [post.image] : [];
+  const hasMultipleImages = postImages.length > 1;
+  const activeImage = postImages[activeImageIndex] ?? postImages[0];
+  const lightboxImage = lightboxImageIndex !== null ? postImages[lightboxImageIndex] : undefined;
 
   useEffect(() => {
     setIsLiked(post.isLiked ?? false);
     setLikesCount(post.reactions.likes);
     setIsSaved(post.isSaved ?? false);
   }, [post.isLiked, post.reactions.likes, post.isSaved]);
+
+  useEffect(() => {
+    setActiveImageIndex(0);
+    setLightboxImageIndex(null);
+    setPostImageScanOpen(false);
+    setPostImageScanError("");
+    setPostImageDetections([]);
+  }, [post.id, post.image, post.imageUrls]);
 
   useEffect(() => {
     if (!post.author.id || user?.id === post.author.id) {
@@ -306,7 +308,7 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
   };
 
   const handleScanPostImage = async () => {
-    if (!post.image || isScanningPostImage) return;
+    if (isScanningPostImage) return;
 
     if (postImageDetections.length > 0) {
       setPostImageScanOpen((current) => !current);
@@ -318,8 +320,7 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
     setIsScanningPostImage(true);
 
     try {
-      const imageFile = await imageUrlToFile(post.image, post.id);
-      const result = await scanImage(imageFile);
+      const result = await scanPostImage(post.id);
       setPostImageDetections(result.detectedObjects);
     } catch (err) {
       setPostImageScanError(err instanceof Error ? err.message : "Failed to scan post image");
@@ -360,6 +361,26 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
   const langInfo = LANGUAGES.find((l) => l.code === post.originalLanguage);
 
   const currentUserInitial = user?.displayName?.charAt(0).toUpperCase() ?? "U";
+  const showPreviousImage = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setActiveImageIndex((current) => (current - 1 + postImages.length) % postImages.length);
+  };
+  const showNextImage = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setActiveImageIndex((current) => (current + 1) % postImages.length);
+  };
+  const showPreviousLightboxImage = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setLightboxImageIndex((current) =>
+      current === null ? 0 : (current - 1 + postImages.length) % postImages.length
+    );
+  };
+  const showNextLightboxImage = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setLightboxImageIndex((current) =>
+      current === null ? 0 : (current + 1) % postImages.length
+    );
+  };
 
   if (isDeleted) return null;
 
@@ -518,85 +539,62 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
         )}
       </div>
 
-      {/* Post Image */}
-      {post.image && (
-        <>
-          <div className="mb-3 -mx-4 sm:mx-0 sm:rounded-xl overflow-hidden">
-            <img src={post.image} alt="Post" className="w-full h-auto max-h-80 object-cover" />
-          </div>
-          <div className="mb-4">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleScanPostImage}
-              disabled={isScanningPostImage}
-              className="h-9 rounded-full gap-2"
-            >
-              {isScanningPostImage ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <ScanLine className="h-4 w-4" />
-              )}
-              {isScanningPostImage
-                ? "Scanning"
-                : postImageDetections.length > 0 && postImageScanOpen
-                  ? "Hide image vocab"
-                  : "Scan image vocab"}
-            </Button>
-
-            {postImageScanOpen && (
-              <div className="mt-3 rounded-xl border border-border bg-muted/30 p-3">
-                {postImageScanError ? (
-                  <p className="text-sm text-destructive">{postImageScanError}</p>
-                ) : isScanningPostImage ? (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>Identifying objects...</span>
-                  </div>
-                ) : postImageDetections.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No objects detected in this image.</p>
-                ) : (
-                  <div className="space-y-2">
-                    {postImageDetections.map((object) => {
-                      const key = detectedObjectKey(object);
-                      const saveState = postImageSaveStates[key];
-                      const isSaving = postImageSavingKeys.has(key);
-                      const isSaved = saveState === "saved";
-                      const isDuplicate = saveState === "duplicate";
-
-                      return (
-                        <div key={key} className="flex items-center justify-between gap-3 rounded-lg bg-card px-3 py-2">
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold text-foreground">{object.learningWord}</p>
-                            <p className="truncate text-xs text-muted-foreground">
-                              {object.nativeWord} - {confidenceLabel(object.confidence)}
-                            </p>
-                          </div>
-                          <Button
-                            variant={isSaved || isDuplicate ? "secondary" : "ghost"}
-                            size="sm"
-                            disabled={isSaved || isDuplicate || isSaving}
-                            onClick={() => handleSaveDetectedPostObject(object)}
-                            className="h-8 flex-shrink-0 gap-1.5"
-                          >
-                            {isSaving ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            ) : isSaved ? (
-                              <Check className="h-3.5 w-3.5" />
-                            ) : (
-                              <Save className="h-3.5 w-3.5" />
-                            )}
-                            {isDuplicate ? "Duplicate" : isSaved ? "Saved" : "Save"}
-                          </Button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+      {/* Post Images */}
+      {activeImage && (
+        <div className="mb-4">
+          <div
+            onClick={() => setLightboxImageIndex(activeImageIndex)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                setLightboxImageIndex(activeImageIndex);
+              }
+            }}
+            role="button"
+            tabIndex={0}
+            className="group relative -mx-4 block w-[calc(100%+2rem)] cursor-zoom-in overflow-hidden bg-muted text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:mx-0 sm:w-full sm:rounded-xl"
+            aria-label="Open post image"
+          >
+            {hasMultipleImages && (
+              <div className="absolute inset-x-3 top-3 z-10 flex justify-end">
+                <span className="rounded-full bg-black/60 px-2.5 py-1 text-xs font-medium text-white">
+                  {activeImageIndex + 1}/{postImages.length}
+                </span>
               </div>
             )}
+            <img src={activeImage} alt="Post" className="h-auto max-h-80 w-full object-cover transition-transform duration-200 group-hover:scale-[1.01]" />
+            {hasMultipleImages && (
+              <>
+                <button
+                  type="button"
+                  onClick={showPreviousImage}
+                  className="absolute left-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/55 text-white shadow-lg transition-colors hover:bg-black/70"
+                  aria-label="Previous photo"
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={showNextImage}
+                  className="absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/55 text-white shadow-lg transition-colors hover:bg-black/70"
+                  aria-label="Next photo"
+                >
+                  <ChevronRight className="h-5 w-5" />
+                </button>
+                <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-1.5">
+                  {postImages.map((image, index) => (
+                    <span
+                      key={`${image}-${index}`}
+                      className={`h-1.5 rounded-full transition-all ${
+                        index === activeImageIndex ? "w-4 bg-white" : "w-1.5 bg-white/60"
+                      }`}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
           </div>
-        </>
+        </div>
       )}
 
       {/* Actions */}
@@ -764,6 +762,149 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
         </div>
       )}
     </article>
+
+      {lightboxImage && lightboxImageIndex !== null && (
+        <div
+          className="fixed inset-0 z-50 flex flex-col bg-black/90"
+          onClick={() => setLightboxImageIndex(null)}
+        >
+          <div className="flex shrink-0 items-center justify-between gap-3 px-4 py-3 text-white">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium">{post.author.name}</p>
+              {hasMultipleImages && (
+                <p className="text-xs text-white/70">
+                  Photo {lightboxImageIndex + 1} of {postImages.length}
+                </p>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {lightboxImageIndex === 0 && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    handleScanPostImage();
+                  }}
+                  disabled={isScanningPostImage}
+                  className="h-9 gap-2 rounded-full bg-white text-foreground hover:bg-white/90"
+                >
+                  {isScanningPostImage ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <ScanLine className="h-4 w-4" />
+                  )}
+                  {isScanningPostImage
+                    ? "Scanning"
+                    : postImageDetections.length > 0 && postImageScanOpen
+                      ? "Hide vocab"
+                      : "Scan image vocab"}
+                </Button>
+              )}
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setLightboxImageIndex(null);
+                }}
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
+                aria-label="Close image viewer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
+
+          <div className="relative flex min-h-0 flex-1 items-center justify-center px-4 pb-4">
+            {hasMultipleImages && (
+              <>
+                <button
+                  type="button"
+                  onClick={showPreviousLightboxImage}
+                  className="absolute left-3 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
+                  aria-label="Previous photo"
+                >
+                  <ChevronLeft className="h-6 w-6" />
+                </button>
+                <button
+                  type="button"
+                  onClick={showNextLightboxImage}
+                  className="absolute right-3 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
+                  aria-label="Next photo"
+                >
+                  <ChevronRight className="h-6 w-6" />
+                </button>
+              </>
+            )}
+            <img
+              src={lightboxImage}
+              alt="Post full size"
+              className="max-h-full max-w-full rounded-lg object-contain shadow-2xl"
+              onClick={(event) => event.stopPropagation()}
+            />
+          </div>
+
+          {postImageScanOpen && lightboxImageIndex === 0 && (
+            <div
+              className="max-h-[42vh] shrink-0 overflow-y-auto border-t border-white/10 bg-background p-4 text-foreground shadow-2xl"
+              onClick={(event) => event.stopPropagation()}
+            >
+              {postImageScanError ? (
+                <p className="text-sm text-destructive">{postImageScanError}</p>
+              ) : isScanningPostImage ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Identifying objects...</span>
+                </div>
+              ) : postImageDetections.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No objects detected in this image.</p>
+              ) : (
+                <div className="space-y-2">
+                  {postImageDetections.map((object) => {
+                    const key = detectedObjectKey(object);
+                    const saveState = postImageSaveStates[key];
+                    const isSaving = postImageSavingKeys.has(key);
+                    const isSavedObject = saveState === "saved";
+                    const isDuplicate = saveState === "duplicate";
+
+                    return (
+                      <div key={key} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card px-3 py-2">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-foreground">{object.learningWord}</p>
+                          <p className="truncate text-xs text-muted-foreground">
+                            {object.nativeWord} - {confidenceLabel(object.confidence)}
+                          </p>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={isSavedObject || isDuplicate || isSaving}
+                          onClick={() => handleSaveDetectedPostObject(object)}
+                          className={`h-8 flex-shrink-0 gap-1.5 ${
+                            isSavedObject || isDuplicate
+                              ? "border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-50"
+                              : ""
+                          }`}
+                        >
+                          {isSaving ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : isSavedObject ? (
+                            <Check className="h-3.5 w-3.5 text-amber-600" />
+                          ) : (
+                            <Save className={`h-3.5 w-3.5 ${isDuplicate ? "text-amber-600" : ""}`} />
+                          )}
+                          {isDuplicate ? "Duplicate" : isSavedObject ? "Saved" : "Save"}
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Save phrase modal */}
       {showSaveModal && (
