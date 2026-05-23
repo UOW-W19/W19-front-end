@@ -1,14 +1,13 @@
 import { useState, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { MapPin, Heart, MessageCircle, Share2, Send, X, Loader2, Languages, MoreHorizontal, Trash2, Flag, BookmarkPlus, UserPlus, UserCheck, Star, ScanLine, Save, Check, ChevronLeft, ChevronRight } from "lucide-react";
+import { MapPin, Heart, MessageCircle, Share2, Send, X, Loader2, Languages, MoreHorizontal, Trash2, Flag, BookmarkPlus, Star, ScanLine, Save, Check, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import UserAvatar from "@/components/common/UserAvatar";
 import { useAuth } from "@/contexts/useAuth";
-import { commentsApi, postsApi, wordsApi, friendsApi } from "@/services/api";
+import { commentsApi, postsApi, wordsApi } from "@/services/api";
 import { saveDetectedObject as saveDetectedObjectById, scanPostImage } from "@/services/api/scanner";
 import { learnKeys } from "@/hooks/useLearnApi";
-import type { FriendRequestResponse } from "@/types/api";
 import { LANGUAGES } from "@/services/api";
 import type { Post } from "@/types";
 import type { ApiComment } from "@/types/api";
@@ -59,7 +58,6 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
   const [reportDone, setReportDone] = useState(false);
   const [isSaved, setIsSaved] = useState(post.isSaved ?? false);
   const [showPostSavedFeedback, setShowPostSavedFeedback] = useState(false);
-  const [friendStatus, setFriendStatus] = useState<FriendRequestResponse | null | 'loading'>('loading');
   const [selectedPhrase, setSelectedPhrase] = useState('');
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [phraseTargetLang, setPhraseTargetLang] = useState<string | null>(null);
@@ -94,16 +92,6 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
     setPostImageScanError("");
     setPostImageDetections([]);
   }, [post.id, post.image, post.imageUrls]);
-
-  useEffect(() => {
-    if (!post.author.id || user?.id === post.author.id) {
-      setFriendStatus(null);
-      return;
-    }
-    friendsApi.getFriendStatus(post.author.id)
-      .then(setFriendStatus)
-      .catch(() => setFriendStatus(null));
-  }, [post.author.id, user?.id]);
 
   const handleSavePost = async () => {
     const next = !isSaved;
@@ -217,31 +205,11 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
 
   const isOwnPost = user?.id === post.author.id;
 
-  const handleConnect = async () => {
-    if (friendStatus === 'loading' || friendStatus !== null) return;
-    try {
-      const result = await friendsApi.sendFriendRequest(post.author.id);
-      setFriendStatus(result);
-    } catch (err) {
-      console.error('Failed to send friend request:', err);
-    }
-  };
-
-  const handleAccept = async () => {
-    if (!friendStatus || friendStatus === 'loading') return;
-    try {
-      const result = await friendsApi.respondToRequest(friendStatus.id, 'accept');
-      setFriendStatus(result);
-    } catch (err) {
-      console.error('Failed to accept friend request:', err);
-    }
-  };
-
   const handleDelete = async () => {
     setShowMenu(false);
+    setIsDeleted(true);
     try {
       await postsApi.deletePost(post.id);
-      setIsDeleted(true);
     } catch (err) {
       console.error("Failed to delete post:", err);
     }
@@ -386,10 +354,10 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
 
   return (
     <>
-    <article className="rounded-2xl border border-border bg-card p-4 transition-all duration-200 animate-fade-in">
+    <article className="rounded-2xl border border-border bg-card p-3 transition-all duration-200 animate-fade-in">
       {/* Author header */}
-      <div className="mb-3 flex items-center justify-between">
-        <div className="flex items-center gap-3">
+      <div className="mb-2 flex items-start justify-between gap-2">
+        <div className="flex min-w-0 items-start gap-2.5">
           {post.author.id ? (
             <Link
               to={`/user/${post.author.id}`}
@@ -398,93 +366,59 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
               <UserAvatar
                 name={post.author.name}
                 avatarUrl={post.author.avatarUrl}
-                className="h-11 w-11"
-                fallbackClassName="text-sm font-semibold"
+                className="h-9 w-9"
+                fallbackClassName="text-xs font-semibold"
               />
             </Link>
           ) : (
             <UserAvatar
               name={post.author.name}
               avatarUrl={post.author.avatarUrl}
-              className="h-11 w-11"
-              fallbackClassName="text-sm font-semibold"
+              className="h-9 w-9"
+              fallbackClassName="text-xs font-semibold"
             />
           )}
-          <div>
-            <div className="flex items-center gap-2">
+          <div className="min-w-0">
+            <div className="flex min-w-0 items-center gap-2">
               {post.author.id ? (
-                <Link to={`/user/${post.author.id}`} className="font-medium text-foreground hover:underline">
+                <Link to={`/user/${post.author.id}`} className="truncate text-sm font-medium leading-tight text-foreground hover:underline">
                   {post.author.name}
                 </Link>
               ) : (
-                <span className="font-medium text-foreground">{post.author.name}</span>
+                <span className="truncate text-sm font-medium leading-tight text-foreground">{post.author.name}</span>
               )}
             </div>
             {post.author.location && (
-              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <div className="mt-0.5 flex items-center gap-1 text-[11px] leading-tight text-muted-foreground">
                 <MapPin className="h-3 w-3" />
-                <span>{post.author.location}</span>
+                <span className="truncate">{post.author.location}</span>
               </div>
             )}
             {(post.author.learningLanguages?.length ?? 0) > 0 && (
-              <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                <span className="text-xs text-muted-foreground">Learning</span>
+              <div className="mt-0.5 flex items-center gap-1 flex-wrap">
+                <span className="text-[11px] leading-tight text-muted-foreground">Learning</span>
                 {post.author.learningLanguages!.slice(0, 3).map((lang) => (
                   <span
                     key={lang.code}
                     title={lang.name}
-                    className="text-sm bg-muted px-1.5 py-0.5 rounded-full"
+                    className="rounded-full bg-muted px-1 py-0.5 text-xs leading-none"
                   >
                     {lang.flagEmoji}
                   </span>
                 ))}
                 {post.author.learningLanguages!.length > 3 && (
-                  <span className="text-xs text-muted-foreground">+{post.author.learningLanguages!.length - 3}</span>
+                  <span className="text-[11px] text-muted-foreground">+{post.author.learningLanguages!.length - 3}</span>
                 )}
               </div>
             )}
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          {!isOwnPost && friendStatus !== 'loading' && (
-            <>
-              {friendStatus === null && (
-                <button
-                  onClick={handleConnect}
-                  className="flex items-center gap-1 text-xs font-medium text-primary border border-primary/30 bg-primary/5 hover:bg-primary/10 px-2.5 py-1 rounded-full transition-colors"
-                >
-                  <UserPlus className="h-3.5 w-3.5" />
-                  Connect
-                </button>
-              )}
-              {friendStatus !== null && friendStatus.status === 'PENDING' && friendStatus.isSentByMe && (
-                <span className="flex items-center gap-1 text-xs text-muted-foreground border border-border px-2.5 py-1 rounded-full">
-                  <UserCheck className="h-3.5 w-3.5" />
-                  Requested
-                </span>
-              )}
-              {friendStatus !== null && friendStatus.status === 'PENDING' && !friendStatus.isSentByMe && (
-                <button
-                  onClick={handleAccept}
-                  className="flex items-center gap-1 text-xs font-medium text-emerald-600 border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-full transition-colors"
-                >
-                  <UserCheck className="h-3.5 w-3.5" />
-                  Accept
-                </button>
-              )}
-              {friendStatus !== null && friendStatus.status === 'ACCEPTED' && (
-                <span className="flex items-center gap-1 text-xs text-muted-foreground border border-border px-2.5 py-1 rounded-full">
-                  <UserCheck className="h-3.5 w-3.5" />
-                  Friends
-                </span>
-              )}
-            </>
-          )}
+        <div className="flex shrink-0 items-center gap-1">
           <span className="text-xs text-muted-foreground">{post.time}</span>
           <div className="relative">
             <button
               onClick={() => setShowMenu((p) => !p)}
-              className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted transition-colors"
+              className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground hover:bg-muted transition-colors"
             >
               <MoreHorizontal className="h-4 w-4" />
             </button>
@@ -492,7 +426,7 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)} />
                 <div className="absolute right-0 top-full mt-1 w-44 bg-card border border-border rounded-xl shadow-lg py-1 z-50">
-                  {isOwnPost ? (
+                  <>
                     <button
                       onClick={handleDelete}
                       className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-rose-500 hover:bg-muted transition-colors"
@@ -500,7 +434,7 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
                       <Trash2 className="h-4 w-4" />
                       Delete post
                     </button>
-                  ) : (
+                    {!isOwnPost && (
                     <button
                       onClick={() => { setShowMenu(false); setShowReportModal(true); }}
                       className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-foreground hover:bg-muted transition-colors"
@@ -508,7 +442,8 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
                       <Flag className="h-4 w-4" />
                       Report post
                     </button>
-                  )}
+                    )}
+                  </>
                 </div>
               </>
             )}
