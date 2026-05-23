@@ -234,8 +234,27 @@ export default function ScannerPage() {
 
       <div className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
         <div className="flex items-center justify-between gap-3">
-          <span className="font-semibold">Demo scans</span>
-          <span>{Math.min(demoScanCount, DEMO_SCAN_LIMIT)} / {DEMO_SCAN_LIMIT}</span>
+          <div>
+            <p className="font-semibold">
+              {demoScanCount >= DEMO_SCAN_LIMIT ? "Out of scans! Subscribe now." : "Demo scans"}
+            </p>
+            {demoScanCount >= DEMO_SCAN_LIMIT && (
+              <p className="mt-0.5 text-xs text-amber-700">Upgrade to Pro for unlimited scanning.</p>
+            )}
+          </div>
+          {demoScanCount >= DEMO_SCAN_LIMIT ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="orange"
+              onClick={() => setShowUpgradeModal(true)}
+              className="shrink-0"
+            >
+              Subscribe
+            </Button>
+          ) : (
+            <span className="shrink-0 font-medium">{Math.min(demoScanCount, DEMO_SCAN_LIMIT)} / {DEMO_SCAN_LIMIT}</span>
+          )}
         </div>
       </div>
 
@@ -440,9 +459,9 @@ export default function ScannerPage() {
       )}
 
       {showUpgradeModal && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
-          <div className="absolute inset-0 bg-black/45" onClick={() => setShowUpgradeModal(false)} />
-          <div className="relative z-10 mx-4 w-full max-w-sm rounded-3xl border border-border bg-card p-5 shadow-2xl">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+          <div className="fixed inset-0 bg-black/45" onClick={() => setShowUpgradeModal(false)} />
+          <div className="relative z-10 w-full max-w-sm max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-3xl border border-border bg-card p-5 shadow-2xl">
             <button
               type="button"
               onClick={() => setShowUpgradeModal(false)}
@@ -457,14 +476,60 @@ export default function ScannerPage() {
             <p className="text-sm font-semibold text-amber-700">Out of scans! Subscribe now.</p>
             <h2 className="mt-1 text-2xl font-black text-foreground">Upgrade to Pro!</h2>
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              Continue with unlimited object scans and larger word set expansions for language practice.
+              Unlock the full potential of Locale with our premium subscription.
             </p>
-            <div className="mt-4 rounded-2xl bg-muted px-4 py-3">
-              <p className="text-sm font-semibold text-foreground">Monthly plan</p>
-              <p className="mt-1 text-3xl font-black text-foreground">$4.99</p>
+
+            <div className="mt-5 space-y-3">
+              <div className="rounded-2xl border border-border bg-muted/30 px-4 py-3">
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-sage/15 text-sage">
+                    <Check className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-foreground">Unlimited Scans</p>
+                    <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                      Have unrestricted learning potential from your surroundings
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="rounded-2xl border border-border bg-muted/30 px-4 py-3">
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
+                    <Check className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-foreground">Word Set Expansions</p>
+                    <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                      Have unrestricted learning potential from your surroundings
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
-            <Button className="mt-4 w-full" onClick={() => setShowUpgradeModal(false)}>
-              Maybe later
+
+            <div className="mt-5 rounded-2xl border border-border bg-background px-4 py-4">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="font-semibold text-foreground">Pro Plan</p>
+                  <p className="text-xs text-muted-foreground">Billed Monthly</p>
+                </div>
+                <p className="text-xl font-black text-foreground">$18/mo.</p>
+              </div>
+              <div className="mt-4 space-y-2 border-t border-border pt-3 text-sm">
+                <div className="flex items-center justify-between text-muted-foreground">
+                  <span>Tax</span>
+                  <span>$4</span>
+                </div>
+                <div className="flex items-center justify-between font-semibold text-foreground">
+                  <span>Total for today</span>
+                  <span>$22.00</span>
+                </div>
+              </div>
+            </div>
+
+            <Button className="mt-5 h-12 w-full gap-2 rounded-xl" onClick={() => setShowUpgradeModal(false)}>
+              Checkout with Pay
             </Button>
           </div>
         </div>

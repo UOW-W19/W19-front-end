@@ -229,7 +229,7 @@ export function ComposeModal({ isOpen, onClose, onSubmit }: ComposeModalProps) {
                 className="w-full flex items-center justify-center gap-2 p-4 rounded-2xl border-2 border-dashed border-border hover:border-primary/50 hover:bg-muted/50 transition-colors text-muted-foreground"
               >
                 <ImagePlus className="h-5 w-5" />
-                <span className="text-sm font-medium">Add a photo</span>
+                <span className="text-sm font-medium">Add up to 3 photos</span>
               </button>
             )}
           </div>

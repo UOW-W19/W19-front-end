@@ -541,7 +541,10 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
 
       {/* Post Images */}
       {activeImage && (
-        <div className="mb-4">
+        <div
+          className="relative mb-4"
+          style={{ height: hasMultipleImages ? "220px" : undefined }}
+        >
           <div
             onClick={() => setLightboxImageIndex(activeImageIndex)}
             onKeyDown={(event) => {
@@ -552,17 +555,20 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
             }}
             role="button"
             tabIndex={0}
-            className="group relative -mx-4 block w-[calc(100%+2rem)] cursor-zoom-in overflow-hidden bg-muted text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:mx-0 sm:w-full sm:rounded-xl"
+            className={`group block cursor-zoom-in overflow-hidden bg-muted text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+              hasMultipleImages
+                ? "absolute inset-0 z-30 rounded-2xl shadow-md"
+                : "-mx-4 w-[calc(100%+2rem)] sm:mx-0 sm:w-full sm:rounded-xl"
+            }`}
             aria-label="Open post image"
           >
-            {hasMultipleImages && (
-              <div className="absolute inset-x-3 top-3 z-10 flex justify-end">
-                <span className="rounded-full bg-black/60 px-2.5 py-1 text-xs font-medium text-white">
-                  {activeImageIndex + 1}/{postImages.length}
-                </span>
-              </div>
-            )}
-            <img src={activeImage} alt="Post" className="h-auto max-h-80 w-full object-cover transition-transform duration-200 group-hover:scale-[1.01]" />
+            <img
+              src={activeImage}
+              alt="Post"
+              className={`w-full object-cover transition-transform duration-200 group-hover:scale-[1.01] ${
+                hasMultipleImages ? "h-full" : "h-auto max-h-80"
+              }`}
+            />
             {hasMultipleImages && (
               <>
                 <button
@@ -583,17 +589,49 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
                 </button>
                 <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-1.5">
                   {postImages.map((image, index) => (
-                    <span
+                    <button
+                      type="button"
                       key={`${image}-${index}`}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setActiveImageIndex(index);
+                      }}
                       className={`h-1.5 rounded-full transition-all ${
                         index === activeImageIndex ? "w-4 bg-white" : "w-1.5 bg-white/60"
                       }`}
+                      aria-label={`Show photo ${index + 1}`}
                     />
                   ))}
                 </div>
               </>
             )}
           </div>
+          {hasMultipleImages && activeImageIndex < postImages.length - 1 && (
+            <div
+              className="absolute inset-y-1 left-0 right-[-10px] z-20 overflow-hidden rounded-2xl shadow"
+              style={{ transform: "translateX(10px) scale(0.965)", transformOrigin: "left center" }}
+              aria-hidden="true"
+            >
+              <img
+                src={postImages[activeImageIndex + 1]}
+                alt=""
+                className="h-full w-full object-cover opacity-75"
+              />
+            </div>
+          )}
+          {hasMultipleImages && activeImageIndex < postImages.length - 2 && (
+            <div
+              className="absolute inset-y-2 left-0 right-[-18px] z-10 overflow-hidden rounded-2xl shadow-sm"
+              style={{ transform: "translateX(18px) scale(0.93)", transformOrigin: "left center" }}
+              aria-hidden="true"
+            >
+              <img
+                src={postImages[activeImageIndex + 2]}
+                alt=""
+                className="h-full w-full object-cover opacity-55"
+              />
+            </div>
+          )}
         </div>
       )}
 
