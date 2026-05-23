@@ -71,6 +71,7 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
   const [isReporting, setIsReporting] = useState(false);
   const [reportDone, setReportDone] = useState(false);
   const [isSaved, setIsSaved] = useState(post.isSaved ?? false);
+  const [showPostSavedFeedback, setShowPostSavedFeedback] = useState(false);
   const [friendStatus, setFriendStatus] = useState<FriendRequestResponse | null | 'loading'>('loading');
   const [selectedPhrase, setSelectedPhrase] = useState('');
   const [showSaveModal, setShowSaveModal] = useState(false);
@@ -106,10 +107,17 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
     const next = !isSaved;
     setIsSaved(next);
     try {
-      if (next) await postsApi.savePost(post.id);
-      else await postsApi.unsavePost(post.id);
+      if (next) {
+        await postsApi.savePost(post.id);
+        setShowPostSavedFeedback(true);
+        window.setTimeout(() => setShowPostSavedFeedback(false), 1800);
+      } else {
+        await postsApi.unsavePost(post.id);
+        setShowPostSavedFeedback(false);
+      }
     } catch {
       setIsSaved(!next);
+      setShowPostSavedFeedback(false);
     }
   };
 
@@ -662,11 +670,15 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
           variant="ghost"
           size="sm"
           onClick={handleSavePost}
-          aria-label={isSaved ? "Saved" : "Save"}
-          title={isSaved ? "Saved" : "Save"}
-          className={`h-10 px-3 rounded-full active:scale-95 transition-all ml-auto ${isSaved ? 'text-primary bg-primary/10' : 'text-muted-foreground'}`}
+          aria-label={isSaved ? "Post saved" : "Save post"}
+          title={isSaved ? "Post saved" : "Save post"}
+          className={`h-10 px-3 rounded-full active:scale-95 transition-all ml-auto ${
+            isSaved
+              ? "bg-amber-50 text-amber-600 hover:bg-amber-100 hover:text-amber-700"
+              : "text-muted-foreground"
+          }`}
         >
-          <Star className={`h-5 w-5 transition-all ${isSaved ? 'fill-primary stroke-primary' : ''}`} />
+          <Star className={`h-5 w-5 transition-all ${isSaved ? "fill-amber-400 stroke-amber-600" : ""}`} />
         </Button>
 
         <Button
@@ -686,6 +698,12 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
           <button onClick={() => setShowShareToast(false)}>
             <X className="h-4 w-4" />
           </button>
+        </div>
+      )}
+      {showPostSavedFeedback && (
+        <div className="mt-3 flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-sm font-medium text-amber-700 animate-fade-in">
+          <Star className="h-4 w-4 fill-amber-400 stroke-amber-600" />
+          <span>Post saved</span>
         </div>
       )}
 

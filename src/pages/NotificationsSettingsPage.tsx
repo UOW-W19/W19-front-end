@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Bell, Calendar, Heart, Loader2, MessageSquare, Smartphone } from "lucide-react";
@@ -48,10 +48,12 @@ const notificationOptions: Array<{
 function Toggle({
   checked,
   disabled,
+  label,
   onClick,
 }: {
   checked: boolean;
   disabled: boolean;
+  label: string;
   onClick: () => void;
 }) {
   return (
@@ -59,6 +61,7 @@ function Toggle({
       type="button"
       role="switch"
       aria-checked={checked}
+      aria-label={label}
       disabled={disabled}
       onClick={onClick}
       className={cn(
@@ -79,6 +82,7 @@ function Toggle({
 export default function NotificationsSettingsPage() {
   const queryClient = useQueryClient();
   const [savingKey, setSavingKey] = useState<NotificationPrefKey | null>(null);
+  const [optimisticPrefs, setOptimisticPrefs] = useState<NotificationPrefs | null>(null);
 
   const settingsQuery = useQuery({
     queryKey: ["user-settings"],
@@ -89,9 +93,11 @@ export default function NotificationsSettingsPage() {
     mutationFn: usersApi.updateSettings,
     onSuccess: (updated) => {
       queryClient.setQueryData(["user-settings"], updated);
+      setOptimisticPrefs(updated.notificationPrefs);
       toast.success("Notification settings saved");
     },
     onError: (error) => {
+      setOptimisticPrefs(settingsQuery.data?.notificationPrefs ?? null);
       toast.error(error instanceof Error ? error.message : "Failed to save notification settings");
     },
     onSettled: () => {
@@ -100,17 +106,25 @@ export default function NotificationsSettingsPage() {
   });
 
   const prefs = settingsQuery.data?.notificationPrefs;
+  const visiblePrefs = optimisticPrefs ?? prefs;
   const isSaving = updateMutation.isPending;
 
+  useEffect(() => {
+    if (!isSaving) {
+      setOptimisticPrefs(prefs ?? null);
+    }
+  }, [isSaving, prefs]);
+
   const updatePreference = (key: NotificationPrefKey) => {
-    if (!settingsQuery.data || !prefs || isSaving) return;
+    if (!settingsQuery.data || !visiblePrefs || isSaving) return;
 
     const nextPrefs: NotificationPrefs = {
-      ...prefs,
-      [key]: !prefs[key],
+      ...visiblePrefs,
+      [key]: !visiblePrefs[key],
     };
 
     setSavingKey(key);
+    setOptimisticPrefs(nextPrefs);
     updateMutation.mutate({
       notificationPrefs: nextPrefs,
     });
@@ -137,7 +151,7 @@ export default function NotificationsSettingsPage() {
           <div className="flex justify-center py-12">
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
           </div>
-        ) : settingsQuery.isError || !prefs ? (
+        ) : settingsQuery.isError || !visiblePrefs ? (
           <div className="rounded-lg border border-border bg-card p-4">
             <p className="font-medium text-foreground">Could not load notification settings</p>
             <p className="mt-1 text-sm text-muted-foreground">
@@ -167,8 +181,9 @@ export default function NotificationsSettingsPage() {
                   <div className="flex shrink-0 items-center gap-2">
                     {optionSaving && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
                     <Toggle
-                      checked={prefs[option.key]}
+                      checked={visiblePrefs[option.key]}
                       disabled={isSaving}
+                      label={option.title}
                       onClick={() => updatePreference(option.key)}
                     />
                   </div>

@@ -377,18 +377,22 @@ export default function ScannerPage() {
                         </p>
                       </div>
                       <Button
-                        variant={isSaved || isDuplicate ? "secondary" : "outline"}
+                        variant="outline"
                         size="sm"
                         disabled={isSaved || isDuplicate || isSaving}
                         onClick={() => saveDetectedObject(object)}
-                        className="flex-shrink-0"
+                        className={`flex-shrink-0 transition-colors ${
+                          isSaved || isDuplicate
+                            ? "border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-50"
+                            : ""
+                        }`}
                       >
                         {isSaving ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
                         ) : isSaved ? (
-                          <Check className="h-4 w-4" />
+                          <Check className="h-4 w-4 text-amber-600" />
                         ) : (
-                          <Save className="h-4 w-4" />
+                          <Save className={`h-4 w-4 ${isDuplicate ? "text-amber-600" : ""}`} />
                         )}
                         {isDuplicate ? "Duplicate" : isSaved ? "Saved" : "Save"}
                       </Button>

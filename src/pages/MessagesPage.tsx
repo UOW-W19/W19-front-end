@@ -258,7 +258,7 @@ export default function MessagesPage() {
   const isChatLoading = isStartingChat || (!!selectedConversationId && !selectedConversation);
 
   return (
-    <div className="h-full flex overflow-hidden bg-background">
+    <div className="flex h-full min-h-0 overflow-hidden bg-background">
       {showCreateGroup && (
         <CreateGroupModal
           candidates={groupCandidates}
@@ -270,7 +270,7 @@ export default function MessagesPage() {
       {/* Sidebar - Conversation List */}
       <div className={`
         ${showChat ? 'hidden lg:flex' : 'flex'} 
-        w-full lg:w-80 xl:w-96 flex-col border-r border-border shrink-0 h-full overflow-y-auto scrollbar-thin
+        h-full min-h-0 w-full shrink-0 flex-col overflow-hidden border-r border-border lg:w-80 xl:w-96
       `}>
         {loadingConversations ? (
           <div className="flex-1 flex items-center justify-center">
@@ -294,7 +294,7 @@ export default function MessagesPage() {
           <p className="text-muted-foreground">Opening conversation...</p>
         </div>
       ) : selectedConversation && showChat ? (
-        <div className="fixed inset-0 z-[100] bg-background lg:static lg:flex-1 lg:flex lg:flex-col lg:h-full lg:z-auto">
+        <div className="fixed inset-0 z-[100] min-h-0 bg-background lg:static lg:z-auto lg:flex lg:h-full lg:flex-1 lg:flex-col">
           <ChatWindow
             conversation={selectedConversation}
             messages={messages}

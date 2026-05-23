@@ -36,8 +36,8 @@ export function ConversationList({ conversations, selectedId, onSelect, onNewGro
     };
 
     return (
-        <div className="flex flex-col h-full bg-card border-r border-border">
-            <div className="flex items-center justify-between p-4 border-b border-border">
+        <div className="flex h-full min-h-0 flex-col border-r border-border bg-card">
+            <div className="flex shrink-0 items-center justify-between border-b border-border p-4">
                 <h2 className="text-xl font-bold">Messages</h2>
                 {onNewGroup && (
                     <button
@@ -51,7 +51,7 @@ export function ConversationList({ conversations, selectedId, onSelect, onNewGro
                 )}
             </div>
 
-            <div className="flex-1 overflow-y-auto">
+            <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
                 {conversations.length === 0 ? (
                     <div className="p-8 text-center text-muted-foreground">
                         No messages yet.

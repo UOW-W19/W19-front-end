@@ -1,4 +1,4 @@
-import { Bell, Search, Users } from "lucide-react";
+import { Bell, Search } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -38,16 +38,6 @@ export function Header({ title = "Feed" }: HeaderProps) {
         <div className="flex items-center gap-1">
           <Button variant="ghost" size="icon" className="h-11 w-11 rounded-full active:scale-95" aria-label="Search">
             <Search className="h-5 w-5 text-foreground" />
-          </Button>
-          <Button variant="ghost" size="icon" className="relative flex h-11 w-11 rounded-full active:scale-95 lg:hidden" asChild>
-            <Link to="/friends" aria-label="Friends">
-              <Users className="h-5 w-5 text-foreground" />
-            </Link>
-          </Button>
-          <Button variant="ghost" size="icon" className="relative flex h-11 w-11 rounded-full active:scale-95" asChild>
-            <Link to="/friends" className="hidden lg:flex" aria-label="Friends">
-              <Users className="h-5 w-5 text-foreground" />
-            </Link>
           </Button>
           <Button variant="ghost" size="icon" className="relative h-11 w-11 rounded-full active:scale-95" asChild>
             <Link to="/notifications" aria-label="Notifications">

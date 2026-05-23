@@ -118,6 +118,7 @@ function NotificationRow({
           className="h-8 w-8 shrink-0 rounded-full"
           disabled={isUpdating}
           onClick={() => onMarkRead(notification.id)}
+          aria-label="Mark notification as read"
         >
           {isUpdating ? (
             <Loader2 className="h-4 w-4 animate-spin" />
