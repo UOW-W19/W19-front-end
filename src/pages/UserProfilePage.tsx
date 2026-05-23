@@ -30,6 +30,22 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+const initialsFor = (name: string) =>
+  name
+    .trim()
+    .split(/\s+/)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2) || "U";
+
+const formatPostDate = (value: string) =>
+  new Intl.DateTimeFormat("en-AU", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(new Date(value));
+
 export default function UserProfilePage() {
   const { userId } = useParams<{ userId: string }>();
   const navigate = useNavigate();
@@ -418,7 +434,8 @@ export default function UserProfilePage() {
                     author: {
                       id: apiPost.author.id,
                       name: apiPost.author.displayName,
-                      avatar: apiPost.author.avatarUrl || "",
+                      avatar: initialsFor(apiPost.author.displayName),
+                      avatarUrl: apiPost.author.avatarUrl,
                       language: apiPost.author.language || "en",
                       flag: apiPost.author.flagEmoji || "🌍",
                     },
@@ -429,7 +446,7 @@ export default function UserProfilePage() {
                     distance: apiPost.distance || "",
                     image: apiPost.imageUrl,
                     reactions: apiPost.reactions,
-                    time: apiPost.createdAt,
+                    time: formatPostDate(apiPost.createdAt),
                     isLiked: apiPost.userReaction === 'LIKE',
                   };
                   return <PostCard key={post.id} post={post} />;

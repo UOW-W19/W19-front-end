@@ -4,6 +4,7 @@ export interface Post {
     id: string;
     name: string;
     avatar: string;
+    avatarUrl?: string;
     language: string;
     flag: string;
     location?: string;

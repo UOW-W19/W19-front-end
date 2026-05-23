@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { MapPin, Heart, MessageCircle, Share2, Send, X, Loader2, Languages, MoreHorizontal, Trash2, Flag, BookmarkPlus, UserPlus, UserCheck, Bookmark, ScanLine, Save, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import UserAvatar from "@/components/common/UserAvatar";
 import { useAuth } from "@/contexts/useAuth";
 import { commentsApi, postsApi, wordsApi, friendsApi } from "@/services/api";
 import { saveDetectedObject as saveDetectedObjectById, scanImage } from "@/services/api/scanner";
@@ -350,7 +351,6 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
 
   const langInfo = LANGUAGES.find((l) => l.code === post.originalLanguage);
 
-  const authorInitial = post.author.name.charAt(0).toUpperCase();
   const currentUserInitial = user?.displayName?.charAt(0).toUpperCase() ?? "U";
 
   if (isDeleted) return null;
@@ -364,14 +364,22 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
           {post.author.id ? (
             <Link
               to={`/user/${post.author.id}`}
-              className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-primary to-coral-light text-sm font-semibold text-primary-foreground hover:ring-2 hover:ring-primary/50 transition-all"
+              className="rounded-full transition-all hover:ring-2 hover:ring-primary/50"
             >
-              {authorInitial}
+              <UserAvatar
+                name={post.author.name}
+                avatarUrl={post.author.avatarUrl}
+                className="h-11 w-11"
+                fallbackClassName="text-sm font-semibold"
+              />
             </Link>
           ) : (
-            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-primary to-coral-light text-sm font-semibold text-primary-foreground">
-              {authorInitial}
-            </div>
+            <UserAvatar
+              name={post.author.name}
+              avatarUrl={post.author.avatarUrl}
+              className="h-11 w-11"
+              fallbackClassName="text-sm font-semibold"
+            />
           )}
           <div>
             <div className="flex items-center gap-2">

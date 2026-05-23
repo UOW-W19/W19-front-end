@@ -16,6 +16,7 @@ const toUiPost = (apiPost: ApiPost): Post => {
       id: apiPost.author.id,
       name: apiPost.author.displayName,
       avatar: apiPost.author.displayName.charAt(0).toUpperCase(),
+      avatarUrl: apiPost.author.avatarUrl,
       language: apiPost.author.language ?? lang?.name ?? apiPost.originalLanguage,
       flag: apiPost.author.flagEmoji ?? lang?.flag ?? '🌍',
       location: apiPost.author.location,
