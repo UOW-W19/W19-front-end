@@ -23,6 +23,9 @@ import type { DetectedObject } from "@/types/scanner";
 type ScannerStep = "select" | "preview" | "result";
 type SaveState = "saved" | "duplicate" | "error";
 
+const DEMO_SCAN_LIMIT = 3;
+const DEMO_SCAN_COUNT_KEY = "locale_demo_scan_count";
+
 const confidenceLabel = (confidence: number) => `${Math.round(confidence * 100)}%`;
 const objectKey = (object: DetectedObject) =>
   object.id ?? `${object.label}:${object.languageCode}`;
@@ -52,6 +55,12 @@ export default function ScannerPage() {
   const [detectedObjects, setDetectedObjects] = useState<DetectedObject[]>([]);
   const [isScanning, setIsScanning] = useState(false);
   const [showScannerHint, setShowScannerHint] = useState(true);
+  const [demoScanCount, setDemoScanCount] = useState(() => {
+    if (typeof window === "undefined") return 0;
+    const storedCount = Number.parseInt(localStorage.getItem(DEMO_SCAN_COUNT_KEY) ?? "0", 10);
+    return Number.isFinite(storedCount) ? storedCount : 0;
+  });
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [saveStates, setSaveStates] = useState<Record<string, SaveState>>({});
   const [savingKeys, setSavingKeys] = useState<Set<string>>(new Set());
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -65,6 +74,16 @@ export default function ScannerPage() {
       }
     };
   }, [previewUrl]);
+
+  const recordDemoScan = () => {
+    const nextCount = demoScanCount + 1;
+    setDemoScanCount(nextCount);
+    localStorage.setItem(DEMO_SCAN_COUNT_KEY, String(nextCount));
+
+    if (nextCount >= DEMO_SCAN_LIMIT) {
+      setShowUpgradeModal(true);
+    }
+  };
 
   const selectImage = (file?: File) => {
     if (!file) return;
@@ -109,6 +128,7 @@ export default function ScannerPage() {
     setIsScanning(true);
     try {
       const result = await scanImage(selectedFile);
+      recordDemoScan();
       setScanSessionId(result.scanSessionId ?? null);
       setDetectedObjects(result.detectedObjects);
       setStep("result");
@@ -211,6 +231,13 @@ export default function ScannerPage() {
           </button>
         </div>
       )}
+
+      <div className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        <div className="flex items-center justify-between gap-3">
+          <span className="font-semibold">Demo scans</span>
+          <span>{Math.min(demoScanCount, DEMO_SCAN_LIMIT)} / {DEMO_SCAN_LIMIT}</span>
+        </div>
+      </div>
 
       {step === "select" && (
         <div className="flex flex-1 flex-col gap-6">
@@ -407,6 +434,37 @@ export default function ScannerPage() {
             <Button className="w-full" onClick={resetScanner}>
               <Camera className="h-4 w-4" />
               Scan Another Object
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {showUpgradeModal && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
+          <div className="absolute inset-0 bg-black/45" onClick={() => setShowUpgradeModal(false)} />
+          <div className="relative z-10 mx-4 w-full max-w-sm rounded-3xl border border-border bg-card p-5 shadow-2xl">
+            <button
+              type="button"
+              onClick={() => setShowUpgradeModal(false)}
+              className="absolute right-4 top-4 rounded-full p-1 text-muted-foreground transition hover:bg-muted hover:text-foreground"
+              aria-label="Close upgrade modal"
+            >
+              <X className="h-4 w-4" />
+            </button>
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-amber-700">
+              <Sparkles className="h-5 w-5" />
+            </div>
+            <p className="text-sm font-semibold text-amber-700">Out of scans! Subscribe now.</p>
+            <h2 className="mt-1 text-2xl font-black text-foreground">Upgrade to Pro!</h2>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              Continue with unlimited object scans and larger word set expansions for language practice.
+            </p>
+            <div className="mt-4 rounded-2xl bg-muted px-4 py-3">
+              <p className="text-sm font-semibold text-foreground">Monthly plan</p>
+              <p className="mt-1 text-3xl font-black text-foreground">$4.99</p>
+            </div>
+            <Button className="mt-4 w-full" onClick={() => setShowUpgradeModal(false)}>
+              Maybe later
             </Button>
           </div>
         </div>
