@@ -403,19 +403,19 @@ export default function LearnPage() {
     const percentage = Math.round((correctCount / results.length) * 100);
 
     return (
-      <div className="min-h-full overflow-y-auto pb-24 scrollbar-hide mx-auto max-w-md px-4 py-6 flex flex-col">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center h-20 w-20 rounded-full bg-primary/10 mb-4">
-            <Sparkles className="h-10 w-10 text-primary" />
+      <div className="h-full overflow-y-auto scrollbar-hide mx-auto max-w-md px-4 pt-5 pb-28 flex flex-col">
+        <div className="text-center mb-5">
+          <div className="inline-flex items-center justify-center h-16 w-16 rounded-full bg-primary/10 mb-3">
+            <Sparkles className="h-8 w-8 text-primary" />
           </div>
           <h2 className="text-2xl font-bold text-foreground mb-2">Session Complete!</h2>
-          <p className="text-lg text-muted-foreground">
+          <p className="text-base text-muted-foreground">
             You got <span className="font-semibold text-primary">{correctCount}</span> out of <span className="font-semibold">{results.length}</span> correct
           </p>
-          <p className="text-3xl font-bold text-foreground mt-2">{percentage}%</p>
+          <p className="text-2xl font-bold text-foreground mt-1">{percentage}%</p>
         </div>
 
-        <div className="flex-1 space-y-2 mb-6">
+        <div className="space-y-2 pb-4">
           {results.map((result, index) => {
             const masteryChange = result.newMastery - result.oldMastery;
 
@@ -457,7 +457,7 @@ export default function LearnPage() {
           })}
         </div>
 
-        <div className="flex gap-4">
+        <div className="sticky bottom-0 -mx-4 mt-auto flex gap-3 border-t border-border bg-background/95 px-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur">
           <Button
             variant="outline"
             onClick={exitPractice}
