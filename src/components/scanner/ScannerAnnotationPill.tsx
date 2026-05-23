@@ -12,9 +12,9 @@ export function ScannerAnnotationPill({
   offsetIndex = 0,
 }: ScannerAnnotationPillProps) {
   return (
-    <div className="min-w-24 max-w-40 shrink-0 rounded-md border border-white/40 bg-foreground/90 px-2 py-1 text-primary-foreground shadow-md backdrop-blur-sm">
+    <div className="min-w-24 max-w-40 shrink-0 rounded-xl border border-white/50 bg-foreground/90 px-2 py-1 text-primary-foreground shadow-locale-md backdrop-blur-sm">
       <div className="flex items-start gap-1.5">
-        <span className="mt-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold leading-none text-primary-foreground">
+        <span className="mt-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-purple px-1 text-[10px] font-bold leading-none text-white">
           {offsetIndex + 1}
         </span>
         <div className="min-w-0">

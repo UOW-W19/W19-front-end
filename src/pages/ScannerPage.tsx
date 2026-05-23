@@ -10,6 +10,7 @@ import {
   RotateCcw,
   Save,
   ScanLine,
+  Sparkles,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -50,6 +51,7 @@ export default function ScannerPage() {
   const [scanSessionId, setScanSessionId] = useState<string | null>(null);
   const [detectedObjects, setDetectedObjects] = useState<DetectedObject[]>([]);
   const [isScanning, setIsScanning] = useState(false);
+  const [showScannerHint, setShowScannerHint] = useState(true);
   const [saveStates, setSaveStates] = useState<Record<string, SaveState>>({});
   const [savingKeys, setSavingKeys] = useState<Set<string>>(new Set());
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -153,7 +155,7 @@ export default function ScannerPage() {
   };
 
   return (
-    <div className="h-full overflow-y-auto pb-24 scrollbar-hide mx-auto max-w-md px-4 py-6 flex flex-col">
+    <div className="scrollbar-hide mx-auto flex h-full max-w-md flex-col overflow-y-auto px-4 py-6 pb-24">
       <input
         ref={cameraInputRef}
         type="file"
@@ -170,14 +172,14 @@ export default function ScannerPage() {
         onChange={(event) => selectImage(event.target.files?.[0])}
       />
 
-      <div className="flex items-center gap-3 mb-6">
+      <div className="mb-5 flex items-center gap-3">
         {step !== "select" && (
           <Button variant="ghost" size="icon" onClick={resetScanner} aria-label="Back">
             <ArrowLeft className="h-5 w-5" />
           </Button>
         )}
         <div className="min-w-0">
-          <h1 className="text-xl font-bold">AI Object Scanner</h1>
+          <h1 className="text-2xl font-black leading-tight text-foreground">AI Object Scanner</h1>
           <p className="text-sm text-muted-foreground">
             {step === "select" && "Capture an object"}
             {step === "preview" && "Ready to scan"}
@@ -186,18 +188,46 @@ export default function ScannerPage() {
         </div>
       </div>
 
+      {showScannerHint && (
+        <div className="mb-5 flex items-start justify-between gap-3 rounded-2xl border border-purple/20 bg-card px-4 py-3 shadow-locale-sm">
+          <div className="flex items-start gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-purple/10 text-purple">
+              <Sparkles className="h-4 w-4" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-foreground">Scan real objects into vocabulary</p>
+              <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                Identify objects, review translations, then save exact detections to Learn.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowScannerHint(false)}
+            className="rounded-full p-1 text-muted-foreground transition hover:bg-purple/10 hover:text-foreground"
+            aria-label="Dismiss scanner hint"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
       {step === "select" && (
-        <div className="flex-1 flex flex-col gap-6">
-          <div className="w-full aspect-square rounded-2xl bg-muted/50 border border-dashed border-muted-foreground/30 flex items-center justify-center">
+        <div className="flex flex-1 flex-col gap-6">
+          <div className="flex aspect-square w-full items-center justify-center rounded-[28px] border-2 border-dashed border-purple/30 bg-card shadow-locale-sm">
             <div className="text-center p-6">
-              <ScanLine className="h-16 w-16 mx-auto mb-4 text-muted-foreground/50" />
-              <p className="text-muted-foreground">Scan a real-world object</p>
+              <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-purple/10 text-purple">
+                <ScanLine className="h-10 w-10" />
+              </div>
+              <p className="font-semibold text-foreground">Scan a real-world object</p>
+              <p className="mt-1 text-sm text-muted-foreground">Use camera or upload a clear photo.</p>
             </div>
           </div>
 
           <div className="w-full space-y-3 mt-auto">
             <Button
-              className="w-full h-14 text-base gap-3"
+              variant="orange"
+              className="h-14 w-full gap-3 text-base"
               onClick={() => cameraInputRef.current?.click()}
             >
               <Camera className="h-5 w-5" />
@@ -205,7 +235,7 @@ export default function ScannerPage() {
             </Button>
             <Button
               variant="outline"
-              className="w-full h-14 text-base gap-3"
+              className="h-14 w-full gap-3 text-base"
               onClick={() => galleryInputRef.current?.click()}
             >
               <ImagePlus className="h-5 w-5" />
@@ -216,8 +246,8 @@ export default function ScannerPage() {
       )}
 
       {step === "preview" && (
-        <div className="flex-1 flex flex-col gap-6">
-          <div className="relative w-full aspect-square rounded-2xl bg-muted overflow-hidden">
+        <div className="flex flex-1 flex-col gap-6">
+          <div className="relative aspect-square w-full overflow-hidden rounded-[28px] bg-muted shadow-locale-md">
             {previewUrl && (
               <img
                 src={previewUrl}
@@ -228,7 +258,7 @@ export default function ScannerPage() {
             <Button
               variant="secondary"
               size="icon"
-              className="absolute top-3 right-3"
+              className="absolute right-3 top-3"
               onClick={resetScanner}
               aria-label="Clear image"
             >
@@ -238,7 +268,7 @@ export default function ScannerPage() {
 
           <div className="mt-auto space-y-3">
             <Button
-              className="w-full h-14 text-base gap-3"
+              className="h-14 w-full gap-3 text-base"
               onClick={analyzeImage}
               disabled={isScanning}
             >
@@ -258,9 +288,9 @@ export default function ScannerPage() {
       )}
 
       {step === "result" && (
-        <div className="flex-1 flex flex-col gap-5">
+        <div className="flex flex-1 flex-col gap-5">
           {previewUrl && (
-            <div className="relative w-full rounded-2xl bg-muted overflow-hidden">
+            <div className="relative w-full overflow-hidden rounded-[28px] bg-muted shadow-locale-md">
               <img
                 src={previewUrl}
                 alt="Scanned object"
@@ -272,7 +302,7 @@ export default function ScannerPage() {
                 return (
                   <div
                     key={`box-${objectKey(object)}`}
-                    className="absolute border-2 border-primary bg-primary/10"
+                    className="absolute border-2 border-purple bg-purple/10"
                     style={{
                       left: `${object.box.x * 100}%`,
                       top: `${object.box.y * 100}%`,
@@ -280,14 +310,14 @@ export default function ScannerPage() {
                       height: `${object.box.height * 100}%`,
                     }}
                   >
-                    <span className="absolute left-1 top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[11px] font-bold leading-none text-primary-foreground shadow">
+                    <span className="absolute left-1 top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-purple px-1 text-[11px] font-bold leading-none text-white shadow">
                       {index + 1}
                     </span>
                   </div>
                 );
               })}
               {detectedObjects.length > 0 && (
-                <div className="absolute inset-x-2 top-2 z-20 flex max-h-[45%] flex-wrap items-start gap-1.5 overflow-y-auto rounded-lg p-1 scrollbar-hide">
+                <div className="scrollbar-hide absolute inset-x-2 top-2 z-20 flex max-h-[45%] flex-wrap items-start gap-1.5 overflow-y-auto rounded-lg p-1">
                   {detectedObjects.map((object, index) => (
                     <ScannerAnnotationPill
                       key={`pill-${objectKey(object)}`}
@@ -306,8 +336,8 @@ export default function ScannerPage() {
           )}
 
           {detectedObjects.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-border p-8 text-center">
-              <ScanLine className="h-10 w-10 mx-auto mb-3 text-muted-foreground" />
+            <div className="rounded-2xl border border-dashed border-purple/30 bg-card p-8 text-center">
+              <ScanLine className="mx-auto mb-3 h-10 w-10 text-purple" />
               <h2 className="font-semibold text-foreground">No objects detected</h2>
               <p className="text-sm text-muted-foreground mt-1">
                 Try a clearer photo with one object in frame.
@@ -326,7 +356,7 @@ export default function ScannerPage() {
                 return (
                   <div
                     key={key}
-                    className="rounded-xl border border-border bg-card p-4"
+                    className="rounded-2xl border border-purple/15 bg-card p-4 shadow-locale-sm"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
@@ -338,7 +368,7 @@ export default function ScannerPage() {
                             {confidenceLabel(object.confidence)}
                           </span>
                         </div>
-                        <p className="text-xl font-bold text-primary mt-1 break-words">
+                        <p className="mt-1 break-words text-xl font-black text-primary">
                           {object.learningWord}
                         </p>
                         <p className="text-xs uppercase tracking-wide text-muted-foreground mt-1">
