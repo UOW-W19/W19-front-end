@@ -492,7 +492,7 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
             tabIndex={0}
             className={`group block cursor-zoom-in overflow-hidden bg-muted text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
               hasMultipleImages
-                ? "absolute inset-0 z-30 rounded-2xl shadow-md"
+                ? "absolute inset-y-0 left-0 right-4 z-30 rounded-2xl shadow-md"
                 : "-mx-4 w-[calc(100%+2rem)] sm:mx-0 sm:w-full sm:rounded-xl"
             }`}
             aria-label="Open post image"
@@ -543,8 +543,7 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
           </div>
           {hasMultipleImages && activeImageIndex < postImages.length - 1 && (
             <div
-              className="absolute inset-y-1 left-0 right-[-10px] z-20 overflow-hidden rounded-2xl shadow"
-              style={{ transform: "translateX(10px) scale(0.965)", transformOrigin: "left center" }}
+              className="absolute inset-y-1 left-2 right-2 z-20 overflow-hidden rounded-2xl shadow"
               aria-hidden="true"
             >
               <img
@@ -556,8 +555,7 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
           )}
           {hasMultipleImages && activeImageIndex < postImages.length - 2 && (
             <div
-              className="absolute inset-y-2 left-0 right-[-18px] z-10 overflow-hidden rounded-2xl shadow-sm"
-              style={{ transform: "translateX(18px) scale(0.93)", transformOrigin: "left center" }}
+              className="absolute inset-y-2 left-4 right-0 z-10 overflow-hidden rounded-2xl shadow-sm"
               aria-hidden="true"
             >
               <img
