@@ -3,7 +3,8 @@ import { Globe, Plus, MessageCircle, ChevronDown, Check, Loader2 } from "lucide-
 import { PostCard } from "@/components/feed/PostCard";
 import { ComposeModal } from "@/components/feed/ComposeModal";
 import type { ComposePostPayload } from "@/components/feed/ComposeModal";
-import { Button } from "@/components/ui/button";
+import UserAvatar from "@/components/common/UserAvatar";
+import { useAuth } from "@/contexts/useAuth";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { postsApi, LANGUAGES, getLanguageByCode } from "@/services/api";
 import type { ApiPost, CreatePostRequest, Post } from "@/types";
@@ -53,6 +54,7 @@ const formatRelativeTime = (dateStr: string): string => {
 };
 
 export default function FeedPage() {
+  const { user } = useAuth();
   const [posts, setPosts] = useState<Post[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isFetchingMore, setIsFetchingMore] = useState(false);
@@ -163,6 +165,25 @@ export default function FeedPage() {
         ref={scrollContainerRef}
         className="h-full overflow-y-auto pb-24 scrollbar-hide w-full max-w-2xl mx-auto px-4 py-4 overflow-x-hidden"
       >
+        {/* Compose prompt */}
+        <button
+          onClick={() => setIsComposeOpen(true)}
+          className="mb-4 flex w-full items-center gap-3 rounded-[28px] border border-purple/15 bg-card px-4 py-3 text-left shadow-locale-sm transition-colors hover:bg-purple/10"
+        >
+          <UserAvatar
+            name={user?.displayName ?? "You"}
+            avatarUrl={user?.avatarUrl}
+            className="h-10 w-10"
+            fallbackClassName="text-sm font-semibold"
+          />
+          <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
+            What&apos;s on your mind{user?.displayName ? `, ${user.displayName.split(" ")[0]}` : ""}?
+          </span>
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-pill bg-primary/10 text-primary">
+            <Plus className="h-4 w-4" />
+          </span>
+        </button>
+
         {/* Header */}
         <div className="mb-4 flex items-center justify-between gap-3">
           <div className="relative">
@@ -209,14 +230,7 @@ export default function FeedPage() {
             )}
           </div>
 
-          <Button
-            onClick={() => setIsComposeOpen(true)}
-            size="sm"
-            className="h-9 gap-1.5 rounded-pill px-4 shadow-locale-sm"
-          >
-            <Plus className="h-4 w-4" />
-            Post
-          </Button>
+          <span className="text-xs font-medium text-muted-foreground">Community feed</span>
         </div>
 
         {/* Posts */}

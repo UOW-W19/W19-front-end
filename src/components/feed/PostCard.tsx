@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { MapPin, Heart, MessageCircle, Share2, Send, X, Loader2, Languages, MoreHorizontal, Trash2, Flag, BookmarkPlus, UserPlus, UserCheck, Bookmark, ScanLine, Save, Check } from "lucide-react";
+import { MapPin, Heart, MessageCircle, Share2, Send, X, Loader2, Languages, MoreHorizontal, Trash2, Flag, BookmarkPlus, UserPlus, UserCheck, Star, ScanLine, Save, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import UserAvatar from "@/components/common/UserAvatar";
 import { useAuth } from "@/contexts/useAuth";
@@ -662,9 +662,11 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
           variant="ghost"
           size="sm"
           onClick={handleSavePost}
+          aria-label={isSaved ? "Saved" : "Save"}
+          title={isSaved ? "Saved" : "Save"}
           className={`h-10 px-3 rounded-full active:scale-95 transition-all ml-auto ${isSaved ? 'text-primary bg-primary/10' : 'text-muted-foreground'}`}
         >
-          <Bookmark className={`h-5 w-5 transition-all ${isSaved ? 'fill-primary stroke-primary' : ''}`} />
+          <Star className={`h-5 w-5 transition-all ${isSaved ? 'fill-primary stroke-primary' : ''}`} />
         </Button>
 
         <Button
@@ -753,7 +755,7 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
             {savedWordDone ? (
               <div className="py-4 text-center">
                 <BookmarkPlus className="h-8 w-8 text-primary mx-auto mb-2" />
-                <p className="font-semibold text-foreground">Phrase saved!</p>
+                <p className="font-semibold text-foreground">Word saved to word bank!</p>
               </div>
             ) : (
               <>
