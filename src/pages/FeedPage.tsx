@@ -168,7 +168,7 @@ export default function FeedPage() {
           <div className="relative">
             <button
               onClick={() => setShowLanguageDropdown(!showLanguageDropdown)}
-              className="flex items-center gap-2 px-3 py-2 rounded-full bg-muted hover:bg-muted/80 transition-colors text-sm font-medium"
+              className="flex items-center gap-2 rounded-pill border border-purple/15 bg-card px-3 py-2 text-sm font-medium shadow-locale-sm transition-colors hover:bg-purple/10"
             >
               <span className="text-base">
                 {selectedLanguage ? languageFlags[selectedLanguage] : "🌍"}
@@ -180,10 +180,10 @@ export default function FeedPage() {
             {showLanguageDropdown && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setShowLanguageDropdown(false)} />
-                <div className="absolute top-full left-0 mt-2 w-48 bg-card border border-border rounded-xl shadow-lg py-1 z-50 max-h-64 overflow-y-auto">
+                <div className="absolute left-0 top-full z-50 mt-2 max-h-64 w-48 overflow-y-auto rounded-2xl border border-purple/15 bg-card py-1 shadow-locale-md">
                   <button
                     onClick={() => { setSelectedLanguage(null); setShowLanguageDropdown(false); }}
-                    className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-muted transition-colors text-left"
+                    className="flex w-full items-center justify-between px-4 py-2.5 text-left transition-colors hover:bg-purple/10"
                   >
                     <div className="flex items-center gap-2">
                       <Globe className="h-4 w-4 text-muted-foreground" />
@@ -195,7 +195,7 @@ export default function FeedPage() {
                     <button
                       key={lang}
                       onClick={() => { setSelectedLanguage(lang); setShowLanguageDropdown(false); }}
-                      className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-muted transition-colors text-left"
+                      className="flex w-full items-center justify-between px-4 py-2.5 text-left transition-colors hover:bg-purple/10"
                     >
                       <div className="flex items-center gap-2">
                         <span className="text-base">{languageFlags[lang]}</span>
@@ -212,7 +212,7 @@ export default function FeedPage() {
           <Button
             onClick={() => setIsComposeOpen(true)}
             size="sm"
-            className="gap-1.5 h-9 px-4 rounded-full shadow-sm"
+            className="h-9 gap-1.5 rounded-pill px-4 shadow-locale-sm"
           >
             <Plus className="h-4 w-4" />
             Post
@@ -243,9 +243,9 @@ export default function FeedPage() {
                 )}
               </>
             ) : (
-              <div className="flex flex-col items-center justify-center py-16 text-center">
-                <div className="rounded-full bg-muted p-4 mb-4">
-                  <MessageCircle className="h-8 w-8 text-muted-foreground" />
+              <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-purple/20 bg-card/70 px-6 py-16 text-center shadow-locale-sm">
+                <div className="mb-4 rounded-2xl bg-purple/10 p-4">
+                  <MessageCircle className="h-8 w-8 text-purple" />
                 </div>
                 <h3 className="text-lg font-semibold text-foreground mb-1">No posts yet</h3>
                 <p className="text-sm text-muted-foreground max-w-xs">

@@ -214,8 +214,8 @@ export default function LearnPage() {
           <div
             onClick={() => !showAnswer && setShowAnswer(true)}
             className={cn(
-              "w-full aspect-[4/3] rounded-2xl border-2 border-border bg-card p-6 flex flex-col items-center justify-center cursor-pointer transition-all duration-300",
-              "hover:shadow-soft hover:border-primary/30",
+              "flex aspect-[4/3] w-full cursor-pointer flex-col items-center justify-center rounded-[28px] border-2 border-purple/15 bg-card p-6 shadow-locale-sm transition-all duration-300",
+              "hover:border-primary/30 hover:shadow-locale-md",
               showAnswer && "border-primary/50"
             )}
           >
@@ -349,18 +349,18 @@ export default function LearnPage() {
           })}
         </div>
 
-        <div className="flex flex-shrink-0 gap-4 border-t border-border bg-background pt-4">
+        <div className="flex flex-shrink-0 gap-4 border-t border-purple/15 bg-background pt-4">
           <Button
             variant="outline"
             onClick={exitPractice}
-            className="flex-1 h-12 rounded-xl"
+            className="h-12 flex-1 rounded-pill"
           >
             Done
           </Button>
           <Button
             onClick={startPractice}
             disabled={startSessionMutation.isPending}
-            className="flex-1 h-12 gap-2 rounded-xl"
+            className="h-12 flex-1 gap-2 rounded-pill"
           >
             {startSessionMutation.isPending ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -381,7 +381,7 @@ export default function LearnPage() {
       <section className="mb-6">
         <div className="grid grid-cols-3 gap-3">
           {/* Words Saved */}
-          <div className="rounded-2xl bg-card border border-border p-4 text-center">
+          <div className="rounded-2xl border border-purple/15 bg-card p-4 text-center shadow-locale-sm">
             <div className="flex items-center justify-center h-10 w-10 mx-auto rounded-xl bg-primary/10 mb-2">
               <BookOpen className="h-5 w-5 text-primary" />
             </div>
@@ -394,7 +394,7 @@ export default function LearnPage() {
           </div>
 
           {/* Avg Mastery */}
-          <div className="rounded-2xl bg-card border border-border p-4 text-center">
+          <div className="rounded-2xl border border-purple/15 bg-card p-4 text-center shadow-locale-sm">
             <div className="flex items-center justify-center h-10 w-10 mx-auto rounded-xl bg-sage/10 mb-2">
               <TrendingUp className="h-5 w-5 text-sage" />
             </div>
@@ -407,7 +407,7 @@ export default function LearnPage() {
           </div>
 
           {/* Languages */}
-          <div className="rounded-2xl bg-card border border-border p-4 text-center">
+          <div className="rounded-2xl border border-purple/15 bg-card p-4 text-center shadow-locale-sm">
             <div className="flex items-center justify-center h-10 w-10 mx-auto rounded-xl bg-coral/10 mb-2">
               <Globe className="h-5 w-5 text-coral" />
             </div>
@@ -432,7 +432,7 @@ export default function LearnPage() {
 
       {/* Practice Card */}
       <section className="mb-6">
-        <div className="rounded-2xl bg-gradient-to-br from-primary/5 to-coral/5 border border-primary/20 p-5">
+        <div className="rounded-[28px] border border-purple/20 bg-gradient-to-br from-purple/10 to-coral/10 p-5 shadow-locale-sm">
           <div className="flex items-center gap-3 mb-4">
             <div className="flex items-center justify-center h-12 w-12 rounded-xl bg-primary/10">
               <Zap className="h-6 w-6 text-primary" />
@@ -450,7 +450,7 @@ export default function LearnPage() {
           </p>
 
           {/* Session Size Selector */}
-          <div className="flex items-center justify-between mb-4 p-3 rounded-xl bg-background/50 border border-border">
+          <div className="mb-4 flex items-center justify-between rounded-2xl border border-purple/15 bg-background/60 p-3">
             <span className="text-sm text-muted-foreground">Words per session</span>
             <div className="flex gap-2">
               {SESSION_SIZE_OPTIONS.map((size) => (
@@ -459,7 +459,7 @@ export default function LearnPage() {
                   onClick={() => setSessionSize(size)}
                   disabled={savedWords.length < size}
                   className={cn(
-                    "h-9 w-12 rounded-lg text-sm font-medium transition-all",
+                    "h-9 w-12 rounded-pill text-sm font-medium transition-all",
                     sessionSize === size
                       ? "bg-primary text-primary-foreground"
                       : "bg-muted text-foreground hover:bg-muted/80",
@@ -475,7 +475,7 @@ export default function LearnPage() {
           <Button
             onClick={startPractice}
             disabled={savedWords.length < sessionSize || startSessionMutation.isPending}
-            className="w-full h-12 gap-2 rounded-xl"
+            className="h-12 w-full gap-2 rounded-pill"
           >
             {startSessionMutation.isPending ? (
               <Loader2 className="h-5 w-5 animate-spin" />
@@ -502,7 +502,7 @@ export default function LearnPage() {
             {/* Language Filter */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="h-8 gap-1.5">
+                <Button variant="outline" size="sm" className="h-8 gap-1.5 rounded-pill">
                   <Globe className="h-3.5 w-3.5" />
                   {languageFilter === 'all' ? 'All' : languageFilter}
                   <ChevronDown className="h-3 w-3" />
@@ -526,7 +526,7 @@ export default function LearnPage() {
             {/* Sort Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="h-8 gap-1.5">
+                <Button variant="outline" size="sm" className="h-8 gap-1.5 rounded-pill">
                   <ArrowUpDown className="h-3.5 w-3.5" />
                   Sort
                   <ChevronDown className="h-3 w-3" />
@@ -548,7 +548,7 @@ export default function LearnPage() {
         </div>
 
         {filteredWords.length === 0 ? (
-          <div className="text-center py-12 rounded-2xl border border-dashed border-border">
+          <div className="rounded-[28px] border border-dashed border-purple/25 bg-card/70 px-6 py-12 text-center shadow-locale-sm">
             <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
             <h3 className="font-medium text-foreground mb-1">No words saved yet</h3>
             <p className="text-sm text-muted-foreground max-w-xs mx-auto">
@@ -560,7 +560,7 @@ export default function LearnPage() {
             {filteredWords.map((word) => (
               <div
                 key={word.id}
-                className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 transition-all hover:shadow-soft"
+                className="flex items-center gap-3 rounded-2xl border border-purple/15 bg-card p-3 shadow-locale-sm transition-all hover:shadow-locale-md"
               >
                 <span className="text-lg flex-shrink-0">{word.languageFlag}</span>
                 <div className="flex-1 min-w-0">
