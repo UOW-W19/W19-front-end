@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, MessageCircle, MapPin, Loader2 } from 'lucide-react';
+import { Loader2, MapPin, Maximize2, MessageCircle, Plus, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import type { Meetup, NearbyLearner, CreateMeetupRequest } from '@/types/meetup';
@@ -10,6 +10,8 @@ import MeetupCard from '@/components/explore/MeetupCard';
 import MeetupDetailSheet from '@/components/explore/MeetupDetailSheet';
 import CreateMeetupModal from '@/components/explore/CreateMeetupModal';
 import ExploreMap from '@/components/explore/ExploreMap';
+import LearnerPopupCard from '@/components/explore/LearnerPopupCard';
+import MeetupPopupCard from '@/components/explore/MeetupPopupCard';
 import UserAvatar from '@/components/common/UserAvatar';
 import { useAuth } from '@/contexts';
 
@@ -36,6 +38,9 @@ export default function ExplorePage() {
   const [selectedMeetup, setSelectedMeetup] = useState<Meetup | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [fullscreenLearner, setFullscreenLearner] = useState<NearbyLearner | null>(null);
+  const [fullscreenMeetup, setFullscreenMeetup] = useState<Meetup | null>(null);
 
   const [locationState, setLocationState] = useState<LocationState>({ status: 'loading' });
 
@@ -236,7 +241,7 @@ export default function ExplorePage() {
       </div>
 
       {/* Interactive Map */}
-      <div className="mb-6">
+      <div className="relative mb-6">
         <ExploreMap
           meetups={meetups}
           learners={learners}
@@ -244,7 +249,91 @@ export default function ExplorePage() {
           onLearnerClick={handleLearnerClick}
           userLocation={locationState.status === 'granted' ? currentLocation : undefined}
         />
+        <Button
+          type="button"
+          size="icon"
+          variant="secondary"
+          onClick={() => setIsFullscreen(true)}
+          className="absolute right-3 top-3 h-10 w-10 rounded-full bg-background/95 shadow-md backdrop-blur-sm"
+          aria-label="Open fullscreen map"
+          title="Open fullscreen map"
+        >
+          <Maximize2 className="h-4 w-4" />
+        </Button>
       </div>
+
+      {isFullscreen && (
+        <div className="fixed inset-0 z-[100] flex flex-col bg-background">
+          <Button
+            type="button"
+            size="icon"
+            variant="secondary"
+            onClick={() => {
+              setIsFullscreen(false);
+              setFullscreenLearner(null);
+              setFullscreenMeetup(null);
+            }}
+            className="absolute right-4 top-4 z-10 rounded-full bg-background/90 shadow-md backdrop-blur-sm"
+            aria-label="Close fullscreen map"
+            title="Close fullscreen map"
+          >
+            <X className="h-5 w-5" />
+          </Button>
+
+          <ExploreMap
+            meetups={meetups}
+            learners={learners}
+            onMeetupClick={(meetup) => {
+              setFullscreenLearner(null);
+              setFullscreenMeetup(meetup);
+            }}
+            onLearnerClick={(learner) => {
+              setFullscreenMeetup(null);
+              setFullscreenLearner(learner);
+            }}
+            userLocation={locationState.status === 'granted' ? currentLocation : undefined}
+            className="relative h-full w-full"
+          />
+
+          {fullscreenLearner && (
+            <div className="absolute bottom-6 left-4 right-4 z-10">
+              <LearnerPopupCard
+                learner={fullscreenLearner}
+                onClose={() => setFullscreenLearner(null)}
+                onViewProfile={() => {
+                  setIsFullscreen(false);
+                  setFullscreenLearner(null);
+                  navigate(`/user/${fullscreenLearner.id}`);
+                }}
+                onMessage={() => {
+                  setIsFullscreen(false);
+                  setFullscreenLearner(null);
+                  navigate(`/messages?user=${fullscreenLearner.id}`);
+                }}
+              />
+            </div>
+          )}
+
+          {fullscreenMeetup && (
+            <div className="absolute bottom-6 left-4 right-4 z-10">
+              <MeetupPopupCard
+                meetup={fullscreenMeetup}
+                onClose={() => setFullscreenMeetup(null)}
+                onJoin={async (id) => {
+                  const updated = await meetupsApi.joinMeetup(id);
+                  setMeetups((prev) => prev.map((meetup) => (meetup.id === id ? updated : meetup)));
+                  setFullscreenMeetup(updated);
+                }}
+                onLeave={async (id) => {
+                  const updated = await meetupsApi.leaveMeetup(id);
+                  setMeetups((prev) => prev.map((meetup) => (meetup.id === id ? updated : meetup)));
+                  setFullscreenMeetup(updated);
+                }}
+              />
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Nearby learners */}
       <section className="mb-8">
@@ -319,7 +408,7 @@ export default function ExplorePage() {
       {/* Meetup detail sheet */}
       <MeetupDetailSheet
         meetup={selectedMeetup}
-        open={sheetOpen}
+        open={sheetOpen && !isFullscreen}
         onOpenChange={setSheetOpen}
         onJoin={handleJoin}
         onLeave={handleLeave}

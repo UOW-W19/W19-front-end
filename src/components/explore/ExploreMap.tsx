@@ -12,6 +12,7 @@ interface ExploreMapProps {
   onMeetupClick?: (meetup: Meetup) => void;
   onLearnerClick?: (learner: NearbyLearner) => void;
   userLocation?: { latitude: number; longitude: number };
+  className?: string;
 }
 
 const MAPBOX_TOKEN_STORAGE_KEY = 'locale_mapbox_token';
@@ -215,7 +216,7 @@ const buildStaticMapUrl = ({
   return `https://api.mapbox.com/styles/v1/${style}/static/${overlay}${center.lng.toFixed(5)},${center.lat.toFixed(5)},${zoom},0,0/${width}x${height}@2x?access_token=${encodeURIComponent(token)}`;
 };
 
-export default function ExploreMap({ meetups, learners, onMeetupClick, onLearnerClick, userLocation }: ExploreMapProps) {
+export default function ExploreMap({ meetups, learners, onMeetupClick, onLearnerClick, userLocation, className }: ExploreMapProps) {
   const mapContainer = useRef<HTMLDivElement | null>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
@@ -507,7 +508,10 @@ export default function ExploreMap({ meetups, learners, onMeetupClick, onLearner
       el.className = 'meetup-marker w-9 h-9 bg-gradient-to-br from-primary to-primary/80 rounded-full flex items-center justify-center shadow-lg border-2 border-white text-base cursor-pointer';
       el.innerHTML = `<span class="text-lg">${meetup.language.flagEmoji || '📍'}</span>`;
 
-      el.addEventListener('click', () => onMeetupClick?.(meetup));
+      el.addEventListener('click', (event) => {
+        event.stopPropagation();
+        onMeetupClick?.(meetup);
+      });
 
       const marker = new mapboxgl.Marker(el)
         .setLngLat(nextMarkerLngLat(meetup.coordinates.lng, meetup.coordinates.lat))
@@ -536,7 +540,10 @@ export default function ExploreMap({ meetups, learners, onMeetupClick, onLearner
         el.appendChild(fallback);
       }
 
-      el.addEventListener('click', () => onLearnerClick?.(learner));
+      el.addEventListener('click', (event) => {
+        event.stopPropagation();
+        onLearnerClick?.(learner);
+      });
 
       const marker = new mapboxgl.Marker(el)
         .setLngLat(nextMarkerLngLat(learner.coordinates.lng, learner.coordinates.lat))
@@ -626,7 +633,7 @@ export default function ExploreMap({ meetups, learners, onMeetupClick, onLearner
 
   if (mapError) {
     return (
-      <div className="h-80 w-full rounded-2xl overflow-hidden border border-border bg-muted flex items-center justify-center">
+      <div className={`${className ?? 'h-80 w-full rounded-2xl border border-border'} overflow-hidden bg-muted flex items-center justify-center`}>
         <div className="text-center p-4 w-full max-w-md">
           <MapPin className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
           <p className="text-sm text-muted-foreground">{mapError}</p>
@@ -711,7 +718,7 @@ export default function ExploreMap({ meetups, learners, onMeetupClick, onLearner
   }
 
   return (
-    <div className="relative h-80 w-full rounded-2xl overflow-hidden border border-border">
+    <div className={className ?? 'relative h-80 w-full rounded-2xl overflow-hidden border border-border'}>
       <div ref={mapContainer} className="absolute inset-0" style={{ width: '100%', height: '100%' }} />
 
       {!isMapReady && (
