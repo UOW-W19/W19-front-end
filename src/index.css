@@ -4,113 +4,121 @@
 
 @layer base {
   :root {
-    /* Core palette - Warm, inviting language learning aesthetic */
-    --background: 40 33% 96%; /* warm cream */
-    --foreground: 220 30% 18%; /* deep navy */
+    /* Beth design tokens, with legacy aliases kept for existing components. */
+    --background: 240 9% 96%;
+    --foreground: 259 43% 12%;
     
-    --card: 40 30% 98%;
-    --card-foreground: 220 30% 18%;
+    --card: 0 0% 98%;
+    --card-foreground: 259 43% 12%;
     
-    --popover: 40 30% 99%;
-    --popover-foreground: 220 30% 18%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 259 43% 12%;
     
-    --primary: 12 76% 61%; /* warm coral */
-    --primary-foreground: 40 33% 98%;
+    --primary: 3 89% 60%;
+    --primary-foreground: 0 0% 100%;
     
-    --secondary: 145 30% 60%; /* sage green */
-    --secondary-foreground: 145 40% 15%;
+    --secondary: 270 42% 63%;
+    --secondary-foreground: 0 0% 100%;
     
-    --muted: 40 20% 92%;
-    --muted-foreground: 220 15% 45%;
+    --muted: 30 11% 88%;
+    --muted-foreground: 259 15% 42%;
     
-    --accent: 263 40% 70%; /* soft lavender */
-    --accent-foreground: 263 50% 20%;
+    --accent: 270 42% 63%;
+    --accent-foreground: 0 0% 100%;
     
-    --destructive: 0 72% 51%;
+    --destructive: 3 89% 60%;
     --destructive-foreground: 0 0% 100%;
     
-    --border: 40 20% 88%;
-    --input: 40 20% 88%;
-    --ring: 12 76% 61%;
+    --border: 270 20% 82%;
+    --input: 270 20% 82%;
+    --ring: 270 42% 63%;
     
-    --radius: 0.75rem;
+    --radius: 0.875rem;
     
-    /* Locale brand colors */
-    --coral: 12 76% 61%;
-    --coral-light: 12 80% 75%;
-    --cream: 40 33% 96%;
-    --cream-dark: 40 25% 90%;
+    --coral: 3 89% 60%;
+    --coral-light: 3 89% 75%;
+    --orange: 30 100% 38%;
+    --orange-raw: 31 100% 49%;
+    --purple: 270 42% 63%;
+    --lime: 65 96% 41%;
+    --navy: 259 43% 12%;
+
+    /* Compatibility aliases still used by existing pages. */
+    --cream: 240 9% 96%;
+    --cream-dark: 30 11% 88%;
     --sage: 145 30% 60%;
     --sage-light: 145 35% 80%;
-    --lavender: 263 40% 70%;
-    --navy: 220 30% 18%;
-    --navy-light: 220 25% 35%;
+    --lavender: 270 42% 63%;
+    --navy-light: 259 15% 42%;
     
     /* Sidebar */
-    --sidebar-background: 40 30% 98%;
-    --sidebar-foreground: 220 30% 18%;
-    --sidebar-primary: 12 76% 61%;
-    --sidebar-primary-foreground: 40 33% 98%;
-    --sidebar-accent: 145 30% 60%;
-    --sidebar-accent-foreground: 145 40% 15%;
-    --sidebar-border: 40 20% 88%;
-    --sidebar-ring: 12 76% 61%;
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 259 43% 12%;
+    --sidebar-primary: 3 89% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 270 42% 63%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 270 20% 88%;
+    --sidebar-ring: 270 42% 63%;
     
     /* Gradients */
-    --gradient-warm: linear-gradient(135deg, hsl(12 76% 61%) 0%, hsl(25 80% 65%) 100%);
+    --gradient-warm: linear-gradient(135deg, hsl(3 89% 60%) 0%, hsl(31 100% 49%) 100%);
     --gradient-sage: linear-gradient(135deg, hsl(145 30% 60%) 0%, hsl(160 35% 55%) 100%);
-    --gradient-soft: linear-gradient(180deg, hsl(40 33% 98%) 0%, hsl(40 25% 94%) 100%);
+    --gradient-soft: linear-gradient(180deg, hsl(0 0% 98%) 0%, hsl(240 9% 96%) 100%);
   }
 
   .dark {
-    --background: 220 25% 10%;
-    --foreground: 40 20% 95%;
+    --background: 259 43% 8%;
+    --foreground: 30 11% 94%;
     
-    --card: 220 25% 12%;
-    --card-foreground: 40 20% 95%;
+    --card: 259 43% 11%;
+    --card-foreground: 30 11% 94%;
     
-    --popover: 220 25% 14%;
-    --popover-foreground: 40 20% 95%;
+    --popover: 259 43% 11%;
+    --popover-foreground: 30 11% 94%;
     
-    --primary: 12 70% 55%;
-    --primary-foreground: 220 25% 10%;
+    --primary: 3 89% 60%;
+    --primary-foreground: 0 0% 100%;
     
-    --secondary: 145 25% 35%;
-    --secondary-foreground: 145 15% 90%;
+    --secondary: 270 42% 45%;
+    --secondary-foreground: 0 0% 100%;
     
-    --muted: 220 20% 18%;
-    --muted-foreground: 220 15% 60%;
+    --muted: 259 30% 18%;
+    --muted-foreground: 270 15% 65%;
     
-    --accent: 263 30% 45%;
-    --accent-foreground: 263 15% 95%;
+    --accent: 270 42% 45%;
+    --accent-foreground: 0 0% 100%;
     
-    --destructive: 0 65% 45%;
+    --destructive: 3 89% 55%;
     --destructive-foreground: 0 0% 100%;
     
-    --border: 220 20% 20%;
-    --input: 220 20% 20%;
-    --ring: 12 70% 55%;
+    --border: 259 30% 22%;
+    --input: 259 30% 22%;
+    --ring: 270 42% 63%;
     
-    /* Dark mode brand colors */
-    --coral: 12 70% 55%;
-    --coral-light: 12 65% 65%;
-    --cream: 220 25% 10%;
-    --cream-dark: 220 25% 8%;
+    --coral: 3 89% 60%;
+    --coral-light: 3 89% 75%;
+    --orange: 30 100% 45%;
+    --orange-raw: 31 100% 49%;
+    --purple: 270 42% 63%;
+    --lime: 65 96% 41%;
+    --navy: 30 11% 94%;
+    --cream: 259 43% 8%;
+    --cream-dark: 259 43% 6%;
     --sage: 145 25% 35%;
     --sage-light: 145 20% 50%;
-    --lavender: 263 30% 45%;
-    --navy: 220 20% 85%;
-    --navy-light: 220 15% 65%;
+    --lavender: 270 42% 45%;
+    --navy-light: 270 15% 65%;
     
     /* Sidebar dark */
-    --sidebar-background: 220 25% 12%;
-    --sidebar-foreground: 40 20% 95%;
-    --sidebar-primary: 12 70% 55%;
-    --sidebar-primary-foreground: 220 25% 10%;
-    --sidebar-accent: 145 25% 35%;
-    --sidebar-accent-foreground: 145 15% 90%;
-    --sidebar-border: 220 20% 20%;
-    --sidebar-ring: 12 70% 55%;
+    --sidebar-background: 259 43% 10%;
+    --sidebar-foreground: 30 11% 94%;
+    --sidebar-primary: 3 89% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 270 42% 45%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 259 30% 20%;
+    --sidebar-ring: 270 42% 63%;
   }
 }
 
@@ -121,6 +129,7 @@
   
   body {
     @apply bg-background text-foreground antialiased;
+    font-family: 'Lexend', sans-serif;
     font-feature-settings: "rlig" 1, "calt" 1;
   }
   
@@ -145,9 +154,113 @@
       font-size: 15px; 
     }
   }
+
+  h1,
+  h2,
+  h3 {
+    font-family: 'Lexend', sans-serif;
+  }
 }
 
 @layer components {
+  .btn-locale {
+    @apply inline-flex min-h-[44px] items-center justify-center gap-2 rounded-pill bg-coral px-8 py-3 font-semibold text-white transition active:scale-95 disabled:pointer-events-none disabled:opacity-50;
+  }
+
+  .btn-locale:hover {
+    background: #d93b32;
+  }
+
+  .btn-locale-outline {
+    @apply inline-flex min-h-[44px] items-center justify-center gap-2 rounded-pill border-2 border-coral bg-transparent px-8 py-2.5 font-semibold text-coral transition active:scale-95;
+  }
+
+  .btn-locale-outline:hover {
+    background: rgb(244 72 63 / 0.08);
+  }
+
+  .btn-locale-orange {
+    @apply inline-flex min-h-[44px] items-center justify-center gap-2 rounded-pill bg-orange-raw px-8 py-3 font-semibold text-navy transition active:scale-95;
+  }
+
+  .btn-locale-orange:hover {
+    background: #e07500;
+  }
+
+  .heading-highlight {
+    display: inline;
+    border-radius: 3px;
+    background: #9973ce;
+    padding: 1px 6px 3px;
+    color: #18112c;
+  }
+
+  .input-underline {
+    width: 100%;
+    border: 0;
+    border-bottom: 2px solid #9973ce;
+    background: transparent;
+    padding: 8px 0;
+    color: #18112c;
+    font-family: 'Lexend', sans-serif;
+    font-size: 1rem;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  .input-underline::placeholder {
+    color: rgb(24 17 44 / 0.4);
+  }
+
+  .input-underline:focus {
+    border-bottom-color: #f4483f;
+  }
+
+  .locale-card {
+    border-radius: 20px;
+    background: #faf8f8;
+    padding: 20px;
+    box-shadow: 0 1px 4px rgb(24 17 44 / 0.07);
+  }
+
+  .step-dot {
+    display: flex;
+    width: 25px;
+    height: 25px;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  .step-dot-complete {
+    background: #cddd01;
+    color: #18112c;
+  }
+
+  .step-dot-current {
+    background: #9973ce;
+    color: #ffffff;
+  }
+
+  .step-dot-inactive {
+    background: #9973ce;
+    color: #ffffff;
+    opacity: 0.5;
+  }
+
+  .link-orange {
+    color: #c46200;
+    cursor: pointer;
+    font-weight: 600;
+  }
+
+  .link-orange:hover {
+    text-decoration: underline;
+  }
+
   /* Mobile-optimized touch targets */
   .touch-target {
     @apply min-h-[44px] min-w-[44px];
@@ -195,5 +308,15 @@
   
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 }
