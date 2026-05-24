@@ -1,4 +1,4 @@
-import { X, User, MessageCircle, MapPin } from 'lucide-react';
+import { X, User, MessageCircle, MapPin, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import UserAvatar from '@/components/common/UserAvatar';
 import type { NearbyLearner } from '@/types/meetup';
