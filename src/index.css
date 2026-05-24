@@ -9,13 +9,13 @@
      *   #18112C  foreground (deep navy-purple)
      *   #EDEBE8  background (warm grey)
      *   #F4483F  primary / coral CTA
-     *   #FA8100  orange-raw (UI only) | #C46200 orange-accessible (text links)
+     *   #FA8100  orange-raw (UI only) | #C46200 orange-accessible (text links) #f59e0b
      *   #9973CE  accent purple (highlights, stepper, focus rings)
      *   #CDDD01  lime (completed steps, logo accent - UI only, never text)
      *   #FAF8F8  card surface
      * ──────────────────────────────────────────────────────────────────── */
 
-    --background: 240 9% 96%;    /* #F0EEF7 */
+    --background: 10 33% 96%;    /* #F7F0EE - blush peach */
     --foreground:           259 43% 12%;    /* #18112C */
 
     --card:                 0 0% 98%;       /* #FAF8F8 */

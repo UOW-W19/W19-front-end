@@ -355,20 +355,11 @@ export default function ScannerPage() {
 
       {step === "subscribe" && (
         <div className="flex-1 flex flex-col">
-          {/* Back arrow */}
-          <div className="flex justify-end mb-6">
-            <button
-              onClick={() => setStep(prevStepRef.current)}
-              className="text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </button>
-          </div>
 
           {/* Crown icon */}
           <div className="mb-6">
-            <div className="h-16 w-16 rounded-full bg-amber-500 flex items-center justify-center mb-6">
-              <Crown className="h-8 w-8 text-white fill-white" />
+            <div className="h-16 w-16 rounded-full bg-amber-100 flex items-center justify-center mb-6">
+              <Crown className="h-8 w-8 fill-amber-400 text-amber-500" />
             </div>
             <h1 className="text-3xl font-bold text-foreground mb-2">Upgrade to Pro!</h1>
             <p className="text-muted-foreground text-base leading-relaxed">
@@ -403,15 +394,15 @@ export default function ScannerPage() {
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-foreground font-medium">Billed Monthly</span>
-                <span className="text-foreground font-medium">$18/mo.</span>
+                <span className="text-foreground font-medium">$4.99/mo.</span>
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-foreground font-medium">Tax</span>
-                <span className="text-foreground font-medium">$4</span>
+                <span className="text-foreground font-medium">$0.49</span>
               </div>
-              <div className="flex items-center justify-between text-sm pt-1">
-                <span className="text-amber-500 font-semibold">Total for today</span>
-                <span className="text-amber-500 font-semibold">$22.00</span>
+              <div className="flex items-center justify-between pt-2">
+                <span className="text-base font-bold" style={{ color: '#C46200' }}>Total for today</span>
+                <span className="text-base font-bold" style={{ color: '#C46200' }}>$5.50</span>
               </div>
             </div>
           </div>

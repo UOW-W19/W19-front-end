@@ -17,12 +17,12 @@ export interface ComposeModalProps {
 }
 
 const languages = [
-  { code: "es", name: "Spanish", flag: "🇪🇸" },
+  { code: "en", name: "English",  flag: "🇺🇸" },
+  { code: "es", name: "Spanish",  flag: "🇪🇸" },
+  { code: "fr", name: "French",   flag: "🇫🇷" },
   { code: "ja", name: "Japanese", flag: "🇯🇵" },
-  { code: "fr", name: "French", flag: "🇫🇷" },
-  { code: "de", name: "German", flag: "🇩🇪" },
-  { code: "pt", name: "Portuguese", flag: "🇧🇷" },
-  { code: "ko", name: "Korean", flag: "🇰🇷" },
+  { code: "zh", name: "Chinese",  flag: "🇨🇳" },
+  { code: "it", name: "Italian",  flag: "🇮🇹" },
 ];
 
 export function ComposeModal({ isOpen, onClose, onSubmit }: ComposeModalProps) {

@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useRef } from "react";
-import { Sparkles, RotateCcw, Check, X, ChevronLeft, BookOpen, Camera, TrendingUp, Globe, Zap, ArrowUpDown, ChevronDown, Loader2, Flame, Mic, Volume2, Star } from "lucide-react";
+import { Sparkles, RotateCcw, Check, X, ChevronLeft, BookOpen, Camera, TrendingUp, Globe, Zap, ArrowUpDown, ChevronDown, Loader2, Flame, Mic, Volume2, Star, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { SavedWord } from "@/types";
 import {
@@ -15,6 +15,8 @@ import {
   useStartPracticeSession,
   useSubmitPracticeResult,
   useCompletePracticeSession,
+  useCreateWord,
+  useDeleteWord,
   transformSessionWord,
   type PracticeResult,
 } from "@/hooks/useLearnApi";
@@ -26,6 +28,9 @@ type WordBank = { id: string; label: string; words: SavedWord[] };
 const SESSION_SIZE_OPTIONS = [5, 10, 15] as const;
 
 const WAVEFORM_HEIGHTS = [8, 14, 10, 18, 12, 22, 10, 16, 20, 12, 18, 10, 22, 14, 10, 18, 12, 16, 8, 14];
+
+// Categories whose words typically have a visual representation (objects)
+const VISUAL_CATEGORIES = new Set(['electronics', 'food', 'home', 'nature', 'body', 'travel']);
 
 // ── Concept categorisation ──────────────────────────────────────────────────
 
@@ -103,7 +108,15 @@ export default function LearnPage() {
   const [chipPool, setChipPool] = useState<string[]>([]);
   const [placedChips, setPlacedChips] = useState<string[]>([]);
   const [writeInput, setWriteInput] = useState('');
+  const [revealHint, setRevealHint] = useState(false);
+  const [lessonCaption, setLessonCaption] = useState('');
   const [isRecording, setIsRecording] = useState(false);
+  // Track which word IDs have been completed via a lesson
+  const [learnedWordIds, setLearnedWordIds] = useState<Set<string>>(new Set());
+  // Optimistic local deletes — word disappears immediately on confirm
+  const [deletedWordIds, setDeletedWordIds] = useState<Set<string>>(new Set());
+  // Which word ID is awaiting delete confirmation
+  const [confirmDeleteWordId, setConfirmDeleteWordId] = useState<string | null>(null);
 
   // Filtering & Sorting
   const [languageFilter, setLanguageFilter] = useState<string>('all');
@@ -129,6 +142,35 @@ export default function LearnPage() {
   const startSessionMutation = useStartPracticeSession();
   const submitResultMutation = useSubmitPracticeResult();
   const completeSessionMutation = useCompletePracticeSession();
+  const createWordMutation = useCreateWord();
+  const deleteWordMutation = useDeleteWord();
+
+  // Add-word modal state
+  const [showAddWord, setShowAddWord] = useState(false);
+  const [addWord, setAddWord] = useState('');
+  const [addTranslation, setAddTranslation] = useState('');
+  const [addLangCode, setAddLangCode] = useState('en');
+  const ADD_LANGUAGES = [
+    { code: 'en', flag: '🇺🇸', name: 'English'  },
+    { code: 'es', flag: '🇪🇸', name: 'Spanish'  },
+    { code: 'fr', flag: '🇫🇷', name: 'French'   },
+    { code: 'ja', flag: '🇯🇵', name: 'Japanese' },
+    { code: 'zh', flag: '🇨🇳', name: 'Chinese'  },
+    { code: 'it', flag: '🇮🇹', name: 'Italian'  },
+  ];
+
+  const handleAddWord = async () => {
+    if (!addWord.trim() || !addTranslation.trim()) return;
+    await createWordMutation.mutateAsync({
+      word: addWord.trim(),
+      translation: addTranslation.trim(),
+      language_code: addLangCode,
+      source: 'MANUAL',
+    });
+    setAddWord('');
+    setAddTranslation('');
+    setShowAddWord(false);
+  };
 
   // Get unique languages for filter
   const uniqueLanguages = useMemo(() => {
@@ -386,7 +428,8 @@ export default function LearnPage() {
             <Button
               onClick={() => handleAnswer(true)}
               disabled={isSubmitting}
-              className="flex-1 h-14 gap-2 rounded-xl bg-sage hover:bg-sage/90"
+              className="flex-1 h-14 gap-2 rounded-xl font-semibold"
+              style={{ background: '#CDDD01', color: '#3a3f00' }}
             >
               {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Check className="h-5 w-5" />}
               Got it!
@@ -403,8 +446,10 @@ export default function LearnPage() {
     const percentage = Math.round((correctCount / results.length) * 100);
 
     return (
-      <div className="min-h-full overflow-y-auto pb-24 scrollbar-hide mx-auto max-w-md px-4 py-6 flex flex-col">
-        <div className="text-center mb-8">
+      /* Fixed-height container so the inner list can actually scroll */
+      <div className="h-[calc(100dvh-8rem)] flex flex-col mx-auto max-w-md px-4 pt-6 pb-2">
+        {/* Header — fixed, never scrolls */}
+        <div className="text-center mb-6 flex-shrink-0">
           <div className="inline-flex items-center justify-center h-20 w-20 rounded-full bg-primary/10 mb-4">
             <Sparkles className="h-10 w-10 text-primary" />
           </div>
@@ -415,26 +460,27 @@ export default function LearnPage() {
           <p className="text-3xl font-bold text-foreground mt-2">{percentage}%</p>
         </div>
 
-        <div className="flex-1 space-y-2 mb-6">
+        {/* Scrollable results list */}
+        <div className="flex-1 overflow-y-auto space-y-2 mb-4 scrollbar-hide">
           {results.map((result, index) => {
             const masteryChange = result.newMastery - result.oldMastery;
 
             return (
               <div
                 key={index}
-                className={cn(
-                  "flex items-center gap-3 rounded-xl border p-4 transition-all",
-                  result.correct
-                    ? "border-sage/30 bg-sage/5"
-                    : "border-destructive/30 bg-destructive/5"
-                )}
+                className="flex items-center gap-3 rounded-xl border p-4 transition-all"
+                style={result.correct
+                  ? { borderColor: '#CDDD0150', background: '#CDDD0108' }
+                  : { borderColor: 'hsl(var(--destructive) / 0.3)', background: 'hsl(var(--destructive) / 0.05)' }}
               >
-                <div className={cn(
-                  "flex h-8 w-8 items-center justify-center rounded-full",
-                  result.correct ? "bg-sage/20" : "bg-destructive/20"
-                )}>
+                <div
+                  className="flex h-8 w-8 items-center justify-center rounded-full flex-shrink-0"
+                  style={result.correct
+                    ? { background: '#CDDD0125' }
+                    : { background: 'hsl(var(--destructive) / 0.2)' }}
+                >
                   {result.correct ? (
-                    <Check className="h-4 w-4 text-sage" />
+                    <Check className="h-4 w-4" style={{ color: '#8a9600' }} />
                   ) : (
                     <X className="h-4 w-4 text-destructive" />
                   )}
@@ -445,10 +491,10 @@ export default function LearnPage() {
                 </div>
                 <div className="text-right flex-shrink-0">
                   <span className="text-lg">{result.word.languageFlag}</span>
-                  <p className={cn(
-                    "text-xs font-medium",
-                    masteryChange > 0 ? "text-sage" : "text-destructive"
-                  )}>
+                  <p
+                    className="text-xs font-medium"
+                    style={{ color: masteryChange > 0 ? '#8a9600' : 'hsl(var(--destructive))' }}
+                  >
                     {masteryChange > 0 ? '+' : ''}{masteryChange}%
                   </p>
                 </div>
@@ -457,7 +503,8 @@ export default function LearnPage() {
           })}
         </div>
 
-        <div className="flex gap-4">
+        {/* Buttons — fixed at bottom */}
+        <div className="flex gap-4 flex-shrink-0 pb-[env(safe-area-inset-bottom)]">
           <Button
             variant="outline"
             onClick={exitPractice}
@@ -486,8 +533,20 @@ export default function LearnPage() {
   if (mode === 'learning' && lessonBank) {
     const word = lessonBank.words[0];
 
-    const advanceStep = () => setLessonStep(s => Math.min(s + 1, 4));
+    const advanceStep = () => {
+      const next = Math.min(lessonStep + 1, 4);
+      // Mark the word as learned when the user reaches the Share step
+      if (next === 4 && lessonBank) {
+        setLearnedWordIds(prev => new Set([...prev, lessonBank.words[0].id]));
+      }
+      setRevealHint(false);
+      setLessonStep(next);
+    };
     const exitLesson = () => {
+      // If exiting from step 4 (Share), ensure word is marked learned (covers "Done")
+      if (lessonStep === 4 && lessonBank) {
+        setLearnedWordIds(prev => new Set([...prev, lessonBank.words[0].id]));
+      }
       setMode('idle');
       setLessonBank(null);
       setLessonStep(1);
@@ -495,8 +554,11 @@ export default function LearnPage() {
       setChipPool([]);
       setPlacedChips([]);
       setWriteInput('');
+      setLessonCaption('');
+      setRevealHint(false);
       setIsRecording(false);
     };
+    const isVisualWord = VISUAL_CATEGORIES.has(lessonBank.id);
     const placeChip = (chip: string, idx: number) => {
       setChipPool(prev => prev.filter((_, i) => i !== idx));
       setPlacedChips(prev => [...prev, chip]);
@@ -535,16 +597,22 @@ export default function LearnPage() {
             return (
               <div key={step} className="flex items-center">
                 <div className="flex flex-col items-center gap-1">
-                  <div className={cn(
-                    "h-7 w-7 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300",
-                    done ? "bg-sage text-white" : active ? "bg-primary text-primary-foreground ring-2 ring-primary/25" : "bg-muted text-muted-foreground"
-                  )}>
+                  <div
+                    className={cn(
+                      "h-7 w-7 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300",
+                      active ? "bg-primary text-primary-foreground ring-2 ring-primary/25" : !done ? "bg-muted text-muted-foreground" : ""
+                    )}
+                    style={done ? { background: '#CDDD01', color: '#3a3f00' } : {}}
+                  >
                     {done ? <Check className="h-3.5 w-3.5" /> : step}
                   </div>
                   <span className={cn("text-[10px]", active ? "text-primary font-medium" : "text-muted-foreground")}>{label}</span>
                 </div>
                 {i < STEPS.length - 1 && (
-                  <div className={cn("h-0.5 w-10 mb-4 transition-all duration-300", done ? "bg-sage" : "bg-muted")} />
+                  <div
+                    className={cn("h-0.5 w-10 mb-4 transition-all duration-300", !done && "bg-muted")}
+                    style={done ? { background: '#CDDD01' } : {}}
+                  />
                 )}
               </div>
             );
@@ -558,25 +626,38 @@ export default function LearnPage() {
               <div>
                 <p className="text-sm text-foreground">
                   <span className="text-muted-foreground">{word.languageName}:</span>{' '}
-                  <span className="font-semibold">{word.word}</span>
+                  {lessonStep === 3 ? (
+                    <button
+                      onClick={() => setRevealHint(true)}
+                      className="font-semibold transition-all duration-300 rounded"
+                      style={{
+                        filter: revealHint ? 'none' : 'blur(6px)',
+                        userSelect: revealHint ? 'auto' : 'none',
+                        cursor: revealHint ? 'default' : 'pointer',
+                      }}
+                      title={revealHint ? undefined : 'Tap to reveal'}
+                    >
+                      {word.word}
+                    </button>
+                  ) : (
+                    <span className="font-semibold">{word.word}</span>
+                  )}
                 </p>
                 <p className="text-sm text-foreground">
                   <span className="text-muted-foreground">English:</span>{' '}
                   <span className="font-medium">{word.translation}</span>
                 </p>
               </div>
-                <Volume2 className="h-3 w-3 text-muted-foreground" />
-              {/* <button className="h-8 w-8 rounded-full bg-amber-100 dark:bg-amber-900/20 flex items-center justify-center flex-shrink-0">
-                <Star className="h-4 w-4 text-amber-500 fill-amber-400" />
-              </button> */}
+              <button className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 hover:bg-primary/20 active:scale-95 transition-all">
+                <Volume2 className="h-5 w-5 text-primary" />
+              </button>
             </div>
-            <div className="rounded-xl bg-gradient-to-br from-muted to-muted/40 h-36 flex items-center justify-center relative overflow-hidden">
-              <span className="text-6xl opacity-10">{word.languageFlag}</span>
-              {/* <div className="absolute bottom-2 left-2 bg-background/90 backdrop-blur-sm rounded-full px-2.5 py-1 flex items-center gap-1.5 text-xs font-medium shadow-sm">
-                {word.word}
-                <Volume2 className="h-3 w-3 text-muted-foreground" />
-              </div> */}
-            </div>
+            {/* Only show visual placeholder for object-based categories */}
+            {isVisualWord && (
+              <div className="rounded-xl bg-gradient-to-br from-muted to-muted/40 h-36 flex items-center justify-center relative overflow-hidden">
+                <span className="text-6xl opacity-10">{word.languageFlag}</span>
+              </div>
+            )}
           </div>
         )}
 
@@ -629,20 +710,23 @@ export default function LearnPage() {
               <p className="text-sm text-muted-foreground mb-3">"{word.translation}"</p>
 
               {/* Target drop zone */}
-              <div className={cn(
-                "flex flex-wrap gap-2 p-3 rounded-xl border min-h-[52px] mb-3 transition-colors",
-                isCorrect ? "bg-sage/10 border-sage/40" : "bg-muted/30 border-border"
-              )}>
+              <div
+                className="flex flex-wrap gap-2 p-3 rounded-xl border min-h-[52px] mb-3 transition-colors"
+                style={isCorrect
+                  ? { background: '#CDDD0112', borderColor: '#CDDD0150' }
+                  : { background: 'hsl(var(--muted) / 0.3)', borderColor: 'hsl(var(--border))' }}
+              >
                 {placedChips.length > 0 ? placedChips.map((chip, i) => (
                   <button
                     key={i}
                     onClick={() => removeChip(chip, i)}
                     className={cn(
                       "px-3 py-1.5 rounded-lg border text-sm font-medium transition-colors",
-                      isCorrect
-                        ? "bg-sage/20 text-sage border-sage/40"
-                        : "bg-primary/15 text-primary border-primary/30 hover:bg-primary/25"
+                      !isCorrect && "bg-primary/15 text-primary border-primary/30 hover:bg-primary/25"
                     )}
+                    style={isCorrect
+                      ? { background: '#CDDD0125', color: '#5a6300', borderColor: '#CDDD0155' }
+                      : undefined}
                   >
                     {chip}
                   </button>
@@ -653,10 +737,10 @@ export default function LearnPage() {
 
               {/* Feedback message */}
               {allPlaced && (
-                <p className={cn(
-                  "text-xs font-medium mb-3 text-center",
-                  isCorrect ? "text-sage" : "text-destructive"
-                )}>
+                <p
+                  className="text-xs font-medium mb-3 text-center"
+                  style={{ color: isCorrect ? '#7a8700' : 'hsl(var(--destructive))' }}
+                >
                   {isCorrect ? "Correct! Great job." : "Not quite — tap chips to reorder."}
                 </p>
               )}
@@ -676,7 +760,7 @@ export default function LearnPage() {
                   <span className="text-xs text-muted-foreground self-center">Tap a placed chip to return it</span>
                 )}
                 {isCorrect && (
-                  <span className="text-xs text-sage self-center">All chips in order</span>
+                  <span className="text-xs font-medium self-center" style={{ color: '#7a8700' }}>All chips in order ✓</span>
                 )}
               </div>
 
@@ -713,22 +797,29 @@ export default function LearnPage() {
         {/* Step 4 — Share with Community */}
         {lessonStep === 4 && (
           <div className="flex-1 flex flex-col">
-            <div className="rounded-2xl border border-border bg-card p-4 mb-5">
-              <p className="font-semibold text-foreground mb-3">{lessonBank.label}</p>
-              <div className="rounded-xl bg-gradient-to-br from-muted to-muted/40 h-28 flex items-center justify-center relative overflow-hidden">
-                <span className="text-5xl opacity-10">{word.languageFlag}</span>
-                <div className="absolute bottom-2 left-2 bg-background/90 backdrop-blur-sm rounded-full px-2.5 py-1 flex items-center gap-1.5 text-xs font-medium shadow-sm">
-                  {word.word}
-                  <Volume2 className="h-3 w-3 text-muted-foreground" />
-                </div>
+            {/* Word summary card */}
+            <div className="rounded-2xl border border-border bg-card p-4 mb-4">
+              <div className="flex items-center justify-between mb-1">
+                <p className="font-semibold text-foreground">{word.word}</p>
+                <button className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 active:scale-95 transition-all">
+                  <Volume2 className="h-4 w-4 text-primary" />
+                </button>
               </div>
+              <p className="text-sm text-muted-foreground">{word.translation}</p>
             </div>
 
             <div className="space-y-2.5 flex-1">
-              <button className="w-full flex items-center justify-between p-3.5 rounded-xl bg-card border border-border hover:bg-muted/30 transition-colors">
-                <span className="text-sm text-muted-foreground">Post to which community...</span>
-                <ChevronDown className="h-4 w-4 text-muted-foreground" />
-              </button>
+              {/* Caption textbox */}
+              <div className="rounded-xl bg-card border border-border p-3">
+                <p className="text-xs text-muted-foreground mb-1.5">Add a caption...</p>
+                <textarea
+                  value={lessonCaption}
+                  onChange={e => setLessonCaption(e.target.value)}
+                  placeholder={`Share how you used "${word.word}"...`}
+                  rows={3}
+                  className="w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground resize-none focus:outline-none"
+                />
+              </div>
               <button className="w-full flex items-center justify-between p-3.5 rounded-xl bg-card border border-border hover:bg-muted/30 transition-colors">
                 <span className="text-sm text-muted-foreground">Add a location...</span>
                 <Globe className="h-4 w-4 text-muted-foreground" />
@@ -745,13 +836,13 @@ export default function LearnPage() {
               <Button
                 variant="outline"
                 onClick={exitLesson}
-                className="flex-1 h-12 rounded-xl border-destructive/30 text-destructive hover:bg-destructive/5 hover:text-destructive"
+                className="flex-1 h-12 rounded-xl"
               >
-                Discard
+                Done
               </Button>
               <Button
                 onClick={exitLesson}
-                className="flex-1 h-12 rounded-xl bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                className="flex-1 h-12 rounded-xl"
               >
                 Post!
               </Button>
@@ -776,29 +867,38 @@ export default function LearnPage() {
       </div>
       {/* Today's Progress */}
       <section className="mb-5">
-        <div className={cn(
-          "rounded-2xl border p-4",
-          goalMet ? "bg-sage/5 border-sage/30" : "bg-card border-border"
-        )}>
+        <div
+          className="rounded-2xl border p-4 transition-colors duration-500"
+          style={goalMet
+            ? { background: '#CDDD0112', borderColor: '#CDDD0150' }
+            : { background: '', borderColor: '' }}
+        >
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <Flame className={cn("h-4 w-4", goalMet ? "text-sage" : "text-muted-foreground")} />
+              <Flame
+                className="h-4 w-4 transition-colors duration-300"
+                style={{ color: goalMet ? '#CDDD01' : 'var(--muted-foreground)' }}
+              />
               <span className="text-sm font-medium text-foreground">Today's Progress</span>
             </div>
-            <span className={cn(
-              "text-xs font-medium px-2 py-0.5 rounded-full",
-              goalMet ? "bg-sage/20 text-sage" : "bg-muted text-muted-foreground"
-            )}>
-              {goalMet ? "Goal met!" : `${sessionsDoneToday} / ${dailyGoal} session`}
+            <span
+              className="text-xs font-bold px-2.5 py-0.5 rounded-full transition-colors duration-300"
+              style={goalMet
+                ? { background: '#CDDD0120', color: '#7a8700' }
+                : { background: 'var(--muted)', color: 'var(--muted-foreground)' }}
+            >
+              {goalMet
+                ? `${sessionsDoneToday}/${dailyGoal} session${dailyGoal !== 1 ? 's' : ''}`
+                : `${sessionsDoneToday} / ${dailyGoal} session`}
             </span>
           </div>
           <div className="h-2 rounded-full bg-muted overflow-hidden mb-3">
             <div
-              className={cn(
-                "h-full rounded-full transition-all duration-500",
-                goalMet ? "bg-sage" : "bg-primary"
-              )}
-              style={{ width: `${progressPct}%` }}
+              className="h-full rounded-full transition-all duration-500"
+              style={{
+                width: `${progressPct}%`,
+                background: goalMet ? '#CDDD01' : 'var(--primary)',
+              }}
             />
           </div>
           {sessionsDoneToday > 0 ? (
@@ -930,9 +1030,20 @@ export default function LearnPage() {
 
       {/* Word Bank Section */}
       <section>
+        <h2 className="text-lg font-semibold text-foreground mb-3">Word Banks</h2>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-foreground">Word Banks</h2>
-          
+          <div className="flex items-center gap-2">
+            {/* Add word pill */}
+            <button
+              onClick={() => setShowAddWord(true)}
+              className="flex items-center gap-1 h-8 px-3 rounded-full border border-dashed border-primary/50 text-primary text-xs font-medium hover:bg-primary/5 transition-colors"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Add
+            </button>
+
+          </div>
+
           <div className="flex items-center gap-2">
             {/* Language Filter */}
             <DropdownMenu>
@@ -994,9 +1105,10 @@ export default function LearnPage() {
           <div className="space-y-3">
             {wordBanks.map((bank) => {
               const isOpen = openBanks.has(bank.id);
-              const avgMastery = Math.round(
-                bank.words.reduce((sum, w) => sum + w.masteryLevel, 0) / bank.words.length
-              );
+              const activeWords = bank.words.filter(w => !deletedWordIds.has(w.id));
+              const learnedCount = activeWords.filter(w => learnedWordIds.has(w.id)).length;
+              const learnedPct = activeWords.length > 0 ? Math.round((learnedCount / activeWords.length) * 100) : 0;
+              const allLearned = learnedCount === bank.words.length;
               const toggleOpen = () =>
                 setOpenBanks(prev => {
                   const next = new Set(prev);
@@ -1016,14 +1128,20 @@ export default function LearnPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-foreground text-sm">{bank.label}</p>
-                      <p className="text-xs text-muted-foreground">{bank.words.length} word{bank.words.length !== 1 ? 's' : ''}</p>
+                      <p className="text-xs text-muted-foreground">{activeWords.length} word{activeWords.length !== 1 ? 's' : ''}</p>
                     </div>
-                    {/* Avg mastery pill */}
+                    {/* Lesson completion pill */}
                     <div className="flex items-center gap-1.5 mr-2">
                       <div className="h-1.5 w-14 rounded-full bg-muted overflow-hidden">
-                        <div className="h-full rounded-full bg-sage transition-all" style={{ width: `${avgMastery}%` }} />
+                        <div
+                          className="h-full rounded-full transition-all duration-500"
+                          style={{
+                            width: `${learnedPct}%`,
+                            background: '#CDDD01',
+                          }}
+                        />
                       </div>
-                      <span className="text-xs text-muted-foreground w-7 text-right">{avgMastery}%</span>
+                      <span className="text-xs text-muted-foreground w-7 text-right">{learnedPct}%</span>
                     </div>
                     <ChevronDown className={cn("h-4 w-4 text-muted-foreground flex-shrink-0 transition-transform duration-200", isOpen && "rotate-180")} />
                   </button>
@@ -1039,26 +1157,76 @@ export default function LearnPage() {
                   {/* Collapsible word list */}
                   {isOpen && (
                     <div className="border-t border-border divide-y divide-border/50">
-                      {bank.words.map((word) => (
-                        <div key={word.id} className="flex items-center gap-3 px-4 py-2.5">
-                          <span className="text-base flex-shrink-0">{word.languageFlag}</span>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              <p className="font-medium text-foreground text-sm truncate">{word.word}</p>
-                              {word.source === 'MANUAL' && (
-                                <Camera className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                              )}
+                      {bank.words.filter(w => !deletedWordIds.has(w.id)).map((word) => {
+                        const isLearned = learnedWordIds.has(word.id);
+                        const displayPct = isLearned ? 100 : word.masteryLevel;
+                        const pendingDelete = confirmDeleteWordId === word.id;
+                        return (
+                          <div key={word.id}>
+                            <div className="flex items-center gap-3 px-4 py-2.5">
+                              <span className="text-base flex-shrink-0">{word.languageFlag}</span>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5">
+                                  <p className="font-medium text-foreground text-sm truncate">{word.word}</p>
+                                  {word.source === 'MANUAL' && (
+                                    <Camera className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                                  )}
+                                </div>
+                                <p className="text-xs text-muted-foreground truncate">{word.translation}</p>
+                              </div>
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                <div className="h-1.5 w-10 rounded-full bg-muted overflow-hidden">
+                                  <div
+                                    className="h-full rounded-full transition-all duration-500"
+                                    style={{ width: `${displayPct}%`, background: '#CDDD01' }}
+                                  />
+                                </div>
+                                <span className="text-xs w-7 text-right" style={{ color: '#7a8700' }}>
+                                  {displayPct}%
+                                </span>
+                              </div>
+                              {/* Remove — first tap shows confirmation */}
+                              <button
+                                onClick={() => setConfirmDeleteWordId(pendingDelete ? null : word.id)}
+                                className={cn(
+                                  "h-6 w-6 rounded-full flex items-center justify-center transition-colors flex-shrink-0",
+                                  pendingDelete
+                                    ? "bg-destructive/15 text-destructive ring-1 ring-destructive/30"
+                                    : "text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                )}
+                                title="Remove from word bank"
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </button>
                             </div>
-                            <p className="text-xs text-muted-foreground truncate">{word.translation}</p>
+
+                            {/* Inline confirmation bar */}
+                            {pendingDelete && (
+                              <div className="mx-4 mb-2 flex items-center justify-between rounded-lg bg-destructive/10 px-3 py-2 text-sm animate-in fade-in duration-200">
+                                <span className="text-destructive font-medium text-xs">Remove this word?</span>
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={() => setConfirmDeleteWordId(null)}
+                                    className="text-muted-foreground hover:text-foreground text-xs px-2 py-1 rounded"
+                                  >
+                                    Cancel
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setDeletedWordIds(prev => new Set([...prev, word.id]));
+                                      setConfirmDeleteWordId(null);
+                                      deleteWordMutation.mutate(word.id);
+                                    }}
+                                    className="bg-destructive text-destructive-foreground text-xs px-3 py-1 rounded-lg font-medium"
+                                  >
+                                    Remove
+                                  </button>
+                                </div>
+                              </div>
+                            )}
                           </div>
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            <div className="h-1.5 w-10 rounded-full bg-muted overflow-hidden">
-                              <div className="h-full rounded-full bg-sage transition-all" style={{ width: `${word.masteryLevel}%` }} />
-                            </div>
-                            <span className="text-xs text-muted-foreground w-7 text-right">{word.masteryLevel}%</span>
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -1067,6 +1235,68 @@ export default function LearnPage() {
           </div>
         )}
       </section>
+
+      {/* Add Word Modal */}
+      {showAddWord && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center">
+          <div className="absolute inset-0 bg-foreground/40 backdrop-blur-sm" onClick={() => setShowAddWord(false)} />
+          <div className="relative w-full max-w-md bg-card rounded-t-3xl shadow-soft p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] animate-slide-up">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-lg font-semibold text-foreground">Add to Word Bank</h3>
+              <button onClick={() => setShowAddWord(false)} className="h-8 w-8 rounded-full flex items-center justify-center text-muted-foreground hover:bg-muted transition-colors">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3 mb-5">
+              {/* Language picker */}
+              <div className="flex gap-2 flex-wrap">
+                {ADD_LANGUAGES.map(l => (
+                  <button
+                    key={l.code}
+                    onClick={() => setAddLangCode(l.code)}
+                    className={cn(
+                      "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border transition-colors",
+                      addLangCode !== l.code && "border-border text-muted-foreground hover:bg-muted"
+                    )}
+                    style={addLangCode === l.code
+                      ? { background: '#CDDD0120', borderColor: '#CDDD0160', color: '#5a6300' }
+                      : undefined}
+                  >
+                    <span>{l.flag}</span>
+                    <span>{l.name}</span>
+                  </button>
+                ))}
+              </div>
+
+              <input
+                type="text"
+                value={addWord}
+                onChange={e => setAddWord(e.target.value)}
+                placeholder="Word or phrase..."
+                className="w-full rounded-xl border border-border bg-muted px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+              />
+              <input
+                type="text"
+                value={addTranslation}
+                onChange={e => setAddTranslation(e.target.value)}
+                placeholder="Translation..."
+                className="w-full rounded-xl border border-border bg-muted px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                onKeyDown={e => { if (e.key === 'Enter') handleAddWord(); }}
+              />
+
+              <Button
+                onClick={handleAddWord}
+                disabled={!addWord.trim() || !addTranslation.trim() || createWordMutation.isPending}
+                className="w-full h-12 rounded-xl gap-2"
+              >
+                {createWordMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                Add
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -211,7 +211,7 @@ export default function FeedPage() {
           <div className="relative">
             <button
               onClick={() => setShowLanguageDropdown(!showLanguageDropdown)}
-              className="flex items-center gap-2 px-3 py-2 rounded-full bg-muted hover:bg-muted/80 transition-colors text-sm font-medium"
+              className="flex items-center gap-2 px-3 py-2 rounded-full border border-border bg-card hover:bg-muted/50 transition-colors text-sm font-medium"
             >
               <span className="text-base">
                 {selectedLanguage ? languageFlags[selectedLanguage] : "🌍"}
@@ -256,10 +256,10 @@ export default function FeedPage() {
 
           <button
             onClick={() => setTranslateAll(t => !t)}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-sm font-medium transition-colors ${
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-full border text-sm font-medium transition-colors ${
               translateAll
-                ? 'text-primary bg-[#9973CE15]'
-                : 'bg-muted text-muted-foreground hover:bg-[#9973CE15] hover:text-primary'
+                ? 'text-primary bg-[#9973CE15] border-primary/30'
+                : 'border-border bg-card text-foreground'
             }`}
           >
             <Languages className="h-4 w-4" />
