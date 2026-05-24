@@ -41,6 +41,7 @@ export default function ExplorePage() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [fullscreenLearner, setFullscreenLearner] = useState<NearbyLearner | null>(null);
   const [fullscreenMeetup, setFullscreenMeetup] = useState<Meetup | null>(null);
+  const [venuePrefill, setVenuePrefill] = useState<{ name: string; address: string } | null>(null);
 
   const [locationState, setLocationState] = useState<LocationState>({ status: 'loading' });
 
@@ -300,6 +301,12 @@ export default function ExplorePage() {
                   setFullscreenLearner(null);
                   navigate('/messages');
                 }}
+                onSuggestVenue={(venue) => {
+                  setFullscreenLearner(null);
+                  setIsFullscreen(false);
+                  setVenuePrefill({ name: venue.name, address: venue.address });
+                  setCreateModalOpen(true);
+                }}
               />
             </div>
           )}
@@ -408,8 +415,9 @@ export default function ExplorePage() {
       {/* Create meetup modal */}
       <CreateMeetupModal
         isOpen={createModalOpen}
-        onClose={() => setCreateModalOpen(false)}
+        onClose={() => { setCreateModalOpen(false); setVenuePrefill(null); }}
         onSubmit={handleCreateMeetup}
+        prefillLocation={venuePrefill ?? undefined}
       />
     </div>
   );
