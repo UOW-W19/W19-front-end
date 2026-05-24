@@ -253,9 +253,9 @@ export default function ExplorePage() {
         <Button
           type="button"
           size="icon"
-          variant="secondary"
+          variant="default"
           onClick={() => setIsFullscreen(true)}
-          className="absolute right-3 top-3 h-10 w-10 rounded-full bg-background/95 shadow-md backdrop-blur-sm"
+          className="absolute bottom-12 right-3 h-10 w-10 rounded-full shadow-md backdrop-blur-sm"
           aria-label="Open fullscreen map"
           title="Open fullscreen map"
         >
