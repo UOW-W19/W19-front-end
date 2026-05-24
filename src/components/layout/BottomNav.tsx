@@ -7,8 +7,8 @@ import { cn } from "@/lib/utils";
 // Scanner (+) is always elevated in a purple pill regardless of active state
 
 const navItems = [
-  { to: "/explore",  icon: MapPin,         label: "Explore"  },
   { to: "/",         icon: Compass,        label: "Feed"     },
+  { to: "/explore",  icon: MapPin,         label: "Explore"  },
   { to: "/scanner",  icon: Plus,           label: "Scan"     },  // centre elevated
   { to: "/messages", icon: MessageSquare,  label: "Messages" },
   { to: "/learn",    icon: GraduationCap,  label: "Learn"    },
@@ -40,16 +40,19 @@ export function BottomNav() {
                 to={item.to}
                 aria-label={item.label}
                 aria-current={active ? "page" : undefined}
-                className="flex flex-col items-center justify-center touch-target min-w-[48px] gap-0.5 active:scale-95 transition-transform"
+                className="flex flex-col items-center justify-end touch-target min-w-[48px] gap-0.5 active:scale-95 transition-transform pb-1"
               >
-                {/* Always-purple elevated circle for scanner */}
+                {/* Always-primary elevated circle for scanner */}
                 <div
-                  className="flex items-center justify-center w-12 h-12 rounded-full shadow-md -mt-5"
+                  className="flex items-center justify-center w-14 h-14 rounded-full shadow-md -mt-7"
                   style={{ background: '#9973CE' }}
                   aria-hidden="true"
                 >
-                  <item.icon className="h-6 w-6 text-white stroke-[2.5px]" />
+                  <item.icon className="h-7 w-7 text-white stroke-[2.5px]" />
                 </div>
+                <span className="text-[10px] font-medium" style={{ color: '#18112C' }}>
+                  {item.label}
+                </span>
               </NavLink>
             );
           }
@@ -65,24 +68,26 @@ export function BottomNav() {
                 "transition-transform active:scale-95"
               )}
             >
-              {/* Icon — active gets purple circle background */}
+              {/* Icon — active gets primary circle background */}
               <div
-                className={cn(
-                  "flex items-center justify-center w-10 h-10 rounded-full transition-colors"
-                )}
-                style={{
-                  background: active ? '#9973CE' : 'transparent',
-                }}
+                className="flex items-center justify-center w-10 h-10 rounded-full transition-colors"
+                style={{ background: active ? '#9973CE' : 'transparent' }}
                 aria-hidden="true"
               >
                 <item.icon
-                  className={cn("h-6 w-6 transition-all")}
+                  className="h-6 w-6 transition-all"
                   style={{
                     color:       active ? '#ffffff' : '#18112C',
                     strokeWidth: active ? 2.5 : 1.75,
                   }}
                 />
               </div>
+              <span
+                className="text-[10px] font-medium"
+                style={{ color: active ? '#9973CE' : '#18112C' }}
+              >
+                {item.label}
+              </span>
             </NavLink>
           );
         })}
