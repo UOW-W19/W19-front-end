@@ -83,7 +83,7 @@ export default function AuthPage() {
   const removeCommunity = (c: string) => setCommunities(p => p.filter(x => x !== c));
 
   const Page = ({ children }: { children: React.ReactNode }) => (
-    <div className="min-h-screen flex flex-col" style={{ background: '#EDEBE8' }}>
+    <div className="min-h-screen flex flex-col" style={{ background: '#F7F0EE' }}>
       <main className="flex-1 flex flex-col px-6 pt-10 pb-8 max-w-md mx-auto w-full">
         {children}
       </main>
