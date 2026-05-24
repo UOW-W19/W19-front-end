@@ -7,8 +7,8 @@ import { cn } from "@/lib/utils";
 // Scanner (+) is always elevated in a purple pill regardless of active state
 
 const navItems = [
-  { to: "/",         icon: Compass,        label: "Feed"     },
   { to: "/explore",  icon: MapPin,         label: "Explore"  },
+  { to: "/",         icon: Compass,        label: "Feed"     },
   { to: "/scanner",  icon: Plus,           label: "Scan"     },  // centre elevated
   { to: "/messages", icon: MessageSquare,  label: "Messages" },
   { to: "/learn",    icon: GraduationCap,  label: "Learn"    },
