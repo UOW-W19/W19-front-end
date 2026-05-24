@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
   Camera,
@@ -25,7 +26,10 @@ type ScannerStep = "select" | "preview" | "result" | "subscribe";
 const confidenceLabel = (confidence: number) => `${Math.round(confidence * 100)}%`;
 
 export default function ScannerPage() {
-  const [step, setStep] = useState<ScannerStep>("select");
+  const [searchParams] = useSearchParams();
+  const [step, setStep] = useState<ScannerStep>(
+    searchParams.get("step") === "subscribe" ? "subscribe" : "select"
+  );
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [detectedObjects, setDetectedObjects] = useState<DetectedObject[]>([]);
@@ -36,7 +40,9 @@ export default function ScannerPage() {
     const stored = localStorage.getItem('scansRemaining');
     return stored !== null ? parseInt(stored, 10) : 3;
   });
-  const [showScanPopup, setShowScanPopup] = useState(true);
+  const [showScanPopup, setShowScanPopup] = useState(
+    searchParams.get("step") !== "subscribe"
+  );
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const prevStepRef = useRef<ScannerStep>("select");

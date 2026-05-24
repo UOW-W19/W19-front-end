@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Plus, MessageCircle, MapPin, Loader2 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import type { Meetup, NearbyLearner, CreateMeetupRequest } from '@/types/meetup';
 import { meetupsApi } from '@/services/api/meetups';
@@ -22,6 +22,22 @@ const DEFAULT_LOCATION = { latitude: 40.7128, longitude: -74.0060 };
 
 export default function ExplorePage() {
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Scroll to hash anchor after data loads (e.g. #upcoming-meetups from ProfilePage)
+  useEffect(() => {
+    if (!location.hash) return;
+    const el = document.querySelector(location.hash);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth' });
+    } else {
+      // Retry once after a short delay to allow async content to render
+      const t = setTimeout(() => {
+        document.querySelector(location.hash)?.scrollIntoView({ behavior: 'smooth' });
+      }, 600);
+      return () => clearTimeout(t);
+    }
+  }, [location.hash]);
   const [meetups, setMeetups] = useState<Meetup[]>([]);
   const [learners, setLearners] = useState<NearbyLearner[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -261,7 +277,7 @@ export default function ExplorePage() {
       </section>
 
       {/* Upcoming meetups */}
-      <section>
+      <section id="upcoming-meetups">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-foreground">Upcoming Meetups</h2>
           <Button
