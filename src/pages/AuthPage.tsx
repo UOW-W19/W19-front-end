@@ -271,7 +271,7 @@ export default function AuthPage() {
             <p className="text-center text-sm text-muted-foreground">
               <span className="font-medium text-foreground">Demo account:</span>
               <br />
-              demo@locale.app / demo123
+              demo@locale.app / 123456
             </p>
           </div>
         )}
