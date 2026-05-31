@@ -2,6 +2,8 @@
 
 React + TypeScript + Vite frontend for the Locale language exchange app.
 
+For public hosting instructions, see [DEPLOYMENT.md](DEPLOYMENT.md).
+
 ## Prerequisites
 
 - **Docker Desktop** (No Node or npm needed if using Docker!)

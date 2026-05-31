@@ -718,8 +718,18 @@ export default function ExploreMap({ meetups, learners, onMeetupClick, onLearner
   }
 
   return (
-    <div className={className ?? 'relative h-80 w-full rounded-2xl overflow-hidden border border-border'}>
+    <div className={className ? `locale-explore-map ${className}` : 'locale-explore-map relative h-80 w-full rounded-2xl overflow-hidden border border-border'}>
       <div ref={mapContainer} className="absolute inset-0" style={{ width: '100%', height: '100%' }} />
+
+      <style>{`
+        .locale-explore-map .mapboxgl-ctrl-top-right {
+          top: 3.75rem;
+          right: 0.75rem;
+        }
+        .locale-explore-map .mapboxgl-ctrl-top-right .mapboxgl-ctrl {
+          margin: 0;
+        }
+      `}</style>
 
       {!isMapReady && (
         <div className="absolute inset-0 bg-muted flex items-center justify-center">

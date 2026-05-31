@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { Client } from "@stomp/stompjs";
+import { WS_URL } from "@/services/api/config";
 import { getStoredToken } from "@/services/api/auth";
 import { useAuth } from "@/contexts";
 import { StompContext } from "./stomp-context";
 
-const wsProtocol = window.location.protocol === "https:" ? "wss" : "ws";
-const WS_URL = `${wsProtocol}://${window.location.host}/ws-native`;
 const shouldLogStomp = import.meta.env.DEV;
 const stompDebug = shouldLogStomp ? (message: string) => console.debug("[stomp]", message) : () => {};
 

@@ -13,6 +13,7 @@ import {
   Sun,
   MapPin,
   Loader2,
+  Download,
 } from "lucide-react";
 import { useAuth } from "@/contexts";
 import { usersApi } from "@/services/api/users";
@@ -30,6 +31,7 @@ const settingsSections = [
   {
     title: "Preferences",
     items: [
+      { icon: Download,   label: "Install App",           to: "/install",                 ready: true  },
       { icon: Bell,       label: "Notifications",        to: "/settings/notifications",  ready: true  },
       { icon: Palette,    label: "Appearance",           to: "/settings/appearance",     ready: false },
     ],

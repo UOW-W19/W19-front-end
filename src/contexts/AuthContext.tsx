@@ -1,8 +1,18 @@
 import { useEffect, useState, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import type { UserProfile, LoginRequest, RegisterRequest, UpdateProfileRequest } from '@/types/api';
-import { authApi, getStoredToken, storeAuth, clearAuth } from '@/services/api';
+import { authApi, getStoredToken, getStoredUser, storeAuth, clearAuth } from '@/services/api';
 import { AuthContext } from './auth-context';
+
+const isOffline = () =>
+  typeof navigator !== 'undefined' && !navigator.onLine;
+
+const isNetworkError = (error: unknown) => {
+  if (isOffline()) return true;
+  if (!(error instanceof Error)) return false;
+
+  return /failed to fetch|networkerror|load failed/i.test(error.message);
+};
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserProfile | null>(null);
@@ -12,8 +22,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const initAuth = async () => {
       const token = getStoredToken();
+      const storedUser = getStoredUser();
 
       if (!token) {
+        setIsLoading(false);
+        return;
+      }
+
+      if (storedUser && isOffline()) {
+        setUser(storedUser);
         setIsLoading(false);
         return;
       }
@@ -22,7 +39,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Validate token by calling the backend
         const profile = await authApi.getProfile();
         setUser(profile);
-      } catch {
+      } catch (error) {
+        if (storedUser && isNetworkError(error)) {
+          setUser(storedUser);
+          return;
+        }
+
         // Token is invalid or expired - clear auth
         console.warn('Session expired or invalid, clearing auth');
         clearAuth();
