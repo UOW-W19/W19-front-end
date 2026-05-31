@@ -8,14 +8,16 @@
     <meta name="apple-mobile-web-app-title" content="Locale" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="theme-color" content="#f5f2ec" />
+    <meta name="msapplication-TileColor" content="#f5f2ec" />
     
     <title>Locale - Learn Languages Together</title>
     <meta name="description" content="Connect with language learners nearby. Practice, share, and grow together." />
     <meta name="author" content="Locale" />
 
     <!-- PWA Icons -->
-    <link rel="icon" href="/favicon.ico" />
-    <link rel="apple-touch-icon" href="/pwa-192x192.png" />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" href="/locale-logo.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon-180x180.png" />
 
     <meta property="og:title" content="Locale - Learn Languages Together" />
     <meta property="og:description" content="Connect with language learners nearby. Practice, share, and grow together." />
@@ -26,7 +28,11 @@
     <meta name="twitter:site" content="@Locale" />
     <meta name="twitter:image" content="/pwa-512x512.png" />
     
-    <!-- Prevent tap highlight on iOS -->
+    <!-- Lexend is Beth's design font; keep it token-level so app behavior stays unchanged. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+
     <style>
       * { -webkit-tap-highlight-color: transparent; }
       html, body { overscroll-behavior: none; }

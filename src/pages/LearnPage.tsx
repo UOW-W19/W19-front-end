@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useRef } from "react";
-import { Sparkles, RotateCcw, Check, X, ChevronLeft, BookOpen, Camera, TrendingUp, Globe, Zap, ArrowUpDown, ChevronDown, Loader2 } from "lucide-react";
+import { Sparkles, RotateCcw, Check, X, ChevronLeft, BookOpen, Camera, TrendingUp, Globe, Zap, ArrowUpDown, ChevronDown, Loader2, Flame, Mic, Volume2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { SavedWord } from "@/types";
 import {
@@ -19,10 +19,71 @@ import {
   type PracticeResult,
 } from "@/hooks/useLearnApi";
 
-type PracticeMode = 'idle' | 'practicing' | 'results';
+type PracticeMode = 'idle' | 'practicing' | 'results' | 'learning';
 type SortOption = 'newest' | 'mastery_high' | 'mastery_low';
+type WordBank = { id: string; label: string; words: SavedWord[] };
 
 const SESSION_SIZE_OPTIONS = [5, 10, 15] as const;
+
+const WAVEFORM_HEIGHTS = [8, 14, 10, 18, 12, 22, 10, 16, 20, 12, 18, 10, 22, 14, 10, 18, 12, 16, 8, 14];
+
+// ── Concept categorisation ──────────────────────────────────────────────────
+
+const CONCEPT_CATEGORIES: { id: string; label: string; keywords: string[] }[] = [
+  {
+    id: 'electronics',
+    label: 'Electronics & Tech',
+    keywords: ['keyboard', 'computer', 'phone', 'screen', 'battery', 'charger', 'laptop', 'tablet', 'mouse', 'cable', 'internet', 'wifi', 'app', 'device', 'camera', 'printer', 'monitor', 'software', 'hardware', 'network', 'bluetooth', 'headphone', 'speaker', 'remote', 'digital'],
+  },
+  {
+    id: 'shopping',
+    label: 'Shopping & Money',
+    keywords: ['how much', 'price', 'cost', 'buy', 'shop', 'store', 'market', 'pay', 'discount', 'cheap', 'expensive', 'sale', 'receipt', 'money', 'cash', 'card', 'purchase', 'refund', 'wallet', 'coin', 'bank', 'currency', 'change', 'bill', 'budget'],
+  },
+  {
+    id: 'food',
+    label: 'Food & Drink',
+    keywords: ['eat', 'food', 'drink', 'coffee', 'restaurant', 'menu', 'hungry', 'cook', 'meal', 'breakfast', 'lunch', 'dinner', 'bread', 'meat', 'vegetable', 'fruit', 'juice', 'beer', 'wine', 'tea', 'rice', 'soup', 'dessert', 'snack', 'delicious', 'taste', 'kitchen', 'recipe', 'milk', 'cheese', 'egg'],
+  },
+  {
+    id: 'travel',
+    label: 'Travel & Transport',
+    keywords: ['train', 'bus', 'airport', 'hotel', 'map', 'ticket', 'passport', 'direction', 'car', 'taxi', 'flight', 'trip', 'journey', 'station', 'city', 'country', 'border', 'luggage', 'reservation', 'tourist', 'road', 'bridge', 'ferry', 'subway', 'platform'],
+  },
+  {
+    id: 'greetings',
+    label: 'Greetings & Phrases',
+    keywords: ['hello', 'good morning', 'good night', 'goodbye', 'thank', 'please', 'sorry', 'excuse', 'welcome', 'understand', 'speak', 'repeat', 'help', 'know', 'what is', 'how are', 'nice to meet', 'see you', 'good luck', 'congratulations'],
+  },
+  {
+    id: 'people',
+    label: 'People & Family',
+    keywords: ['mother', 'father', 'brother', 'sister', 'friend', 'family', 'child', 'baby', 'husband', 'wife', 'parent', 'son', 'daughter', 'uncle', 'aunt', 'grandmother', 'grandfather', 'person', 'man', 'woman', 'boy', 'girl', 'neighbour', 'colleague', 'boss'],
+  },
+  {
+    id: 'body',
+    label: 'Body & Health',
+    keywords: ['head', 'hand', 'foot', 'eye', 'ear', 'nose', 'mouth', 'body', 'sick', 'doctor', 'hospital', 'medicine', 'pain', 'heart', 'back', 'arm', 'leg', 'tooth', 'health', 'exercise', 'sleep', 'tired', 'fever', 'allergy', 'pharmacy'],
+  },
+  {
+    id: 'home',
+    label: 'Home & Living',
+    keywords: ['house', 'home', 'room', 'door', 'window', 'bed', 'chair', 'table', 'bathroom', 'garden', 'floor', 'wall', 'furniture', 'key', 'clean', 'wash', 'sofa', 'lamp', 'shelf', 'cupboard', 'neighbour', 'apartment', 'flat'],
+  },
+  {
+    id: 'nature',
+    label: 'Nature & Weather',
+    keywords: ['sun', 'rain', 'tree', 'flower', 'weather', 'hot', 'cold', 'wind', 'snow', 'cloud', 'river', 'sea', 'mountain', 'forest', 'animal', 'dog', 'cat', 'bird', 'fish', 'sky', 'earth', 'storm', 'beach', 'lake', 'plant', 'season'],
+  },
+];
+
+function categoriseWord(word: string, translation: string): string {
+  const text = `${word} ${translation}`.toLowerCase();
+  for (const cat of CONCEPT_CATEGORIES) {
+    if (cat.keywords.some(kw => text.includes(kw))) return cat.id;
+  }
+  return 'other';
+}
 
 export default function LearnPage() {
   const [mode, setMode] = useState<PracticeMode>('idle');
@@ -31,7 +92,18 @@ export default function LearnPage() {
   const [practiceWords, setPracticeWords] = useState<SavedWord[]>([]);
   const [results, setResults] = useState<PracticeResult[]>([]);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [sessionsDoneToday, setSessionsDoneToday] = useState(0);
+  const [openBanks, setOpenBanks] = useState<Set<string>>(new Set());
   const startTimeRef = useRef<number>(0);
+
+  // Lesson state
+  const [lessonBank, setLessonBank] = useState<WordBank | null>(null);
+  const [lessonStep, setLessonStep] = useState(1);
+  const [lessonTokens, setLessonTokens] = useState<string[]>([]); // correct order
+  const [chipPool, setChipPool] = useState<string[]>([]);
+  const [placedChips, setPlacedChips] = useState<string[]>([]);
+  const [writeInput, setWriteInput] = useState('');
+  const [isRecording, setIsRecording] = useState(false);
 
   // Filtering & Sorting
   const [languageFilter, setLanguageFilter] = useState<string>('all');
@@ -71,6 +143,22 @@ export default function LearnPage() {
     if (languageFilter === 'all') return savedWords;
     return savedWords.filter(w => w.languageFlag === languageFilter);
   }, [savedWords, languageFilter]);
+
+  // Group filtered words by concept for Word Bank cards
+  const wordBanks = useMemo(() => {
+    const map = new Map<string, { id: string; label: string; words: typeof filteredWords }>();
+    for (const w of filteredWords) {
+      const id = categoriseWord(w.word, w.translation);
+      const label = CONCEPT_CATEGORIES.find(c => c.id === id)?.label ?? 'Other';
+      if (!map.has(id)) map.set(id, { id, label, words: [] });
+      map.get(id)!.words.push(w);
+    }
+    // Keep "other" bucket last
+    const banks = Array.from(map.values());
+    const otherIdx = banks.findIndex(b => b.id === 'other');
+    if (otherIdx > 0) banks.push(banks.splice(otherIdx, 1)[0]);
+    return banks;
+  }, [filteredWords]);
 
   // Computed stats from API or fallback
   const displayStats = useMemo(() => {
@@ -145,6 +233,7 @@ export default function LearnPage() {
       } else {
         // Complete session
         await completeSessionMutation.mutateAsync(sessionId);
+        setSessionsDoneToday(n => n + 1);
         setMode('results');
       }
     } catch {
@@ -158,6 +247,25 @@ export default function LearnPage() {
     setShowAnswer(false);
     setResults([]);
     setSessionId(null);
+  }, []);
+
+  const startLesson = useCallback((bank: WordBank) => {
+    const tokens = bank.words[0]?.word.split(/\s+/).filter(Boolean) ?? [];
+    // Shuffle until order differs from the correct order (for multi-word phrases)
+    let shuffled = [...tokens].sort(() => Math.random() - 0.5);
+    if (tokens.length > 1) {
+      while (shuffled.join(' ') === tokens.join(' ')) {
+        shuffled = [...tokens].sort(() => Math.random() - 0.5);
+      }
+    }
+    setLessonBank(bank);
+    setLessonStep(1);
+    setLessonTokens(tokens);
+    setChipPool(shuffled);
+    setPlacedChips([]);
+    setWriteInput('');
+    setIsRecording(false);
+    setMode('learning');
   }, []);
 
   // Loading State
@@ -295,19 +403,19 @@ export default function LearnPage() {
     const percentage = Math.round((correctCount / results.length) * 100);
 
     return (
-      <div className="h-full overflow-y-auto pb-24 scrollbar-hide mx-auto max-w-md px-4 py-6 flex flex-col">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center h-20 w-20 rounded-full bg-primary/10 mb-4">
-            <Sparkles className="h-10 w-10 text-primary" />
+      <div className="h-full overflow-y-auto scrollbar-hide mx-auto max-w-md px-4 pt-5 pb-28 flex flex-col">
+        <div className="text-center mb-5">
+          <div className="inline-flex items-center justify-center h-16 w-16 rounded-full bg-primary/10 mb-3">
+            <Sparkles className="h-8 w-8 text-primary" />
           </div>
           <h2 className="text-2xl font-bold text-foreground mb-2">Session Complete!</h2>
-          <p className="text-lg text-muted-foreground">
+          <p className="text-base text-muted-foreground">
             You got <span className="font-semibold text-primary">{correctCount}</span> out of <span className="font-semibold">{results.length}</span> correct
           </p>
-          <p className="text-3xl font-bold text-foreground mt-2">{percentage}%</p>
+          <p className="text-2xl font-bold text-foreground mt-1">{percentage}%</p>
         </div>
 
-        <div className="flex-1 space-y-2 mb-6">
+        <div className="space-y-2 pb-4">
           {results.map((result, index) => {
             const masteryChange = result.newMastery - result.oldMastery;
 
@@ -349,7 +457,7 @@ export default function LearnPage() {
           })}
         </div>
 
-        <div className="flex gap-4">
+        <div className="sticky bottom-0 -mx-4 mt-auto flex gap-3 border-t border-border bg-background/95 px-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur">
           <Button
             variant="outline"
             onClick={exitPractice}
@@ -374,9 +482,335 @@ export default function LearnPage() {
     );
   }
 
+  // Learning Mode
+  if (mode === 'learning' && lessonBank) {
+    const word = lessonBank.words[0];
+
+    const advanceStep = () => setLessonStep(s => Math.min(s + 1, 4));
+    const exitLesson = () => {
+      setMode('idle');
+      setLessonBank(null);
+      setLessonStep(1);
+      setLessonTokens([]);
+      setChipPool([]);
+      setPlacedChips([]);
+      setWriteInput('');
+      setIsRecording(false);
+    };
+    const placeChip = (chip: string, idx: number) => {
+      setChipPool(prev => prev.filter((_, i) => i !== idx));
+      setPlacedChips(prev => [...prev, chip]);
+    };
+    const removeChip = (chip: string, idx: number) => {
+      setPlacedChips(prev => prev.filter((_, i) => i !== idx));
+      setChipPool(prev => [...prev, chip]);
+    };
+
+    const STEPS = ['Listen', 'Arrange', 'Write', 'Share'];
+
+    return (
+      <div className="min-h-full overflow-y-auto pb-24 scrollbar-hide mx-auto max-w-md px-4 py-6 flex flex-col">
+
+        {/* Header */}
+        <div className="flex items-center justify-between mb-5">
+          <button
+            onClick={exitLesson}
+            className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ChevronLeft className="h-5 w-5" />
+            <span className="text-sm">Exit</span>
+          </button>
+          <h1 className="text-base font-bold text-foreground">
+            {lessonStep === 4 ? 'Share with Community!' : 'Lesson time!'}
+          </h1>
+          <div className="w-12" />
+        </div>
+
+        {/* Step progress indicator */}
+        <div className="flex items-center justify-center mb-6">
+          {STEPS.map((label, i) => {
+            const step = i + 1;
+            const done = lessonStep > step;
+            const active = lessonStep === step;
+            return (
+              <div key={step} className="flex items-center">
+                <div className="flex flex-col items-center gap-1">
+                  <div className={cn(
+                    "h-7 w-7 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300",
+                    done ? "bg-sage text-white" : active ? "bg-primary text-primary-foreground ring-2 ring-primary/25" : "bg-muted text-muted-foreground"
+                  )}>
+                    {done ? <Check className="h-3.5 w-3.5" /> : step}
+                  </div>
+                  <span className={cn("text-[10px]", active ? "text-primary font-medium" : "text-muted-foreground")}>{label}</span>
+                </div>
+                {i < STEPS.length - 1 && (
+                  <div className={cn("h-0.5 w-10 mb-4 transition-all duration-300", done ? "bg-sage" : "bg-muted")} />
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Word card — steps 1–3 */}
+        {lessonStep < 4 && (
+          <div className="rounded-2xl border border-border bg-card p-4 mb-5">
+            <div className="flex items-start justify-between mb-3">
+              <div>
+                <p className="text-sm text-foreground">
+                  <span className="text-muted-foreground">{word.languageName}:</span>{' '}
+                  <span className="font-semibold">{word.word}</span>
+                </p>
+                <p className="text-sm text-foreground">
+                  <span className="text-muted-foreground">English:</span>{' '}
+                  <span className="font-medium">{word.translation}</span>
+                </p>
+              </div>
+                <Volume2 className="h-3 w-3 text-muted-foreground" />
+              {/* <button className="h-8 w-8 rounded-full bg-amber-100 dark:bg-amber-900/20 flex items-center justify-center flex-shrink-0">
+                <Star className="h-4 w-4 text-amber-500 fill-amber-400" />
+              </button> */}
+            </div>
+            <div className="rounded-xl bg-gradient-to-br from-muted to-muted/40 h-36 flex items-center justify-center relative overflow-hidden">
+              <span className="text-6xl opacity-10">{word.languageFlag}</span>
+              {/* <div className="absolute bottom-2 left-2 bg-background/90 backdrop-blur-sm rounded-full px-2.5 py-1 flex items-center gap-1.5 text-xs font-medium shadow-sm">
+                {word.word}
+                <Volume2 className="h-3 w-3 text-muted-foreground" />
+              </div> */}
+            </div>
+          </div>
+        )}
+
+        {/* Step 1 — Voice Prompt */}
+        {lessonStep === 1 && (
+          <div className="flex-1 flex flex-col">
+            <h3 className="font-semibold text-foreground mb-3">Voice Prompt</h3>
+            <div className="rounded-xl bg-muted/40 border border-border p-4 mb-4">
+              <p className="text-xs text-muted-foreground mb-1">Say this phrase:</p>
+              <p className="font-medium text-foreground">{word.word}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{word.translation}</p>
+            </div>
+            <button
+              onClick={() => setIsRecording(r => !r)}
+              className={cn(
+                "w-full rounded-xl p-3.5 flex items-center gap-3 transition-all mb-6",
+                isRecording ? "bg-primary" : "bg-primary/90 hover:bg-primary"
+              )}
+            >
+              <div className="flex items-end gap-0.5 flex-1 h-8">
+                {WAVEFORM_HEIGHTS.map((h, i) => (
+                  <div
+                    key={i}
+                    className={cn("flex-1 rounded-full bg-white/60 transition-all", isRecording && "animate-pulse")}
+                    style={{ height: `${h}px` }}
+                  />
+                ))}
+              </div>
+              <div className={cn(
+                "h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0 transition-all",
+                isRecording ? "bg-white text-primary" : "bg-white/20 text-white"
+              )}>
+                <Mic className="h-4 w-4" />
+              </div>
+            </button>
+            <Button onClick={advanceStep} className="w-full h-12 rounded-xl mt-auto">
+              Continue
+            </Button>
+          </div>
+        )}
+
+        {/* Step 2 — Drag and Drop */}
+        {lessonStep === 2 && (() => {
+          const allPlaced = chipPool.length === 0 && placedChips.length === lessonTokens.length;
+          const isCorrect = allPlaced && placedChips.join(' ') === lessonTokens.join(' ');
+
+          return (
+            <div className="flex-1 flex flex-col">
+              <h3 className="font-semibold text-foreground mb-1">Drag and Drop</h3>
+              <p className="text-sm text-muted-foreground mb-3">"{word.translation}"</p>
+
+              {/* Target drop zone */}
+              <div className={cn(
+                "flex flex-wrap gap-2 p-3 rounded-xl border min-h-[52px] mb-3 transition-colors",
+                isCorrect ? "bg-sage/10 border-sage/40" : "bg-muted/30 border-border"
+              )}>
+                {placedChips.length > 0 ? placedChips.map((chip, i) => (
+                  <button
+                    key={i}
+                    onClick={() => removeChip(chip, i)}
+                    className={cn(
+                      "px-3 py-1.5 rounded-lg border text-sm font-medium transition-colors",
+                      isCorrect
+                        ? "bg-sage/20 text-sage border-sage/40"
+                        : "bg-primary/15 text-primary border-primary/30 hover:bg-primary/25"
+                    )}
+                  >
+                    {chip}
+                  </button>
+                )) : (
+                  <span className="text-xs text-muted-foreground self-center">Tap chips to build the phrase</span>
+                )}
+              </div>
+
+              {/* Feedback message */}
+              {allPlaced && (
+                <p className={cn(
+                  "text-xs font-medium mb-3 text-center",
+                  isCorrect ? "text-sage" : "text-destructive"
+                )}>
+                  {isCorrect ? "Correct! Great job." : "Not quite — tap chips to reorder."}
+                </p>
+              )}
+
+              {/* Available chips */}
+              <div className="flex flex-wrap gap-2 p-3 rounded-xl bg-muted/20 border border-border/50 mb-6">
+                {chipPool.map((chip, i) => (
+                  <button
+                    key={i}
+                    onClick={() => placeChip(chip, i)}
+                    className="px-3 py-1.5 rounded-lg bg-card border border-border text-sm font-medium hover:bg-primary/5 hover:border-primary/30 transition-colors"
+                  >
+                    {chip}
+                  </button>
+                ))}
+                {chipPool.length === 0 && !isCorrect && (
+                  <span className="text-xs text-muted-foreground self-center">Tap a placed chip to return it</span>
+                )}
+                {isCorrect && (
+                  <span className="text-xs text-sage self-center">All chips in order</span>
+                )}
+              </div>
+
+              <Button onClick={advanceStep} disabled={!isCorrect} className="w-full h-12 rounded-xl mt-auto">
+                Continue
+              </Button>
+            </div>
+          );
+        })()}
+
+        {/* Step 3 — Write yourself */}
+        {lessonStep === 3 && (
+          <div className="flex-1 flex flex-col">
+            <h3 className="font-semibold text-foreground mb-1">Write yourself</h3>
+            <p className="text-sm text-muted-foreground mb-4">"{word.translation}"</p>
+            <input
+              type="text"
+              value={writeInput}
+              onChange={e => setWriteInput(e.target.value)}
+              placeholder="Type the phrase..."
+              autoFocus
+              className="w-full rounded-xl border border-border bg-card px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary mb-6"
+            />
+            <Button
+              onClick={advanceStep}
+              disabled={writeInput.trim() === ''}
+              className="w-full h-12 rounded-xl mt-auto"
+            >
+              Continue
+            </Button>
+          </div>
+        )}
+
+        {/* Step 4 — Share with Community */}
+        {lessonStep === 4 && (
+          <div className="flex-1 flex flex-col">
+            <div className="rounded-2xl border border-border bg-card p-4 mb-5">
+              <p className="font-semibold text-foreground mb-3">{lessonBank.label}</p>
+              <div className="rounded-xl bg-gradient-to-br from-muted to-muted/40 h-28 flex items-center justify-center relative overflow-hidden">
+                <span className="text-5xl opacity-10">{word.languageFlag}</span>
+                <div className="absolute bottom-2 left-2 bg-background/90 backdrop-blur-sm rounded-full px-2.5 py-1 flex items-center gap-1.5 text-xs font-medium shadow-sm">
+                  {word.word}
+                  <Volume2 className="h-3 w-3 text-muted-foreground" />
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2.5 flex-1">
+              <button className="w-full flex items-center justify-between p-3.5 rounded-xl bg-card border border-border hover:bg-muted/30 transition-colors">
+                <span className="text-sm text-muted-foreground">Post to which community...</span>
+                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              </button>
+              <button className="w-full flex items-center justify-between p-3.5 rounded-xl bg-card border border-border hover:bg-muted/30 transition-colors">
+                <span className="text-sm text-muted-foreground">Add a location...</span>
+                <Globe className="h-4 w-4 text-muted-foreground" />
+              </button>
+              <div className="flex items-center justify-between p-3.5 rounded-xl bg-card border border-border">
+                <span className="text-sm text-muted-foreground">Post publicly...</span>
+                <div className="h-6 w-11 rounded-full bg-primary relative cursor-pointer flex-shrink-0">
+                  <div className="h-5 w-5 rounded-full bg-white absolute right-0.5 top-0.5 shadow-sm" />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <Button
+                variant="outline"
+                onClick={exitLesson}
+                className="flex-1 h-12 rounded-xl border-destructive/30 text-destructive hover:bg-destructive/5 hover:text-destructive"
+              >
+                Discard
+              </Button>
+              <Button
+                onClick={exitLesson}
+                className="flex-1 h-12 rounded-xl bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+              >
+                Post!
+              </Button>
+            </div>
+          </div>
+        )}
+
+      </div>
+    );
+  }
+
   // Idle View - Stats Dashboard Layout
+  const dailyGoal = 1;
+  const goalMet = sessionsDoneToday >= dailyGoal;
+  const progressPct = Math.min((sessionsDoneToday / dailyGoal) * 100, 100);
+
   return (
     <div className="h-full overflow-y-auto pb-24 scrollbar-hide mx-auto max-w-2xl px-4 py-6">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-2xl font-bold">Learn</h1>
+      </div>
+      {/* Today's Progress */}
+      <section className="mb-5">
+        <div className={cn(
+          "rounded-2xl border p-4",
+          goalMet ? "bg-sage/5 border-sage/30" : "bg-card border-border"
+        )}>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Flame className={cn("h-4 w-4", goalMet ? "text-sage" : "text-muted-foreground")} />
+              <span className="text-sm font-medium text-foreground">Today's Progress</span>
+            </div>
+            <span className={cn(
+              "text-xs font-medium px-2 py-0.5 rounded-full",
+              goalMet ? "bg-sage/20 text-sage" : "bg-muted text-muted-foreground"
+            )}>
+              {goalMet ? "Goal met!" : `${sessionsDoneToday} / ${dailyGoal} session`}
+            </span>
+          </div>
+          <div className="h-2 rounded-full bg-muted overflow-hidden mb-3">
+            <div
+              className={cn(
+                "h-full rounded-full transition-all duration-500",
+                goalMet ? "bg-sage" : "bg-primary"
+              )}
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
+          {sessionsDoneToday > 0 ? (
+            <p className="text-xs text-muted-foreground">
+              {sessionsDoneToday} session{sessionsDoneToday !== 1 ? "s" : ""} completed today — keep it up!
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground">Complete a practice session to hit your daily goal</p>
+          )}
+        </div>
+      </section>
+
       {/* Stats Dashboard */}
       <section className="mb-6">
         <div className="grid grid-cols-3 gap-3">
@@ -421,13 +855,13 @@ export default function LearnPage() {
         </div>
 
         {/* Language flags row */}
-        {displayStats.languages.length > 0 && (
+        {/* {displayStats.languages.length > 0 && (
           <div className="flex items-center justify-center gap-2 mt-3">
             {displayStats.languages.map((flag, i) => (
               <span key={i} className="text-xl">{flag}</span>
             ))}
           </div>
-        )}
+        )} */}
       </section>
 
       {/* Practice Card */}
@@ -440,14 +874,15 @@ export default function LearnPage() {
             <div>
               <h2 className="font-semibold text-foreground">Ready to practice?</h2>
               <p className="text-sm text-muted-foreground">
-                {displayStats.masteredWords} of {displayStats.totalWords} words mastered
+                {/* {displayStats.masteredWords} of {displayStats.totalWords}  */}
+                Quickly practice your problem words
               </p>
             </div>
           </div>
 
-          <p className="text-xs text-muted-foreground mb-4">
-            Words you struggle with will appear more often
-          </p>
+          {/* <p className="text-xs text-muted-foreground mb-4">
+            Quickly practice words you struggle with
+          </p> */}
 
           {/* Session Size Selector */}
           <div className="flex items-center justify-between mb-4 p-3 rounded-xl bg-background/50 border border-border">
@@ -482,7 +917,7 @@ export default function LearnPage() {
             ) : (
               <Sparkles className="h-5 w-5" />
             )}
-            Start Practice ({sessionSize} words)
+            Quick Practice ({sessionSize} words)
           </Button>
 
           {savedWords.length < sessionSize && (
@@ -493,10 +928,10 @@ export default function LearnPage() {
         </div>
       </section>
 
-      {/* My Words Section */}
+      {/* Word Bank Section */}
       <section>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-foreground">My Words</h2>
+          <h2 className="text-lg font-semibold text-foreground">Word Banks</h2>
 
           <div className="flex items-center gap-2">
             {/* Language Filter */}
@@ -547,7 +982,7 @@ export default function LearnPage() {
           </div>
         </div>
 
-        {filteredWords.length === 0 ? (
+        {wordBanks.length === 0 ? (
           <div className="text-center py-12 rounded-2xl border border-dashed border-border">
             <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
             <h3 className="font-medium text-foreground mb-1">No words saved yet</h3>
@@ -556,33 +991,83 @@ export default function LearnPage() {
             </p>
           </div>
         ) : (
-          <div className="space-y-2">
-            {filteredWords.map((word) => (
-              <div
-                key={word.id}
-                className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 transition-all hover:shadow-soft"
-              >
-                <span className="text-lg flex-shrink-0">{word.languageFlag}</span>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <p className="font-medium text-foreground text-sm truncate">{word.word}</p>
-                    {word.source === 'MANUAL' && (
-                      <Camera className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                    )}
+          <div className="space-y-3">
+            {wordBanks.map((bank) => {
+              const isOpen = openBanks.has(bank.id);
+              const avgMastery = Math.round(
+                bank.words.reduce((sum, w) => sum + w.masteryLevel, 0) / bank.words.length
+              );
+              const toggleOpen = () =>
+                setOpenBanks(prev => {
+                  const next = new Set(prev);
+                  if (isOpen) {
+                    next.delete(bank.id);
+                  } else {
+                    next.add(bank.id);
+                  }
+                  return next;
+                });
+
+              return (
+                <div key={bank.id} className="rounded-2xl border border-border bg-card overflow-hidden">
+                  {/* Card header */}
+                  <button
+                    onClick={toggleOpen}
+                    className="w-full flex items-center gap-3 p-4 hover:bg-muted/30 transition-colors text-left"
+                  >
+                    <div className="flex items-center justify-center h-9 w-9 rounded-xl bg-primary/10 flex-shrink-0">
+                      <BookOpen className="h-4 w-4 text-primary" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-foreground text-sm">{bank.label}</p>
+                      <p className="text-xs text-muted-foreground">{bank.words.length} word{bank.words.length !== 1 ? 's' : ''}</p>
+                    </div>
+                    {/* Avg mastery pill */}
+                    <div className="flex items-center gap-1.5 mr-2">
+                      <div className="h-1.5 w-14 rounded-full bg-muted overflow-hidden">
+                        <div className="h-full rounded-full bg-sage transition-all" style={{ width: `${avgMastery}%` }} />
+                      </div>
+                      <span className="text-xs text-muted-foreground w-7 text-right">{avgMastery}%</span>
+                    </div>
+                    <ChevronDown className={cn("h-4 w-4 text-muted-foreground flex-shrink-0 transition-transform duration-200", isOpen && "rotate-180")} />
+                  </button>
+
+                  {/* Learn button row — always visible */}
+                  <div className="px-4 pb-3 flex justify-end border-t border-border/50 pt-3">
+                    <Button size="sm" onClick={() => startLesson(bank)} className="h-8 px-4 rounded-lg gap-1.5">
+                      <Sparkles className="h-3.5 w-3.5" />
+                      Learn
+                    </Button>
                   </div>
-                  <p className="text-xs text-muted-foreground truncate">{word.translation}</p>
+
+                  {/* Collapsible word list */}
+                  {isOpen && (
+                    <div className="border-t border-border divide-y divide-border/50">
+                      {bank.words.map((word) => (
+                        <div key={word.id} className="flex items-center gap-3 px-4 py-2.5">
+                          <span className="text-base flex-shrink-0">{word.languageFlag}</span>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <p className="font-medium text-foreground text-sm truncate">{word.word}</p>
+                              {word.source === 'MANUAL' && (
+                                <Camera className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground truncate">{word.translation}</p>
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <div className="h-1.5 w-10 rounded-full bg-muted overflow-hidden">
+                              <div className="h-full rounded-full bg-sage transition-all" style={{ width: `${word.masteryLevel}%` }} />
+                            </div>
+                            <span className="text-xs text-muted-foreground w-7 text-right">{word.masteryLevel}%</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <div className="h-1.5 w-12 rounded-full bg-muted overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-sage transition-all"
-                      style={{ width: `${word.masteryLevel}%` }}
-                    />
-                  </div>
-                  <span className="text-xs text-muted-foreground w-7 text-right">{word.masteryLevel}%</span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </section>

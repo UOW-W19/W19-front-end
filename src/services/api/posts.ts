@@ -71,6 +71,7 @@ interface BackendPost {
   content: string;
   original_language?: string;
   image_url?: string;
+  image_urls?: string[];
   
   // Location
   latitude?: number;
@@ -78,7 +79,6 @@ interface BackendPost {
   distance?: string;
   location?: string;
   
-  user_reaction?: string;
   is_saved?: boolean;
 
   // Metadata
@@ -140,7 +140,12 @@ const transformPost = (post: BackendPost): ApiPost => {
     id: String(post.id),
     content: post.content,
     originalLanguage: post.original_language ?? 'en',
-    imageUrl: post.image_url,
+    imageUrl: post.image_url ?? post.image_urls?.[0],
+    imageUrls: post.image_urls?.length
+      ? post.image_urls
+      : post.image_url
+        ? [post.image_url]
+        : [],
     latitude: post.latitude,
     longitude: post.longitude,
     distance: post.distance,
@@ -166,7 +171,9 @@ const buildCreatePostFormData = (data: CreatePostRequest) => {
   if (data.longitude !== undefined) {
     formData.append('longitude', String(data.longitude));
   }
-  if (data.image) {
+  if (data.images?.length) {
+    data.images.forEach((image) => formData.append('images', image));
+  } else if (data.image) {
     formData.append('image', data.image);
   }
 

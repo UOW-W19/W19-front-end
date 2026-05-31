@@ -33,6 +33,7 @@ export function ChatWindow({ conversation, messages, onSendMessage, onDeleteMess
     const imageInputRef = useRef<HTMLInputElement>(null);
     const prevConvIdRef = useRef<string>(conversation.id);
     const hasScrolledInitiallyRef = useRef(false);
+    const shouldStickToBottomRef = useRef(true);
     const visibleMessages = useMemo(
         () => messages.filter((msg, index, all) => all.findIndex(m => m.id === msg.id) === index),
         [messages],
@@ -45,7 +46,13 @@ export function ChatWindow({ conversation, messages, onSendMessage, onDeleteMess
     };
 
     const handleScroll = useCallback(() => {
-        setShowScrollButton(!isNearBottom());
+        const nearBottom = isNearBottom();
+        shouldStickToBottomRef.current = nearBottom;
+        setShowScrollButton(!nearBottom);
+    }, []);
+
+    const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
+        messagesEndRef.current?.scrollIntoView({ behavior });
     }, []);
 
     useEffect(() => {
@@ -60,15 +67,16 @@ export function ChatWindow({ conversation, messages, onSendMessage, onDeleteMess
         if (isNewConversation) {
             prevConvIdRef.current = conversation.id;
             hasScrolledInitiallyRef.current = false;
+            shouldStickToBottomRef.current = true;
         }
 
         if (!hasScrolledInitiallyRef.current && messages.length > 0) {
-            messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
+            scrollToBottom("auto");
             hasScrolledInitiallyRef.current = true;
-        } else if (hasScrolledInitiallyRef.current && isNearBottom()) {
-            messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        } else if (hasScrolledInitiallyRef.current && shouldStickToBottomRef.current) {
+            scrollToBottom("smooth");
         }
-    }, [conversation.id, messages.length, visibleMessages.length]);
+    }, [conversation.id, messages.length, visibleMessages.length, scrollToBottom]);
 
     useEffect(() => {
         return () => {
@@ -144,12 +152,18 @@ export function ChatWindow({ conversation, messages, onSendMessage, onDeleteMess
 
     const { isOtherTyping, typingDisplayName, sendTyping } = useTypingIndicator(conversation.id, user?.id ?? '');
 
+    useEffect(() => {
+        if (isOtherTyping && shouldStickToBottomRef.current) {
+            scrollToBottom("smooth");
+        }
+    }, [isOtherTyping, typingDisplayName, scrollToBottom]);
+
     const info = getDisplayInfo();
 
     return (
-        <div className="relative flex flex-col h-full bg-background">
+        <div className="relative flex h-full min-h-0 flex-col bg-background">
             {/* Header */}
-            <div className="flex items-center justify-between px-4 lg:px-6 py-3 border-b border-border bg-card/50 backdrop-blur-sm">
+            <div className="flex shrink-0 items-center justify-between border-b border-border bg-card/50 px-4 py-3 backdrop-blur-sm lg:px-6">
                 <div className="flex items-center gap-3">
                     {/* Mobile Back Button */}
                     <button
@@ -203,7 +217,7 @@ export function ChatWindow({ conversation, messages, onSendMessage, onDeleteMess
             </div>
 
             {/* Messages Area */}
-            <div ref={containerRef} className="flex-1 overflow-y-auto p-4">
+            <div ref={containerRef} className="min-h-0 flex-1 overflow-y-auto p-4 scrollbar-thin">
                 <div className="flex flex-col justify-end min-h-full space-y-4">
                     {visibleMessages.map((msg, index) => {
                         const isMeMock = msg.senderId === 'current-user' || msg.senderId === user?.id;
@@ -304,7 +318,7 @@ export function ChatWindow({ conversation, messages, onSendMessage, onDeleteMess
             {showScrollButton && (
                 <div className="relative h-0">
                     <button
-                        onClick={() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })}
+                        onClick={() => scrollToBottom("smooth")}
                         className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-opacity hover:opacity-90"
                         aria-label="Scroll to latest message"
                     >
@@ -461,7 +475,7 @@ export function ChatWindow({ conversation, messages, onSendMessage, onDeleteMess
             )}
 
             {/* Input Area */}
-            <div className="p-4 border-t border-border bg-card">
+            <div className="shrink-0 border-t border-border bg-card p-4">
                 {selectedImage && (
                     <div className="mb-3 w-fit max-w-[180px] overflow-hidden rounded-xl border border-border bg-muted">
                         <div className="relative">

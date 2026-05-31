@@ -9,7 +9,12 @@ interface BeforeInstallPromptEvent extends Event {
 
 const isStandaloneDisplay = () =>
   typeof window !== "undefined" &&
-  window.matchMedia("(display-mode: standalone)").matches;
+  (
+    window.matchMedia("(display-mode: standalone)").matches ||
+    (typeof navigator !== "undefined" &&
+      "standalone" in navigator &&
+      (navigator as Navigator & { standalone?: boolean }).standalone === true)
+  );
 
 const isIOSDevice = () =>
   typeof navigator !== "undefined" &&
@@ -26,11 +31,14 @@ export default function InstallPage() {
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
     };
+    const handleInstalled = () => setIsInstalled(true);
 
     window.addEventListener("beforeinstallprompt", handleBeforeInstall);
+    window.addEventListener("appinstalled", handleInstalled);
 
     return () => {
       window.removeEventListener("beforeinstallprompt", handleBeforeInstall);
+      window.removeEventListener("appinstalled", handleInstalled);
     };
   }, []);
 
@@ -81,10 +89,10 @@ export default function InstallPage() {
       {/* Benefits */}
       <div className="w-full max-w-sm space-y-3 mb-8">
         {[
-          "Works offline",
-          "Fast app-like experience",
+          "Launches from your home screen",
+          "Opens quickly after first load",
+          "Keeps the app shell available offline",
           "No app store needed",
-          "Get notifications",
         ].map((benefit) => (
           <div key={benefit} className="flex items-center gap-3 p-3 rounded-xl bg-muted">
             <Check className="h-5 w-5 text-primary shrink-0" />

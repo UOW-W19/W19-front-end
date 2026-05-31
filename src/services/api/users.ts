@@ -44,6 +44,7 @@ interface BackendPost {
   content: string;
   original_language?: string;
   image_url?: string;
+  image_urls?: string[];
   latitude?: number;
   longitude?: number;
   distance?: string;
@@ -95,6 +96,19 @@ export interface UserPostsResponse {
   hasMore: boolean;
   nextCursor?: string;
 }
+
+type PublicProfileLanguage = PublicUserProfile['languages'][number];
+
+const dedupeLanguagesByCode = (languages: PublicProfileLanguage[]) => {
+  const byCode = new Map<string, PublicProfileLanguage>();
+  for (const language of languages) {
+    const code = language.code.trim().toLowerCase();
+    if (!byCode.has(code)) {
+      byCode.set(code, { ...language, code });
+    }
+  }
+  return Array.from(byCode.values());
+};
 
 // Helper for API requests
 const apiRequest = async <T>(
@@ -152,13 +166,13 @@ export const transformPublicProfile = (profile: BackendPublicProfile): PublicUse
   bio: profile.bio,
   location: profile.location,
   createdAt: profile.created_at,
-  languages: (profile.languages || []).map(lang => ({
+  languages: dedupeLanguagesByCode((profile.languages || []).map(lang => ({
     code: lang.code,
     name: lang.name,
     flagEmoji: lang.flag_emoji,
     proficiency: lang.proficiency as 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED' | 'NATIVE',
     isLearning: lang.is_learning,
-  })),
+  }))),
   followersCount: profile.followers_count,
   followingCount: profile.following_count,
   postsCount: profile.posts_count,
@@ -175,7 +189,12 @@ const transformPost = (post: BackendPost): ApiPost => ({
   id: String(post.id),
   content: post.content,
   originalLanguage: post.original_language ?? 'en',
-  imageUrl: post.image_url,
+  imageUrl: post.image_url ?? post.image_urls?.[0],
+  imageUrls: post.image_urls?.length
+    ? post.image_urls
+    : post.image_url
+      ? [post.image_url]
+      : [],
   latitude: post.latitude,
   longitude: post.longitude,
   distance: post.distance,
@@ -247,7 +266,7 @@ export const usersApi = {
         meetup_notifications: boolean;
       };
       privacy_settings: {
-        show_location: boolean;
+        location_visibility: 'PUBLIC' | 'FRIENDS_ONLY' | 'NOBODY';
         allow_messages: 'everyone' | 'friends' | 'none';
       };
     }>('/users/me/settings');
@@ -262,7 +281,7 @@ export const usersApi = {
         meetupNotifications: response.notification_prefs.meetup_notifications,
       },
       privacySettings: {
-        locationVisibility: (response.privacy_settings.show_location ? 'PUBLIC' : 'NOBODY') as 'PUBLIC' | 'FRIENDS_ONLY' | 'NOBODY',
+        locationVisibility: response.privacy_settings.location_visibility ?? 'PUBLIC',
         allowMessages: response.privacy_settings.allow_messages,
       },
     };
@@ -305,7 +324,7 @@ export const usersApi = {
         meetup_notifications: boolean;
       };
       privacy_settings: {
-        show_location: boolean;
+        location_visibility: 'PUBLIC' | 'FRIENDS_ONLY' | 'NOBODY';
         allow_messages: 'everyone' | 'friends' | 'none';
       };
     }>('/users/me/settings', {
@@ -323,7 +342,7 @@ export const usersApi = {
         meetupNotifications: response.notification_prefs.meetup_notifications,
       },
       privacySettings: {
-        locationVisibility: (response.privacy_settings.show_location ? 'PUBLIC' : 'NOBODY') as 'PUBLIC' | 'FRIENDS_ONLY' | 'NOBODY',
+        locationVisibility: response.privacy_settings.location_visibility ?? 'PUBLIC',
         allowMessages: response.privacy_settings.allow_messages,
       },
     };

@@ -3,7 +3,7 @@ import { Search, Loader2, MapPin, X } from "lucide-react";
 import { placesApi, type PlacePrediction } from "@/services/api/places";
 
 interface LocationPickerProps {
-    onLocationSelect: (location: { name: string; lat: number; lng: number }) => void;
+    onLocationSelect: (location: { name: string; lat?: number; lng?: number }) => void;
     initialLocation?: string;
 }
 
@@ -12,8 +12,11 @@ export default function LocationPicker({ onLocationSelect, initialLocation }: Lo
     const [results, setResults] = useState<PlacePrediction[]>([]);
     const [loading, setLoading] = useState(false);
     const [showResults, setShowResults] = useState(false);
+    const [placesUnavailable, setPlacesUnavailable] = useState(false);
     const wrapperRef = useRef<HTMLDivElement>(null);
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const trimmedQuery = query.trim();
+    const canUseTypedLocation = trimmedQuery.length >= 3;
 
     // Close dropdown when clicking outside
     useEffect(() => {
@@ -28,6 +31,7 @@ export default function LocationPicker({ onLocationSelect, initialLocation }: Lo
 
     const handleSearch = (searchQuery: string) => {
         setQuery(searchQuery);
+        setPlacesUnavailable(false);
 
         if (debounceRef.current) clearTimeout(debounceRef.current);
 
@@ -50,10 +54,21 @@ export default function LocationPicker({ onLocationSelect, initialLocation }: Lo
             } catch (error) {
                 console.error("Places autocomplete error:", error);
                 setResults([]);
+                setShowResults(false);
+                setPlacesUnavailable(true);
             } finally {
                 setLoading(false);
             }
         }, 300);
+    };
+
+    const useTypedLocation = () => {
+        if (!canUseTypedLocation) return;
+        setQuery(trimmedQuery);
+        setResults([]);
+        setShowResults(false);
+        setPlacesUnavailable(false);
+        onLocationSelect({ name: trimmedQuery });
     };
 
     const handleSelect = async (prediction: PlacePrediction) => {
@@ -73,11 +88,12 @@ export default function LocationPicker({ onLocationSelect, initialLocation }: Lo
                     lat: place.location.latitude,
                     lng: place.location.longitude,
                 });
+            } else {
+                onLocationSelect({ name: place.displayName?.text || displayName });
             }
         } catch (error) {
             console.error("Place details error:", error);
-            // Still set the name even if we can't get coordinates
-            onLocationSelect({ name: displayName, lat: 0, lng: 0 });
+            onLocationSelect({ name: displayName });
         } finally {
             setLoading(false);
         }
@@ -114,7 +130,8 @@ export default function LocationPicker({ onLocationSelect, initialLocation }: Lo
                             setQuery("");
                             setResults([]);
                             setShowResults(false);
-                            onLocationSelect({ name: "", lat: 0, lng: 0 });
+                            setPlacesUnavailable(false);
+                            onLocationSelect({ name: "" });
                         }}
                         className="absolute right-4 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-black/5 dark:hover:bg-white/10"
                     >
@@ -122,6 +139,21 @@ export default function LocationPicker({ onLocationSelect, initialLocation }: Lo
                     </button>
                 )}
             </div>
+
+            {canUseTypedLocation && !showResults && (
+                <button
+                    type="button"
+                    onClick={useTypedLocation}
+                    className="w-full rounded-xl border border-border bg-background px-3 py-2 text-left text-sm text-foreground transition-colors hover:bg-muted"
+                >
+                    Use "{trimmedQuery}"
+                    {placesUnavailable && (
+                        <span className="ml-1 text-muted-foreground">
+                            without map coordinates
+                        </span>
+                    )}
+                </button>
+            )}
 
             {/* Autocomplete Dropdown */}
             {showResults && results.length > 0 && (

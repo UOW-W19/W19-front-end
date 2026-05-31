@@ -1,13 +1,15 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, type ReactNode } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { OfflineBanner } from "@/components/pwa/OfflineBanner";
 import { AuthProvider, useAuth } from "@/contexts";
 import { StompProvider } from "@/contexts/StompContext";
+import { isAdminUser } from "@/lib/roles";
+import MessagesPage from "./pages/MessagesPage";
 
 const FeedPage        = lazy(() => import("./pages/FeedPage"));
 const ExplorePage     = lazy(() => import("./pages/ExplorePage"));
-const MessagesPage    = lazy(() => import("./pages/MessagesPage"));
 const LearnPage       = lazy(() => import("./pages/LearnPage"));
 const ProfilePage     = lazy(() => import("./pages/ProfilePage"));
 const UserProfilePage = lazy(() => import("./pages/UserProfilePage"));
@@ -16,6 +18,9 @@ const InstallPage     = lazy(() => import("./pages/InstallPage"));
 const AuthPage        = lazy(() => import("./pages/AuthPage"));
 const ScannerPage     = lazy(() => import("./pages/ScannerPage"));
 const FriendsPage     = lazy(() => import("./pages/FriendsPage"));
+const NotificationsPage = lazy(() => import("./pages/NotificationsPage"));
+const NotificationsSettingsPage = lazy(() => import("./pages/NotificationsSettingsPage"));
+const AdminPage       = lazy(() => import("./pages/AdminPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -27,7 +32,7 @@ const queryClient = new QueryClient({
 });
 
 // Protected route wrapper
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
+function ProtectedRoute({ children }: { children: ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
@@ -45,6 +50,28 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function AdminRoute({ children }: { children: ReactNode }) {
+  const { user, isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="h-8 w-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/auth" replace />;
+  }
+
+  if (!isAdminUser(user)) {
+    return <Navigate to="/" replace />;
+  }
+
+  return <>{children}</>;
+}
+
 const PageSpinner = () => (
   <div className="min-h-screen flex items-center justify-center bg-background">
     <div className="h-8 w-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
@@ -55,6 +82,7 @@ const AppRoutes = () => (
   <Suspense fallback={<PageSpinner />}>
     <Routes>
       <Route path="/auth" element={<AuthPage />} />
+      <Route path="/install" element={<InstallPage />} />
       <Route
         element={
           <ProtectedRoute>
@@ -69,9 +97,18 @@ const AppRoutes = () => (
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/user/:userId" element={<UserProfilePage />} />
         <Route path="/settings" element={<SettingsPage />} />
-        <Route path="/install" element={<InstallPage />} />
+        <Route path="/settings/notifications" element={<NotificationsSettingsPage />} />
         <Route path="/scanner" element={<ScannerPage />} />
         <Route path="/friends" element={<FriendsPage />} />
+        <Route path="/notifications" element={<NotificationsPage />} />
+        <Route
+          path="/admin"
+          element={
+            <AdminRoute>
+              <AdminPage />
+            </AdminRoute>
+          }
+        />
       </Route>
     </Routes>
   </Suspense>
@@ -83,6 +120,7 @@ function App() {
       <BrowserRouter>
         <AuthProvider>
           <StompProvider>
+            <OfflineBanner />
             <AppRoutes />
           </StompProvider>
         </AuthProvider>

@@ -9,15 +9,23 @@ export interface CreateMeetupModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (data: CreateMeetupRequest) => void;
+  prefillLocation?: { name: string; address: string; lat?: number; lng?: number };
 }
 
-export function CreateMeetupModal({ isOpen, onClose, onSubmit }: CreateMeetupModalProps) {
+export function CreateMeetupModal({ isOpen, onClose, onSubmit, prefillLocation }: CreateMeetupModalProps) {
+  const initialLocationName = prefillLocation
+    ? `${prefillLocation.name}, ${prefillLocation.address}`
+    : "";
+  const initialCoords =
+    prefillLocation?.lat !== undefined && prefillLocation?.lng !== undefined
+      ? { lat: prefillLocation.lat, lng: prefillLocation.lng }
+      : null;
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [selectedLanguage, setSelectedLanguage] = useState(LANGUAGES[0]);
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
-  const [locationName, setLocationName] = useState("");
-  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [locationName, setLocationName] = useState(initialLocationName);
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(initialCoords);
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [maxAttendees, setMaxAttendees] = useState(10);
@@ -169,7 +177,11 @@ export function CreateMeetupModal({ isOpen, onClose, onSubmit }: CreateMeetupMod
           <LocationPicker
             onLocationSelect={(loc) => {
               setLocationName(loc.name);
-              setCoords({ lat: loc.lat, lng: loc.lng });
+              setCoords(
+                loc.lat !== undefined && loc.lng !== undefined
+                  ? { lat: loc.lat, lng: loc.lng }
+                  : null
+              );
             }}
           />
 

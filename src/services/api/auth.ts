@@ -181,16 +181,29 @@ interface BackendProfile {
   posts_count?: number;
 }
 
+type ProfileLanguage = UserProfile['languages'][number];
+
+const dedupeLanguagesByCode = (languages: ProfileLanguage[]) => {
+  const byCode = new Map<string, ProfileLanguage>();
+  for (const language of languages) {
+    const code = language.code.trim().toLowerCase();
+    if (!byCode.has(code)) {
+      byCode.set(code, { ...language, code });
+    }
+  }
+  return Array.from(byCode.values());
+};
+
 // Transform backend profile to frontend UserProfile
 const transformProfile = (profile: BackendProfile): UserProfile => {
   // Transform backend languages array to frontend format
-  const languages = profile.languages?.map(l => ({
+  const languages = dedupeLanguagesByCode(profile.languages?.map(l => ({
     code: l.code,
     name: l.name ?? l.code.toUpperCase(),
     flagEmoji: l.flag_emoji ?? '🏳️',
     proficiency: l.proficiency as 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED' | 'NATIVE',
     isLearning: l.is_learning ?? false,
-  })) ?? [];
+  })) ?? []);
 
   return {
     id: String(profile.id),

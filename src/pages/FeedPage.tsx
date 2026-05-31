@@ -3,7 +3,8 @@ import { Globe, Plus, MessageCircle, ChevronDown, Check, Loader2 } from "lucide-
 import { PostCard } from "@/components/feed/PostCard";
 import { ComposeModal } from "@/components/feed/ComposeModal";
 import type { ComposePostPayload } from "@/components/feed/ComposeModal";
-import { Button } from "@/components/ui/button";
+import UserAvatar from "@/components/common/UserAvatar";
+import { useAuth } from "@/contexts/useAuth";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { postsApi, LANGUAGES, getLanguageByCode } from "@/services/api";
 import type { ApiPost, CreatePostRequest, Post } from "@/types";
@@ -16,6 +17,7 @@ const toUiPost = (apiPost: ApiPost): Post => {
       id: apiPost.author.id,
       name: apiPost.author.displayName,
       avatar: apiPost.author.displayName.charAt(0).toUpperCase(),
+      avatarUrl: apiPost.author.avatarUrl,
       language: apiPost.author.language ?? lang?.name ?? apiPost.originalLanguage,
       flag: apiPost.author.flagEmoji ?? lang?.flag ?? '🌍',
       location: apiPost.author.location,
@@ -27,6 +29,7 @@ const toUiPost = (apiPost: ApiPost): Post => {
     location: apiPost.location || '',
     distance: apiPost.distance || '',
     image: apiPost.imageUrl,
+    imageUrls: apiPost.imageUrls,
     reactions: {
       likes: apiPost.reactions.likes,
       comments: apiPost.reactions.comments,
@@ -52,6 +55,7 @@ const formatRelativeTime = (dateStr: string): string => {
 };
 
 export default function FeedPage() {
+  const { user } = useAuth();
   const [posts, setPosts] = useState<Post[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isFetchingMore, setIsFetchingMore] = useState(false);
@@ -129,6 +133,7 @@ export default function FeedPage() {
     const payload: CreatePostRequest = {
       content: newPostData.content,
       originalLanguage: langCode,
+      images: newPostData.imageFiles?.length ? newPostData.imageFiles : undefined,
       image: newPostData.imageFile || undefined,
     };
     try {
@@ -162,12 +167,31 @@ export default function FeedPage() {
         ref={scrollContainerRef}
         className="h-full overflow-y-auto pb-24 scrollbar-hide w-full max-w-2xl mx-auto px-4 py-4 overflow-x-hidden"
       >
+        {/* Compose prompt */}
+        <button
+          onClick={() => setIsComposeOpen(true)}
+          className="mb-4 flex w-full items-center gap-3 rounded-[28px] border border-purple/15 bg-card px-4 py-3 text-left shadow-locale-sm transition-colors hover:bg-purple/10"
+        >
+          <UserAvatar
+            name={user?.displayName ?? "You"}
+            avatarUrl={user?.avatarUrl}
+            className="h-10 w-10"
+            fallbackClassName="text-sm font-semibold"
+          />
+          <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
+            What&apos;s on your mind{user?.displayName ? `, ${user.displayName.split(" ")[0]}` : ""}?
+          </span>
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-pill bg-primary/10 text-primary">
+            <Plus className="h-4 w-4" />
+          </span>
+        </button>
+
         {/* Header */}
         <div className="mb-4 flex items-center justify-between gap-3">
           <div className="relative">
             <button
               onClick={() => setShowLanguageDropdown(!showLanguageDropdown)}
-              className="flex items-center gap-2 px-3 py-2 rounded-full bg-muted hover:bg-muted/80 transition-colors text-sm font-medium"
+              className="flex items-center gap-2 rounded-pill border border-purple/15 bg-card px-3 py-2 text-sm font-medium shadow-locale-sm transition-colors hover:bg-purple/10"
             >
               <span className="text-base">
                 {selectedLanguage ? languageFlags[selectedLanguage] : "🌍"}
@@ -179,10 +203,10 @@ export default function FeedPage() {
             {showLanguageDropdown && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setShowLanguageDropdown(false)} />
-                <div className="absolute top-full left-0 mt-2 w-48 bg-card border border-border rounded-xl shadow-lg py-1 z-50 max-h-64 overflow-y-auto">
+                <div className="absolute left-0 top-full z-50 mt-2 max-h-64 w-48 overflow-y-auto rounded-2xl border border-purple/15 bg-card py-1 shadow-locale-md">
                   <button
                     onClick={() => { setSelectedLanguage(null); setShowLanguageDropdown(false); }}
-                    className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-muted transition-colors text-left"
+                    className="flex w-full items-center justify-between px-4 py-2.5 text-left transition-colors hover:bg-purple/10"
                   >
                     <div className="flex items-center gap-2">
                       <Globe className="h-4 w-4 text-muted-foreground" />
@@ -194,7 +218,7 @@ export default function FeedPage() {
                     <button
                       key={lang}
                       onClick={() => { setSelectedLanguage(lang); setShowLanguageDropdown(false); }}
-                      className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-muted transition-colors text-left"
+                      className="flex w-full items-center justify-between px-4 py-2.5 text-left transition-colors hover:bg-purple/10"
                     >
                       <div className="flex items-center gap-2">
                         <span className="text-base">{languageFlags[lang]}</span>
@@ -208,14 +232,7 @@ export default function FeedPage() {
             )}
           </div>
 
-          <Button
-            onClick={() => setIsComposeOpen(true)}
-            size="sm"
-            className="gap-1.5 h-9 px-4 rounded-full shadow-sm"
-          >
-            <Plus className="h-4 w-4" />
-            Post
-          </Button>
+          <span className="text-xs font-medium text-muted-foreground">Community feed</span>
         </div>
 
         {/* Posts */}
@@ -242,9 +259,9 @@ export default function FeedPage() {
                 )}
               </>
             ) : (
-              <div className="flex flex-col items-center justify-center py-16 text-center">
-                <div className="rounded-full bg-muted p-4 mb-4">
-                  <MessageCircle className="h-8 w-8 text-muted-foreground" />
+              <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-purple/20 bg-card/70 px-6 py-16 text-center shadow-locale-sm">
+                <div className="mb-4 rounded-2xl bg-purple/10 p-4">
+                  <MessageCircle className="h-8 w-8 text-purple" />
                 </div>
                 <h3 className="text-lg font-semibold text-foreground mb-1">No posts yet</h3>
                 <p className="text-sm text-muted-foreground max-w-xs">
