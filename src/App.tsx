@@ -2,6 +2,7 @@ import { lazy, Suspense, type ReactNode } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { OfflineBanner } from "@/components/pwa/OfflineBanner";
 import { AuthProvider, useAuth } from "@/contexts";
 import { StompProvider } from "@/contexts/StompContext";
 import { isAdminUser } from "@/lib/roles";
@@ -81,6 +82,7 @@ const AppRoutes = () => (
   <Suspense fallback={<PageSpinner />}>
     <Routes>
       <Route path="/auth" element={<AuthPage />} />
+      <Route path="/install" element={<InstallPage />} />
       <Route
         element={
           <ProtectedRoute>
@@ -96,7 +98,6 @@ const AppRoutes = () => (
         <Route path="/user/:userId" element={<UserProfilePage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/settings/notifications" element={<NotificationsSettingsPage />} />
-        <Route path="/install" element={<InstallPage />} />
         <Route path="/scanner" element={<ScannerPage />} />
         <Route path="/friends" element={<FriendsPage />} />
         <Route path="/notifications" element={<NotificationsPage />} />
@@ -119,6 +120,7 @@ function App() {
       <BrowserRouter>
         <AuthProvider>
           <StompProvider>
+            <OfflineBanner />
             <AppRoutes />
           </StompProvider>
         </AuthProvider>

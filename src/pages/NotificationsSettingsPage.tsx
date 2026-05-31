@@ -5,6 +5,7 @@ import { ArrowLeft, Bell, Calendar, Heart, Loader2, MessageSquare, Smartphone } 
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { pushApi } from "@/services/api/push";
 import { usersApi } from "@/services/api/users";
 import type { NotificationPrefs } from "@/types/api";
 
@@ -45,6 +46,32 @@ const notificationOptions: Array<{
   },
 ];
 
+const isPushSupported = () =>
+  typeof window !== "undefined" &&
+  "Notification" in window &&
+  "serviceWorker" in navigator &&
+  "PushManager" in window;
+
+const getNotificationPermission = (): NotificationPermission | "unsupported" => {
+  if (typeof window === "undefined" || !("Notification" in window)) {
+    return "unsupported";
+  }
+  return Notification.permission;
+};
+
+const urlBase64ToUint8Array = (base64String: string) => {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = `${base64String}${padding}`.replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+
+  for (let i = 0; i < rawData.length; i += 1) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+
+  return outputArray;
+};
+
 function Toggle({
   checked,
   disabled,
@@ -83,6 +110,9 @@ export default function NotificationsSettingsPage() {
   const queryClient = useQueryClient();
   const [savingKey, setSavingKey] = useState<NotificationPrefKey | null>(null);
   const [optimisticPrefs, setOptimisticPrefs] = useState<NotificationPrefs | null>(null);
+  const [pushSupported] = useState(isPushSupported);
+  const [pushPermission, setPushPermission] = useState(getNotificationPermission);
+  const [browserSubscribed, setBrowserSubscribed] = useState<boolean | null>(null);
 
   const settingsQuery = useQuery({
     queryKey: ["user-settings"],
@@ -93,12 +123,11 @@ export default function NotificationsSettingsPage() {
     mutationFn: usersApi.updateSettings,
     onSuccess: (updated) => {
       queryClient.setQueryData(["user-settings"], updated);
-      setOptimisticPrefs(updated.notificationPrefs);
+      setOptimisticPrefs(null);
       toast.success("Notification settings saved");
     },
-    onError: (error) => {
-      setOptimisticPrefs(settingsQuery.data?.notificationPrefs ?? null);
-      toast.error(error instanceof Error ? error.message : "Failed to save notification settings");
+    onError: () => {
+      setOptimisticPrefs(null);
     },
     onSettled: () => {
       setSavingKey(null);
@@ -107,27 +136,109 @@ export default function NotificationsSettingsPage() {
 
   const prefs = settingsQuery.data?.notificationPrefs;
   const visiblePrefs = optimisticPrefs ?? prefs;
-  const isSaving = updateMutation.isPending;
+  const isSaving = updateMutation.isPending || savingKey !== null;
 
   useEffect(() => {
-    if (!isSaving) {
-      setOptimisticPrefs(prefs ?? null);
+    if (!pushSupported) {
+      setBrowserSubscribed(false);
+      return;
     }
-  }, [isSaving, prefs]);
 
-  const updatePreference = (key: NotificationPrefKey) => {
+    let cancelled = false;
+    navigator.serviceWorker.ready
+      .then((registration) => registration.pushManager.getSubscription())
+      .then((subscription) => {
+        if (!cancelled) {
+          setBrowserSubscribed(Boolean(subscription));
+          setPushPermission(getNotificationPermission());
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setBrowserSubscribed(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [pushSupported]);
+
+  const enableBrowserPush = async () => {
+    if (!pushSupported) {
+      throw new Error("Push notifications are not supported by this browser");
+    }
+
+    const availability = await pushApi.getVapidPublicKey();
+    if (!availability.enabled || !availability.publicKey) {
+      throw new Error("Browser push is not configured on the server");
+    }
+
+    const permission = Notification.permission === "granted"
+      ? "granted"
+      : await Notification.requestPermission();
+    setPushPermission(permission);
+
+    if (permission !== "granted") {
+      throw new Error("Notification permission was not granted");
+    }
+
+    const registration = await navigator.serviceWorker.ready;
+    let subscription = await registration.pushManager.getSubscription();
+    if (!subscription) {
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(availability.publicKey),
+      });
+    }
+
+    await pushApi.saveSubscription(subscription);
+    setBrowserSubscribed(true);
+  };
+
+  const disableBrowserPush = async () => {
+    if (!pushSupported) return;
+
+    const registration = await navigator.serviceWorker.ready;
+    const subscription = await registration.pushManager.getSubscription();
+    if (subscription) {
+      try {
+        await pushApi.deleteSubscription(subscription.endpoint);
+      } finally {
+        await subscription.unsubscribe();
+      }
+    }
+    setBrowserSubscribed(false);
+  };
+
+  const updatePreference = async (key: NotificationPrefKey, nextValue: boolean) => {
     if (!settingsQuery.data || !visiblePrefs || isSaving) return;
 
     const nextPrefs: NotificationPrefs = {
       ...visiblePrefs,
-      [key]: !visiblePrefs[key],
+      [key]: nextValue,
     };
 
     setSavingKey(key);
-    setOptimisticPrefs(nextPrefs);
-    updateMutation.mutate({
-      notificationPrefs: nextPrefs,
-    });
+
+    try {
+      if (key === "pushEnabled") {
+        if (nextValue) {
+          await enableBrowserPush();
+        } else {
+          await disableBrowserPush();
+        }
+      }
+
+      setOptimisticPrefs(nextPrefs);
+      await updateMutation.mutateAsync({
+        notificationPrefs: nextPrefs,
+      });
+    } catch (error) {
+      setOptimisticPrefs(null);
+      setSavingKey(null);
+      toast.error(error instanceof Error ? error.message : "Failed to save notification settings");
+    }
   };
 
   return (
@@ -163,6 +274,20 @@ export default function NotificationsSettingsPage() {
             {notificationOptions.map((option) => {
               const Icon = option.icon;
               const optionSaving = savingKey === option.key && isSaving;
+              const isPushOption = option.key === "pushEnabled";
+              const checked = isPushOption
+                ? Boolean(visiblePrefs.pushEnabled && browserSubscribed)
+                : visiblePrefs[option.key];
+              const disabled = isSaving || (isPushOption && !pushSupported);
+              const description = isPushOption
+                ? !pushSupported
+                  ? "This browser does not support web push."
+                  : pushPermission === "denied"
+                    ? "Notifications are blocked in your browser settings."
+                    : browserSubscribed
+                      ? "This device is subscribed to browser alerts."
+                      : "Subscribe this device to browser alerts."
+                : option.description;
 
               return (
                 <div
@@ -175,16 +300,16 @@ export default function NotificationsSettingsPage() {
                     </div>
                     <div className="min-w-0">
                       <p className="font-medium text-foreground">{option.title}</p>
-                      <p className="mt-1 text-sm text-muted-foreground">{option.description}</p>
+                      <p className="mt-1 text-sm text-muted-foreground">{description}</p>
                     </div>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
                     {optionSaving && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
                     <Toggle
-                      checked={visiblePrefs[option.key]}
-                      disabled={isSaving}
+                      checked={checked}
+                      disabled={disabled}
                       label={option.title}
-                      onClick={() => updatePreference(option.key)}
+                      onClick={() => updatePreference(option.key, !checked)}
                     />
                   </div>
                 </div>
