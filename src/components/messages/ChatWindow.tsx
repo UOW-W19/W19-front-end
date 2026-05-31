@@ -220,6 +220,7 @@ export function ChatWindow({ conversation, messages, onSendMessage, onDeleteMess
             <div ref={containerRef} className="min-h-0 flex-1 overflow-y-auto p-4 scrollbar-thin">
                 <div className="flex flex-col justify-end min-h-full space-y-4">
                     {visibleMessages.map((msg, index) => {
+                        // Fix: for mock data 'current-user' comparison
                         const isMeMock = msg.senderId === 'current-user' || msg.senderId === user?.id;
 
                         const showAvatar = index === 0 || visibleMessages[index - 1].senderId !== msg.senderId;

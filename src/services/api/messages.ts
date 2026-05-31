@@ -63,9 +63,17 @@ const transformConversation = (c: BackendConversation): Conversation => ({
 
 const buildMessageFormData = (data: { content?: string; image?: File; recipientId?: string }) => {
     const formData = new FormData();
-    if (data.recipientId !== undefined) formData.append('recipientId', data.recipientId);
-    if (data.content !== undefined && data.content.trim()) formData.append('content', data.content.trim());
-    if (data.image) formData.append('image', data.image);
+
+    if (data.recipientId !== undefined) {
+        formData.append('recipientId', data.recipientId);
+    }
+    if (data.content !== undefined && data.content.trim()) {
+        formData.append('content', data.content.trim());
+    }
+    if (data.image) {
+        formData.append('image', data.image);
+    }
+
     return formData;
 };
 
@@ -89,7 +97,10 @@ export const messagesApi = {
     sendMessage: async (data: CreateMessageRequest): Promise<Message> => {
         const response = await authenticatedRequest<BackendMessage>(`/conversations/${data.conversationId}/messages`, {
             method: 'POST',
-            body: buildMessageFormData({ content: data.content, image: data.image }),
+            body: buildMessageFormData({
+                content: data.content,
+                image: data.image,
+            }),
         });
         return transformMessage(response);
     },
@@ -106,19 +117,28 @@ export const messagesApi = {
         if (!content?.trim() && !image) {
             throw new Error('Cannot start a conversation without message content or an image');
         }
+
         const response = await authenticatedRequest<BackendMessage>('/conversations', {
             method: 'POST',
-            body: buildMessageFormData({ recipientId, content, image }),
+            body: buildMessageFormData({
+                recipientId: recipientId,
+                content: content,
+                image,
+            }),
         });
         return transformMessage(response);
     },
 
     markAsRead: async (conversationId: string): Promise<void> => {
-        await authenticatedRequest<void>(`/conversations/${conversationId}/read`, { method: 'POST' });
+        await authenticatedRequest<void>(`/conversations/${conversationId}/read`, {
+            method: 'POST'
+        });
     },
 
     deleteMessage: async (conversationId: string, messageId: string): Promise<void> => {
-        await authenticatedRequest<void>(`/conversations/${conversationId}/messages/${messageId}`, { method: 'DELETE' });
+        await authenticatedRequest<void>(`/conversations/${conversationId}/messages/${messageId}`, {
+            method: 'DELETE'
+        });
     },
 
     createGroup: async (groupName: string, participantIds: string[], groupAvatar?: string): Promise<Conversation> => {
@@ -138,7 +158,9 @@ export const messagesApi = {
     },
 
     removeParticipant: async (conversationId: string, profileId: string): Promise<void> => {
-        await authenticatedRequest<void>(`/conversations/${conversationId}/participants/${profileId}`, { method: 'DELETE' });
+        await authenticatedRequest<void>(`/conversations/${conversationId}/participants/${profileId}`, {
+            method: 'DELETE'
+        });
     },
 
     updateGroup: async (conversationId: string, groupName?: string, groupAvatar?: string): Promise<Conversation> => {
