@@ -17,10 +17,6 @@ interface ExploreMapProps {
 
 const MAPBOX_TOKEN_STORAGE_KEY = 'locale_mapbox_token';
 
-// Priority: 1) env var, 2) localStorage override, 3) fallback
-const FALLBACK_MAPBOX_TOKEN =
-  'pk.eyJ1IjoiYmxhbWVyIiwiYSI6ImNtam8wdHhxOTJ5NTEzZ3F4aDl3ZWo3a3YifQ.eRxSmSDlyopmOasm9-sHMw';
-
 type LngLat = { lng: number; lat: number };
 
 const DEFAULT_CENTER: LngLat = { lng: -73.98, lat: 40.76 };
@@ -52,7 +48,7 @@ const getInitialMapboxToken = (): string => {
     return storedToken;
   }
 
-  return FALLBACK_MAPBOX_TOKEN;
+  return '';
 };
 
 type WebGLDiagnostics = {
