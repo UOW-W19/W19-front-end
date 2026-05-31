@@ -1000,7 +1000,11 @@ export default function LearnPage() {
               const toggleOpen = () =>
                 setOpenBanks(prev => {
                   const next = new Set(prev);
-                  isOpen ? next.delete(bank.id) : next.add(bank.id);
+                  if (isOpen) {
+                    next.delete(bank.id);
+                  } else {
+                    next.add(bank.id);
+                  }
                   return next;
                 });
 
