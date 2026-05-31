@@ -413,12 +413,14 @@ export default function ExplorePage() {
       />
 
       {/* Create meetup modal */}
-      <CreateMeetupModal
-        isOpen={createModalOpen}
-        onClose={() => { setCreateModalOpen(false); setVenuePrefill(null); }}
-        onSubmit={handleCreateMeetup}
-        prefillLocation={venuePrefill ?? undefined}
-      />
+      {createModalOpen && (
+        <CreateMeetupModal
+          isOpen={createModalOpen}
+          onClose={() => { setCreateModalOpen(false); setVenuePrefill(null); }}
+          onSubmit={handleCreateMeetup}
+          prefillLocation={venuePrefill ?? undefined}
+        />
+      )}
     </div>
   );
 }

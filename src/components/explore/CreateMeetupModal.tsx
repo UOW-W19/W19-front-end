@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { X, Globe, Calendar, Clock, Users, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { CreateMeetupRequest } from "@/types/meetup";
@@ -13,24 +13,22 @@ export interface CreateMeetupModalProps {
 }
 
 export function CreateMeetupModal({ isOpen, onClose, onSubmit, prefillLocation }: CreateMeetupModalProps) {
+  const initialLocationName = prefillLocation
+    ? `${prefillLocation.name}, ${prefillLocation.address}`
+    : "";
+  const initialCoords =
+    prefillLocation?.lat !== undefined && prefillLocation?.lng !== undefined
+      ? { lat: prefillLocation.lat, lng: prefillLocation.lng }
+      : null;
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [selectedLanguage, setSelectedLanguage] = useState(LANGUAGES[0]);
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
-  const [locationName, setLocationName] = useState("");
-  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [locationName, setLocationName] = useState(initialLocationName);
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(initialCoords);
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [maxAttendees, setMaxAttendees] = useState(10);
-
-  useEffect(() => {
-    if (isOpen && prefillLocation) {
-      setLocationName(`${prefillLocation.name}, ${prefillLocation.address}`);
-      if (prefillLocation.lat && prefillLocation.lng) {
-        setCoords({ lat: prefillLocation.lat, lng: prefillLocation.lng });
-      }
-    }
-  }, [isOpen, prefillLocation]);
 
   const handleSubmit = () => {
     if (!title.trim() || !locationName.trim() || !date || !time) return;
