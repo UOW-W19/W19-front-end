@@ -1,7 +1,9 @@
 import { useState, useMemo, useCallback, useRef } from "react";
-import { Sparkles, RotateCcw, Check, X, ChevronLeft, BookOpen, Camera, TrendingUp, Globe, Zap, ArrowUpDown, ChevronDown, Loader2, Flame, Mic, Volume2 } from "lucide-react";
+import { Sparkles, RotateCcw, Check, X, ChevronLeft, BookOpen, Camera, TrendingUp, Globe, Zap, ArrowUpDown, ChevronDown, Loader2, Flame } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import type { SavedWord } from "@/types";
+import { LessonSessionView } from "@/components/learn/LessonSessionView";
+import type { LessonWordBank, SavedWord } from "@/types";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,17 +17,20 @@ import {
   useStartPracticeSession,
   useSubmitPracticeResult,
   useCompletePracticeSession,
+  useUpdateWord,
   transformSessionWord,
   type PracticeResult,
 } from "@/hooks/useLearnApi";
+import { useLessonSession } from "@/hooks/useLessonSession";
+import { postsApi } from "@/services/api/posts";
+import { useAuth } from "@/contexts/useAuth";
+import { notifyFeedPostCreated } from "@/lib/feedRefresh";
 
 type PracticeMode = 'idle' | 'practicing' | 'results' | 'learning';
 type SortOption = 'newest' | 'mastery_high' | 'mastery_low';
-type WordBank = { id: string; label: string; words: SavedWord[] };
+type WordBank = LessonWordBank;
 
 const SESSION_SIZE_OPTIONS = [5, 10, 15] as const;
-
-const WAVEFORM_HEIGHTS = [8, 14, 10, 18, 12, 22, 10, 16, 20, 12, 18, 10, 22, 14, 10, 18, 12, 16, 8, 14];
 
 // ── Concept categorisation ──────────────────────────────────────────────────
 
@@ -86,6 +91,7 @@ function categoriseWord(word: string, translation: string): string {
 }
 
 export default function LearnPage() {
+  const { user } = useAuth();
   const [mode, setMode] = useState<PracticeMode>('idle');
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
@@ -93,17 +99,37 @@ export default function LearnPage() {
   const [results, setResults] = useState<PracticeResult[]>([]);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [sessionsDoneToday, setSessionsDoneToday] = useState(0);
+  const [isSharingLesson, setIsSharingLesson] = useState(false);
+  const [isLessonLocationAttached, setIsLessonLocationAttached] = useState(false);
   const [openBanks, setOpenBanks] = useState<Set<string>>(new Set());
   const startTimeRef = useRef<number>(0);
 
-  // Lesson state
-  const [lessonBank, setLessonBank] = useState<WordBank | null>(null);
-  const [lessonStep, setLessonStep] = useState(1);
-  const [lessonTokens, setLessonTokens] = useState<string[]>([]); // correct order
-  const [chipPool, setChipPool] = useState<string[]>([]);
-  const [placedChips, setPlacedChips] = useState<string[]>([]);
-  const [writeInput, setWriteInput] = useState('');
-  const [isRecording, setIsRecording] = useState(false);
+  const {
+    lessonBank,
+    lessonWords,
+    currentLessonWord,
+    currentWordIndex,
+    lessonStep,
+    chipPool,
+    placedChips,
+    writeInput,
+    writeAnswer,
+    isRecording,
+    voicePrompt,
+    isArrangeComplete,
+    isArrangeCorrect,
+    startLesson: startLessonSession,
+    exitLesson: resetLessonSession,
+    advanceStep,
+    placeChip,
+    removeChip,
+    reorderPlacedChips,
+    setWriteInput,
+    submitWriteAnswer,
+    revealWriteAnswer,
+    playVoicePrompt,
+    toggleRecording,
+  } = useLessonSession();
 
   // Filtering & Sorting
   const [languageFilter, setLanguageFilter] = useState<string>('all');
@@ -129,6 +155,7 @@ export default function LearnPage() {
   const startSessionMutation = useStartPracticeSession();
   const submitResultMutation = useSubmitPracticeResult();
   const completeSessionMutation = useCompletePracticeSession();
+  const updateWordMutation = useUpdateWord();
 
   // Get unique languages for filter
   const uniqueLanguages = useMemo(() => {
@@ -179,6 +206,18 @@ export default function LearnPage() {
     const masteredWords = savedWords.filter(w => w.masteryLevel >= 76).length;
     return { totalWords, avgMastery, languages, masteredWords };
   }, [stats, savedWords]);
+
+  const lessonShareLocation = useMemo(() => {
+    const latitude = user?.latitude;
+    const longitude = user?.longitude;
+    if (typeof latitude !== "number" || typeof longitude !== "number") return null;
+
+    return {
+      latitude,
+      longitude,
+      label: user?.location?.trim() || "Your profile location",
+    };
+  }, [user?.latitude, user?.location, user?.longitude]);
 
   const startPractice = useCallback(async () => {
     try {
@@ -250,23 +289,61 @@ export default function LearnPage() {
   }, []);
 
   const startLesson = useCallback((bank: WordBank) => {
-    const tokens = bank.words[0]?.word.split(/\s+/).filter(Boolean) ?? [];
-    // Shuffle until order differs from the correct order (for multi-word phrases)
-    let shuffled = [...tokens].sort(() => Math.random() - 0.5);
-    if (tokens.length > 1) {
-      while (shuffled.join(' ') === tokens.join(' ')) {
-        shuffled = [...tokens].sort(() => Math.random() - 0.5);
-      }
+    if (startLessonSession(bank)) {
+      setIsLessonLocationAttached(false);
+      setMode('learning');
     }
-    setLessonBank(bank);
-    setLessonStep(1);
-    setLessonTokens(tokens);
-    setChipPool(shuffled);
-    setPlacedChips([]);
-    setWriteInput('');
-    setIsRecording(false);
-    setMode('learning');
-  }, []);
+  }, [startLessonSession]);
+
+  const persistLessonProgress = useCallback(async () => {
+    const progress = advanceStep();
+    if (!progress || progress.nextMastery === progress.previousMastery) return;
+
+    try {
+      await updateWordMutation.mutateAsync({
+        wordId: progress.wordId,
+        data: { mastery_level: progress.nextMastery },
+      });
+      setSessionsDoneToday(n => n + 1);
+    } catch {
+      // Error handled by mutation toast.
+    }
+  }, [advanceStep, updateWordMutation]);
+
+  const exitLesson = useCallback(() => {
+    resetLessonSession();
+    setIsSharingLesson(false);
+    setIsLessonLocationAttached(false);
+    setMode('idle');
+  }, [resetLessonSession]);
+
+  const handleShareLessonPost = useCallback(async (content: string) => {
+    const body = content.trim();
+    if (!currentLessonWord || !body) return;
+    const attachedLocation = isLessonLocationAttached ? lessonShareLocation : null;
+
+    try {
+      setIsSharingLesson(true);
+      const createdPost = await postsApi.createPost({
+        content: body,
+        originalLanguage: currentLessonWord.languageCode,
+        latitude: attachedLocation?.latitude,
+        longitude: attachedLocation?.longitude,
+      });
+      notifyFeedPostCreated(createdPost);
+      toast.success("Posted to your feed");
+      exitLesson();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to share post");
+    } finally {
+      setIsSharingLesson(false);
+    }
+  }, [currentLessonWord, exitLesson, isLessonLocationAttached, lessonShareLocation]);
+
+  const toggleLessonLocation = useCallback(() => {
+    if (!lessonShareLocation) return;
+    setIsLessonLocationAttached((isAttached) => !isAttached);
+  }, [lessonShareLocation]);
 
   // Loading State
   if (isLoadingWords && mode === 'idle') {
@@ -483,286 +560,41 @@ export default function LearnPage() {
   }
 
   // Learning Mode
-  if (mode === 'learning' && lessonBank) {
-    const word = lessonBank.words[0];
-
-    const advanceStep = () => setLessonStep(s => Math.min(s + 1, 4));
-    const exitLesson = () => {
-      setMode('idle');
-      setLessonBank(null);
-      setLessonStep(1);
-      setLessonTokens([]);
-      setChipPool([]);
-      setPlacedChips([]);
-      setWriteInput('');
-      setIsRecording(false);
-    };
-    const placeChip = (chip: string, idx: number) => {
-      setChipPool(prev => prev.filter((_, i) => i !== idx));
-      setPlacedChips(prev => [...prev, chip]);
-    };
-    const removeChip = (chip: string, idx: number) => {
-      setPlacedChips(prev => prev.filter((_, i) => i !== idx));
-      setChipPool(prev => [...prev, chip]);
-    };
-
-    const STEPS = ['Listen', 'Arrange', 'Write', 'Share'];
-
+  if (mode === 'learning' && lessonBank && currentLessonWord) {
     return (
-      <div className="min-h-full overflow-y-auto pb-24 scrollbar-hide mx-auto max-w-md px-4 py-6 flex flex-col">
-
-        {/* Header */}
-        <div className="flex items-center justify-between mb-5">
-          <button
-            onClick={exitLesson}
-            className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <ChevronLeft className="h-5 w-5" />
-            <span className="text-sm">Exit</span>
-          </button>
-          <h1 className="text-base font-bold text-foreground">
-            {lessonStep === 4 ? 'Share with Community!' : 'Lesson time!'}
-          </h1>
-          <div className="w-12" />
-        </div>
-
-        {/* Step progress indicator */}
-        <div className="flex items-center justify-center mb-6">
-          {STEPS.map((label, i) => {
-            const step = i + 1;
-            const done = lessonStep > step;
-            const active = lessonStep === step;
-            return (
-              <div key={step} className="flex items-center">
-                <div className="flex flex-col items-center gap-1">
-                  <div className={cn(
-                    "h-7 w-7 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300",
-                    done ? "bg-sage text-white" : active ? "bg-primary text-primary-foreground ring-2 ring-primary/25" : "bg-muted text-muted-foreground"
-                  )}>
-                    {done ? <Check className="h-3.5 w-3.5" /> : step}
-                  </div>
-                  <span className={cn("text-[10px]", active ? "text-primary font-medium" : "text-muted-foreground")}>{label}</span>
-                </div>
-                {i < STEPS.length - 1 && (
-                  <div className={cn("h-0.5 w-10 mb-4 transition-all duration-300", done ? "bg-sage" : "bg-muted")} />
-                )}
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Word card — steps 1–3 */}
-        {lessonStep < 4 && (
-          <div className="rounded-2xl border border-border bg-card p-4 mb-5">
-            <div className="flex items-start justify-between mb-3">
-              <div>
-                <p className="text-sm text-foreground">
-                  <span className="text-muted-foreground">{word.languageName}:</span>{' '}
-                  <span className="font-semibold">{word.word}</span>
-                </p>
-                <p className="text-sm text-foreground">
-                  <span className="text-muted-foreground">English:</span>{' '}
-                  <span className="font-medium">{word.translation}</span>
-                </p>
-              </div>
-                <Volume2 className="h-3 w-3 text-muted-foreground" />
-              {/* <button className="h-8 w-8 rounded-full bg-amber-100 dark:bg-amber-900/20 flex items-center justify-center flex-shrink-0">
-                <Star className="h-4 w-4 text-amber-500 fill-amber-400" />
-              </button> */}
-            </div>
-            <div className="rounded-xl bg-gradient-to-br from-muted to-muted/40 h-36 flex items-center justify-center relative overflow-hidden">
-              <span className="text-6xl opacity-10">{word.languageFlag}</span>
-              {/* <div className="absolute bottom-2 left-2 bg-background/90 backdrop-blur-sm rounded-full px-2.5 py-1 flex items-center gap-1.5 text-xs font-medium shadow-sm">
-                {word.word}
-                <Volume2 className="h-3 w-3 text-muted-foreground" />
-              </div> */}
-            </div>
-          </div>
-        )}
-
-        {/* Step 1 — Voice Prompt */}
-        {lessonStep === 1 && (
-          <div className="flex-1 flex flex-col">
-            <h3 className="font-semibold text-foreground mb-3">Voice Prompt</h3>
-            <div className="rounded-xl bg-muted/40 border border-border p-4 mb-4">
-              <p className="text-xs text-muted-foreground mb-1">Say this phrase:</p>
-              <p className="font-medium text-foreground">{word.word}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">{word.translation}</p>
-            </div>
-            <button
-              onClick={() => setIsRecording(r => !r)}
-              className={cn(
-                "w-full rounded-xl p-3.5 flex items-center gap-3 transition-all mb-6",
-                isRecording ? "bg-primary" : "bg-primary/90 hover:bg-primary"
-              )}
-            >
-              <div className="flex items-end gap-0.5 flex-1 h-8">
-                {WAVEFORM_HEIGHTS.map((h, i) => (
-                  <div
-                    key={i}
-                    className={cn("flex-1 rounded-full bg-white/60 transition-all", isRecording && "animate-pulse")}
-                    style={{ height: `${h}px` }}
-                  />
-                ))}
-              </div>
-              <div className={cn(
-                "h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0 transition-all",
-                isRecording ? "bg-white text-primary" : "bg-white/20 text-white"
-              )}>
-                <Mic className="h-4 w-4" />
-              </div>
-            </button>
-            <Button onClick={advanceStep} className="w-full h-12 rounded-xl mt-auto">
-              Continue
-            </Button>
-          </div>
-        )}
-
-        {/* Step 2 — Drag and Drop */}
-        {lessonStep === 2 && (() => {
-          const allPlaced = chipPool.length === 0 && placedChips.length === lessonTokens.length;
-          const isCorrect = allPlaced && placedChips.join(' ') === lessonTokens.join(' ');
-
-          return (
-            <div className="flex-1 flex flex-col">
-              <h3 className="font-semibold text-foreground mb-1">Drag and Drop</h3>
-              <p className="text-sm text-muted-foreground mb-3">"{word.translation}"</p>
-
-              {/* Target drop zone */}
-              <div className={cn(
-                "flex flex-wrap gap-2 p-3 rounded-xl border min-h-[52px] mb-3 transition-colors",
-                isCorrect ? "bg-sage/10 border-sage/40" : "bg-muted/30 border-border"
-              )}>
-                {placedChips.length > 0 ? placedChips.map((chip, i) => (
-                  <button
-                    key={i}
-                    onClick={() => removeChip(chip, i)}
-                    className={cn(
-                      "px-3 py-1.5 rounded-lg border text-sm font-medium transition-colors",
-                      isCorrect
-                        ? "bg-sage/20 text-sage border-sage/40"
-                        : "bg-primary/15 text-primary border-primary/30 hover:bg-primary/25"
-                    )}
-                  >
-                    {chip}
-                  </button>
-                )) : (
-                  <span className="text-xs text-muted-foreground self-center">Tap chips to build the phrase</span>
-                )}
-              </div>
-
-              {/* Feedback message */}
-              {allPlaced && (
-                <p className={cn(
-                  "text-xs font-medium mb-3 text-center",
-                  isCorrect ? "text-sage" : "text-destructive"
-                )}>
-                  {isCorrect ? "Correct! Great job." : "Not quite — tap chips to reorder."}
-                </p>
-              )}
-
-              {/* Available chips */}
-              <div className="flex flex-wrap gap-2 p-3 rounded-xl bg-muted/20 border border-border/50 mb-6">
-                {chipPool.map((chip, i) => (
-                  <button
-                    key={i}
-                    onClick={() => placeChip(chip, i)}
-                    className="px-3 py-1.5 rounded-lg bg-card border border-border text-sm font-medium hover:bg-primary/5 hover:border-primary/30 transition-colors"
-                  >
-                    {chip}
-                  </button>
-                ))}
-                {chipPool.length === 0 && !isCorrect && (
-                  <span className="text-xs text-muted-foreground self-center">Tap a placed chip to return it</span>
-                )}
-                {isCorrect && (
-                  <span className="text-xs text-sage self-center">All chips in order</span>
-                )}
-              </div>
-
-              <Button onClick={advanceStep} disabled={!isCorrect} className="w-full h-12 rounded-xl mt-auto">
-                Continue
-              </Button>
-            </div>
-          );
-        })()}
-
-        {/* Step 3 — Write yourself */}
-        {lessonStep === 3 && (
-          <div className="flex-1 flex flex-col">
-            <h3 className="font-semibold text-foreground mb-1">Write yourself</h3>
-            <p className="text-sm text-muted-foreground mb-4">"{word.translation}"</p>
-            <input
-              type="text"
-              value={writeInput}
-              onChange={e => setWriteInput(e.target.value)}
-              placeholder="Type the phrase..."
-              autoFocus
-              className="w-full rounded-xl border border-border bg-card px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary mb-6"
-            />
-            <Button
-              onClick={advanceStep}
-              disabled={writeInput.trim() === ''}
-              className="w-full h-12 rounded-xl mt-auto"
-            >
-              Continue
-            </Button>
-          </div>
-        )}
-
-        {/* Step 4 — Share with Community */}
-        {lessonStep === 4 && (
-          <div className="flex-1 flex flex-col">
-            <div className="rounded-2xl border border-border bg-card p-4 mb-5">
-              <p className="font-semibold text-foreground mb-3">{lessonBank.label}</p>
-              <div className="rounded-xl bg-gradient-to-br from-muted to-muted/40 h-28 flex items-center justify-center relative overflow-hidden">
-                <span className="text-5xl opacity-10">{word.languageFlag}</span>
-                <div className="absolute bottom-2 left-2 bg-background/90 backdrop-blur-sm rounded-full px-2.5 py-1 flex items-center gap-1.5 text-xs font-medium shadow-sm">
-                  {word.word}
-                  <Volume2 className="h-3 w-3 text-muted-foreground" />
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-2.5 flex-1">
-              <button className="w-full flex items-center justify-between p-3.5 rounded-xl bg-card border border-border hover:bg-muted/30 transition-colors">
-                <span className="text-sm text-muted-foreground">Post to which community...</span>
-                <ChevronDown className="h-4 w-4 text-muted-foreground" />
-              </button>
-              <button className="w-full flex items-center justify-between p-3.5 rounded-xl bg-card border border-border hover:bg-muted/30 transition-colors">
-                <span className="text-sm text-muted-foreground">Add a location...</span>
-                <Globe className="h-4 w-4 text-muted-foreground" />
-              </button>
-              <div className="flex items-center justify-between p-3.5 rounded-xl bg-card border border-border">
-                <span className="text-sm text-muted-foreground">Post publicly...</span>
-                <div className="h-6 w-11 rounded-full bg-primary relative cursor-pointer flex-shrink-0">
-                  <div className="h-5 w-5 rounded-full bg-white absolute right-0.5 top-0.5 shadow-sm" />
-                </div>
-              </div>
-            </div>
-
-            <div className="flex gap-3 mt-6">
-              <Button
-                variant="outline"
-                onClick={exitLesson}
-                className="flex-1 h-12 rounded-xl border-destructive/30 text-destructive hover:bg-destructive/5 hover:text-destructive"
-              >
-                Discard
-              </Button>
-              <Button
-                onClick={exitLesson}
-                className="flex-1 h-12 rounded-xl bg-destructive hover:bg-destructive/90 text-destructive-foreground"
-              >
-                Post!
-              </Button>
-            </div>
-          </div>
-        )}
-
-      </div>
+      <LessonSessionView
+        bank={lessonBank}
+        words={lessonWords}
+        word={currentLessonWord}
+        currentWordIndex={currentWordIndex}
+        step={lessonStep}
+        chipPool={chipPool}
+        placedChips={placedChips}
+        writeInput={writeInput}
+        writeAnswer={writeAnswer}
+        isRecording={isRecording}
+        voicePrompt={voicePrompt}
+        isArrangeComplete={isArrangeComplete}
+        isArrangeCorrect={isArrangeCorrect}
+        onExit={exitLesson}
+        onAdvance={persistLessonProgress}
+        onPlayVoicePrompt={playVoicePrompt}
+        onToggleRecording={toggleRecording}
+        onPlaceChip={placeChip}
+        onRemoveChip={removeChip}
+        onReorderPlacedChips={reorderPlacedChips}
+        onWriteInputChange={setWriteInput}
+        onSubmitWriteAnswer={submitWriteAnswer}
+        onRevealWriteAnswer={revealWriteAnswer}
+        isPostingShare={isSharingLesson}
+        onSharePost={handleShareLessonPost}
+        shareLocationLabel={lessonShareLocation?.label}
+        isShareLocationAttached={Boolean(lessonShareLocation && isLessonLocationAttached)}
+        canAttachShareLocation={Boolean(lessonShareLocation)}
+        onToggleShareLocation={toggleLessonLocation}
+      />
     );
   }
-
   // Idle View - Stats Dashboard Layout
   const dailyGoal = 1;
   const goalMet = sessionsDoneToday >= dailyGoal;

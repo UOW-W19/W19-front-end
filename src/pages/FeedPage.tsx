@@ -7,6 +7,7 @@ import UserAvatar from "@/components/common/UserAvatar";
 import { useAuth } from "@/contexts/useAuth";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { postsApi, LANGUAGES, getLanguageByCode } from "@/services/api";
+import { consumePendingFeedPosts, subscribeToFeedPostCreated } from "@/lib/feedRefresh";
 import type { ApiPost, CreatePostRequest, Post } from "@/types";
 
 const toUiPost = (apiPost: ApiPost): Post => {
@@ -72,11 +73,32 @@ export default function FeedPage() {
     [selectedLanguage]
   );
 
+  const shouldShowApiPost = useCallback((post: ApiPost) => {
+    const languageCode = getLangCode();
+    return !languageCode || post.originalLanguage === languageCode;
+  }, [getLangCode]);
+
+  const prependApiPost = useCallback((apiPost: ApiPost) => {
+    if (!shouldShowApiPost(apiPost)) return;
+
+    const uiPost = toUiPost(apiPost);
+    setPosts((currentPosts) => [
+      uiPost,
+      ...currentPosts.filter((post) => post.id !== uiPost.id),
+    ]);
+  }, [shouldShowApiPost]);
+
   const fetchPosts = useCallback(async () => {
     try {
       setIsLoading(true);
       const response = await postsApi.getFeed({ language: getLangCode() });
-      setPosts(response.posts.map(toUiPost));
+      const pendingPosts = consumePendingFeedPosts().filter(shouldShowApiPost);
+      const pendingIds = new Set(pendingPosts.map((post) => post.id));
+      const nextPosts = [
+        ...pendingPosts,
+        ...response.posts.filter((post) => !pendingIds.has(post.id)),
+      ];
+      setPosts(nextPosts.map(toUiPost));
       setHasMore(response.hasMore);
       setNextCursor(response.nextCursor);
     } catch (error) {
@@ -84,7 +106,7 @@ export default function FeedPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [getLangCode]);
+  }, [getLangCode, shouldShowApiPost]);
 
   const fetchMore = useCallback(async () => {
     if (isFetchingRef.current || !hasMore || !nextCursor) return;
@@ -109,6 +131,8 @@ export default function FeedPage() {
   useEffect(() => {
     fetchPosts();
   }, [fetchPosts]);
+
+  useEffect(() => subscribeToFeedPostCreated(prependApiPost), [prependApiPost]);
 
   // Infinite scroll listener
   useEffect(() => {
