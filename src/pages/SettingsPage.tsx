@@ -72,7 +72,7 @@ export default function SettingsPage() {
 
   const handleLogout = async () => {
     await logout();
-    navigate('/auth');
+    navigate('/onboarding');
   };
 
   return (

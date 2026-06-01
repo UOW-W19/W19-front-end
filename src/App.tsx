@@ -5,6 +5,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { OfflineBanner } from "@/components/pwa/OfflineBanner";
 import { AuthProvider, useAuth } from "@/contexts";
 import { StompProvider } from "@/contexts/StompContext";
+import { hasCompletedOnboarding } from "@/lib/onboarding";
 import { isAdminUser } from "@/lib/roles";
 import MessagesPage from "./pages/MessagesPage";
 
@@ -15,7 +16,7 @@ const ProfilePage     = lazy(() => import("./pages/ProfilePage"));
 const UserProfilePage = lazy(() => import("./pages/UserProfilePage"));
 const SettingsPage    = lazy(() => import("./pages/SettingsPage"));
 const InstallPage     = lazy(() => import("./pages/InstallPage"));
-const AuthPage        = lazy(() => import("./pages/AuthPage"));
+const OnboardingPage  = lazy(() => import("./pages/OnboardingPage"));
 const ScannerPage     = lazy(() => import("./pages/ScannerPage"));
 const FriendsPage     = lazy(() => import("./pages/FriendsPage"));
 const NotificationsPage = lazy(() => import("./pages/NotificationsPage"));
@@ -33,7 +34,7 @@ const queryClient = new QueryClient({
 
 // Protected route wrapper
 function ProtectedRoute({ children }: { children: ReactNode }) {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { user, isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
     return (
@@ -44,7 +45,11 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
   }
 
   if (!isAuthenticated) {
-    return <Navigate to="/auth" replace />;
+    return <Navigate to="/onboarding" replace />;
+  }
+
+  if (!hasCompletedOnboarding(user)) {
+    return <Navigate to="/onboarding" replace />;
   }
 
   return <>{children}</>;
@@ -62,7 +67,11 @@ function AdminRoute({ children }: { children: ReactNode }) {
   }
 
   if (!isAuthenticated) {
-    return <Navigate to="/auth" replace />;
+    return <Navigate to="/onboarding" replace />;
+  }
+
+  if (!hasCompletedOnboarding(user)) {
+    return <Navigate to="/onboarding" replace />;
   }
 
   if (!isAdminUser(user)) {
@@ -81,7 +90,8 @@ const PageSpinner = () => (
 const AppRoutes = () => (
   <Suspense fallback={<PageSpinner />}>
     <Routes>
-      <Route path="/auth" element={<AuthPage />} />
+      <Route path="/onboarding" element={<OnboardingPage />} />
+      <Route path="/auth" element={<Navigate to="/onboarding" replace />} />
       <Route path="/install" element={<InstallPage />} />
       <Route
         element={
