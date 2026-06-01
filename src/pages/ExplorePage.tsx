@@ -5,6 +5,8 @@ import { toast } from 'sonner';
 import type { Meetup, NearbyLearner, CreateMeetupRequest } from '@/types/meetup';
 import { meetupsApi } from '@/services/api/meetups';
 import { learnersApi } from '@/services/api/learners';
+import { geocodingApi } from '@/services/api/geocoding';
+import { weatherApi, type CurrentWeather } from '@/services/api/weather';
 import { Button } from '@/components/ui/button';
 import MeetupCard from '@/components/explore/MeetupCard';
 import MeetupDetailSheet from '@/components/explore/MeetupDetailSheet';
@@ -21,6 +23,12 @@ type LocationState =
   | { status: 'denied'; message: string }
   | { status: 'unavailable'; message: string };
 
+type CurrentWeatherState =
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'available'; data: CurrentWeather }
+  | { status: 'unavailable'; message: string };
+
 // Default fallback (NYC)
 const DEFAULT_LOCATION = { latitude: 40.7128, longitude: -74.0060 };
 const LOCATION_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -28,6 +36,9 @@ const LOCATION_CACHE_TTL_MS = 5 * 60 * 1000;
 let cachedLocation:
   | { latitude: number; longitude: number; timestamp: number }
   | null = null;
+
+const isAbortError = (error: unknown): boolean =>
+  error instanceof DOMException && error.name === 'AbortError';
 
 export default function ExplorePage() {
   const navigate = useNavigate();
@@ -44,6 +55,10 @@ export default function ExplorePage() {
   const [venuePrefill, setVenuePrefill] = useState<{ name: string; address: string } | null>(null);
 
   const [locationState, setLocationState] = useState<LocationState>({ status: 'loading' });
+  const [currentWeather, setCurrentWeather] = useState<CurrentWeatherState>({ status: 'idle' });
+  const [currentLocationLabel, setCurrentLocationLabel] = useState<string | undefined>(
+    user?.location?.trim() || undefined
+  );
 
   // Get user's real location
   const requestLocation = useCallback((forceRefresh = false) => {
@@ -116,6 +131,70 @@ export default function ExplorePage() {
         toast.error('We could not save your location preferences. Explore will still work for now.');
       });
   }, [locationState, user?.latitude, updateProfile]);
+
+  useEffect(() => {
+    const profileLocation = user?.location?.trim() || undefined;
+
+    if (locationState.status !== 'granted') {
+      setCurrentLocationLabel(profileLocation);
+      return;
+    }
+
+    const controller = new AbortController();
+    setCurrentLocationLabel(profileLocation);
+
+    geocodingApi.getCurrentLocationLabel({
+      latitude: locationState.latitude,
+      longitude: locationState.longitude,
+      signal: controller.signal,
+    })
+      .then((label) => {
+        setCurrentLocationLabel(label);
+      })
+      .catch((error: unknown) => {
+        if (isAbortError(error)) return;
+        console.warn('[ExplorePage] Failed to resolve current location label:', error);
+      });
+
+    return () => controller.abort();
+  }, [locationState, user?.location]);
+
+  // Load current weather once precise user coordinates are available.
+  useEffect(() => {
+    if (locationState.status !== 'granted') {
+      setCurrentWeather({ status: 'idle' });
+      return;
+    }
+
+    const controller = new AbortController();
+    setCurrentWeather({ status: 'loading' });
+
+    weatherApi.getCurrentWeather({
+      latitude: locationState.latitude,
+      longitude: locationState.longitude,
+      signal: controller.signal,
+    })
+      .then((weather) => {
+        setCurrentWeather({ status: 'available', data: weather });
+      })
+      .catch((error: unknown) => {
+        if (isAbortError(error)) return;
+
+        const message = error instanceof Error
+          ? error.message
+          : 'Could not load current weather';
+
+        setCurrentWeather({ status: 'unavailable', message });
+      });
+
+    return () => controller.abort();
+  }, [locationState]);
+
+  useEffect(() => {
+    if (currentWeather.status === 'unavailable') {
+      console.warn('[ExplorePage] Failed to load current weather:', currentWeather.message);
+    }
+  }, [currentWeather]);
 
   // Get current coordinates (real or fallback)
   const currentLocation = locationState.status === 'granted'
@@ -282,12 +361,15 @@ export default function ExplorePage() {
             onMeetupClick={(meetup) => { setFullscreenLearner(null); setFullscreenMeetup(meetup); }}
             onLearnerClick={(learner) => { setFullscreenMeetup(null); setFullscreenLearner(learner); }}
             userLocation={locationState.status === 'granted' ? currentLocation : undefined}
+            locationLabel={currentLocationLabel}
+            isExtendedView
+            currentWeather={currentWeather.status === 'available' ? currentWeather.data : undefined}
             className="relative w-full h-full"
           />
 
           {/* Learner popup card */}
           {fullscreenLearner && (
-            <div className="absolute bottom-6 left-4 right-4 z-10">
+            <div className="absolute bottom-24 left-4 right-4 z-10">
               <LearnerPopupCard
                 learner={fullscreenLearner}
                 onClose={() => setFullscreenLearner(null)}
@@ -313,7 +395,7 @@ export default function ExplorePage() {
 
           {/* Meetup popup card */}
           {fullscreenMeetup && (
-            <div className="absolute bottom-6 left-4 right-4 z-10">
+            <div className="absolute bottom-24 left-4 right-4 z-10">
               <MeetupPopupCard
                 meetup={fullscreenMeetup}
                 onClose={() => setFullscreenMeetup(null)}
