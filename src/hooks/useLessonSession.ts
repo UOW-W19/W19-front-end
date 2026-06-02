@@ -69,6 +69,7 @@ function insertTokenBefore(
   token: LessonToken,
   beforeTokenId?: string
 ): LessonToken[] {
+  if (tokens.some((item) => item.id === token.id)) return tokens;
   if (!beforeTokenId) return [...tokens, token];
 
   const insertIndex = tokens.findIndex((item) => item.id === beforeTokenId);

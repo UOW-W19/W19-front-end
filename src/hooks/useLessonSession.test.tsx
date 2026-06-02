@@ -184,4 +184,33 @@ describe("useLessonSession", () => {
     });
     expect(result.current.lessonStep).toBe(4);
   });
+
+  it("does not duplicate a chip when placement fires twice", () => {
+    const bank: LessonWordBank = {
+      id: "greetings",
+      label: "Greetings",
+      words: [savedWord("hola", "hola", "hello", 0)],
+    };
+
+    const { result } = renderHook(() => useLessonSession());
+
+    act(() => {
+      result.current.startLesson(bank);
+    });
+    act(() => {
+      result.current.advanceStep();
+    });
+
+    const token = result.current.chipPool[0];
+    if (!token) throw new Error("Expected lesson token");
+
+    act(() => {
+      result.current.placeChip(token.id);
+      result.current.placeChip(token.id);
+    });
+
+    expect(result.current.placedChips.map((chip) => chip.id)).toEqual([token.id]);
+    expect(result.current.chipPool).toEqual([]);
+    expect(result.current.isArrangeCorrect).toBe(true);
+  });
 });

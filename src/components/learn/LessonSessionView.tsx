@@ -3,9 +3,12 @@ import {
   KeyboardSensor,
   PointerSensor,
   closestCenter,
+  pointerWithin,
+  rectIntersection,
   useDroppable,
   useSensor,
   useSensors,
+  type CollisionDetection,
   type DragEndEvent,
 } from "@dnd-kit/core";
 import {
@@ -27,6 +30,16 @@ const WAVEFORM_HEIGHTS = [8, 14, 10, 18, 12, 22, 10, 16, 20, 12, 18, 10, 22, 14,
 const STEPS = ["Listen", "Arrange", "Write", "Share"] as const;
 const ANSWER_ZONE_ID = "lesson-arrange-answer-zone";
 const CHIP_POOL_ZONE_ID = "lesson-arrange-chip-pool";
+
+const lessonCollisionDetection: CollisionDetection = (args) => {
+  const pointerCollisions = pointerWithin(args);
+  if (pointerCollisions.length > 0) return pointerCollisions;
+
+  const rectangleCollisions = rectIntersection(args);
+  if (rectangleCollisions.length > 0) return rectangleCollisions;
+
+  return closestCenter(args);
+};
 
 interface LessonSessionViewProps {
   bank: LessonWordBank;
@@ -472,7 +485,7 @@ function ArrangeStep({
 
       <DndContext
         sensors={sensors}
-        collisionDetection={closestCenter}
+        collisionDetection={lessonCollisionDetection}
         onDragEnd={handleDragEnd}
       >
         <TokenDropZone
