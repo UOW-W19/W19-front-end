@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { MapPin, Calendar, Clock, Users, User, LogOut, UserPlus } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import type { Meetup, MeetupAttendee } from '@/types/meetup';
@@ -29,6 +30,7 @@ export default function MeetupDetailSheet({
   onJoin,
   onLeave,
 }: MeetupDetailSheetProps) {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [attendees, setAttendees] = useState<MeetupAttendee[]>([]);
@@ -57,6 +59,11 @@ export default function MeetupDetailSheet({
   const parsedDate = parseISO(meetup.meetupDate);
   const formattedDate = format(parsedDate, 'EEEE, MMMM d, yyyy');
   const formattedTime = format(parsedDate, 'h:mm a');
+
+  const handleViewProfile = (userId: string) => {
+    onOpenChange(false);
+    navigate(user?.id === userId ? '/profile' : `/user/${userId}`);
+  };
 
   const handleJoin = async () => {
     if (!user) {
@@ -163,7 +170,12 @@ export default function MeetupDetailSheet({
           {/* Host */}
           <div>
             <h3 className="font-semibold text-foreground mb-3">Host</h3>
-            <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => handleViewProfile(meetup.organizer.id)}
+              className="flex items-center gap-3 rounded-xl p-1 pr-3 text-left transition-colors hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label={`View ${meetup.organizer.displayName}'s profile`}
+            >
               <Avatar className="h-10 w-10">
                 <AvatarImage src={meetup.organizer.avatarUrl} />
                 <AvatarFallback className="bg-gradient-to-br from-lavender to-accent text-accent-foreground">
@@ -174,7 +186,7 @@ export default function MeetupDetailSheet({
                 <p className="font-medium text-foreground">{meetup.organizer.displayName}</p>
                 <p className="text-xs text-muted-foreground">Organizer</p>
               </div>
-            </div>
+            </button>
           </div>
 
           {/* Participants */}
@@ -187,9 +199,12 @@ export default function MeetupDetailSheet({
             {attendees.length > 0 ? (
               <div className="flex flex-wrap gap-2">
                 {attendees.map((participant) => (
-                  <div
+                  <button
+                    type="button"
                     key={participant.id}
-                    className="flex items-center gap-2 rounded-full bg-muted px-3 py-1.5"
+                    onClick={() => handleViewProfile(participant.id)}
+                    className="flex items-center gap-2 rounded-full bg-muted px-3 py-1.5 transition-colors hover:bg-muted-foreground/15 focus-visible:ring-2 focus-visible:ring-ring"
+                    aria-label={`View ${participant.displayName}'s profile`}
                   >
                     <Avatar className="h-6 w-6">
                       <AvatarImage src={participant.avatarUrl} />
@@ -200,7 +215,7 @@ export default function MeetupDetailSheet({
                     <span className="text-sm text-foreground">
                       {participant.displayName}
                     </span>
-                  </div>
+                  </button>
                 ))}
               </div>
             ) : (

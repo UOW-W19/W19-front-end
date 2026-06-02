@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Calendar, LogOut, MapPin, User, UserPlus, Users, X } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { toast } from 'sonner';
@@ -15,6 +16,7 @@ interface MeetupPopupCardProps {
 }
 
 export default function MeetupPopupCard({ meetup, onClose, onJoin, onLeave }: MeetupPopupCardProps) {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
 
@@ -26,6 +28,10 @@ export default function MeetupPopupCard({ meetup, onClose, onJoin, onLeave }: Me
 
   const parsedDate = parseISO(meetup.meetupDate);
   const formattedDate = format(parsedDate, 'MMM d, h:mm a');
+
+  const handleViewOrganizer = () => {
+    navigate(user?.id === meetup.organizer.id ? '/profile' : `/user/${meetup.organizer.id}`);
+  };
 
   const handleJoin = async () => {
     if (!user) {
@@ -92,15 +98,22 @@ export default function MeetupPopupCard({ meetup, onClose, onJoin, onLeave }: Me
       </div>
 
       <div className="flex items-center gap-2">
-        <Avatar className="h-5 w-5 shrink-0">
-          <AvatarImage src={meetup.organizer.avatarUrl} />
-          <AvatarFallback className="text-[10px] bg-primary/20 text-primary">
-            {meetup.organizer.displayName[0]}
-          </AvatarFallback>
-        </Avatar>
-        <span className="text-xs text-muted-foreground flex-1 truncate">
-          by <span className="font-medium text-foreground">{meetup.organizer.displayName}</span>
-        </span>
+        <button
+          type="button"
+          onClick={handleViewOrganizer}
+          className="flex min-w-0 flex-1 items-center gap-2 rounded-lg py-1 pr-2 text-left transition-colors hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring"
+          aria-label={`View ${meetup.organizer.displayName}'s profile`}
+        >
+          <Avatar className="h-5 w-5 shrink-0">
+            <AvatarImage src={meetup.organizer.avatarUrl} />
+            <AvatarFallback className="text-[10px] bg-primary/20 text-primary">
+              {meetup.organizer.displayName[0]}
+            </AvatarFallback>
+          </Avatar>
+          <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+            by <span className="font-medium text-foreground">{meetup.organizer.displayName}</span>
+          </span>
+        </button>
 
         {isHost ? (
           <Button variant="secondary" size="sm" disabled className="h-7 px-3 text-xs">
