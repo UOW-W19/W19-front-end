@@ -107,7 +107,7 @@ export function LessonSessionView({
   const totalWords = Math.max(words.length, 1);
 
   return (
-    <div className="min-h-full overflow-y-auto pb-24 scrollbar-hide mx-auto max-w-md px-4 py-6 flex flex-col">
+    <div className="mx-auto flex h-full min-h-0 max-w-md flex-col overflow-y-auto px-4 pb-0 pt-4 scrollbar-hide sm:pt-6">
       <LessonHeader
         step={step}
         currentWordIndex={currentWordIndex}
@@ -191,7 +191,7 @@ function LessonHeader({
   onExit: () => void;
 }) {
   return (
-    <div className="flex items-center justify-between mb-5">
+    <div className="mb-3 flex items-center justify-between sm:mb-5">
       <button
         onClick={onExit}
         className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
@@ -221,7 +221,7 @@ function LessonProgress({
     : Math.round((currentWordIndex / totalWords) * 100);
 
   return (
-    <div className="mb-6 space-y-3">
+    <div className="mb-4 space-y-3 sm:mb-6">
       <div className="flex items-center justify-center">
         {STEPS.map((label, index) => {
           const step = (index + 1) as LessonStepNumber;
@@ -265,7 +265,7 @@ function LessonProgress({
 
 function LessonWordCard({ word }: { word: LessonWord }) {
   return (
-    <div className="rounded-2xl border border-border bg-card p-4 mb-5">
+    <div className="mb-4 rounded-2xl border border-border bg-card p-4 sm:mb-5">
       <div className="flex items-start justify-between mb-3">
         <div className="min-w-0 flex-1 pr-3">
           <p className="text-sm text-foreground">
@@ -279,9 +279,26 @@ function LessonWordCard({ word }: { word: LessonWord }) {
         </div>
         <Volume2 className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
       </div>
-      <div className="rounded-xl bg-gradient-to-br from-muted to-muted/40 h-36 flex items-center justify-center relative overflow-hidden">
+      <div className="relative flex h-24 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-muted to-muted/40 sm:h-36">
         <span className="text-6xl opacity-10">{word.languageFlag}</span>
       </div>
+    </div>
+  );
+}
+
+function LessonActionBar({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={cn(
+      "sticky bottom-0 z-20 -mx-4 mt-auto border-t border-border bg-background/95 px-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur lg:pb-4",
+      className
+    )}>
+      {children}
     </div>
   );
 }
@@ -309,7 +326,7 @@ function VoicePromptStep({
   const canContinueAfterMismatch = voicePrompt.status === "incorrect";
 
   return (
-    <div className="flex-1 flex flex-col">
+    <div className="flex min-h-0 flex-1 flex-col">
       <h3 className="font-semibold text-foreground mb-3">Voice Prompt</h3>
       <div className="rounded-xl bg-muted/40 border border-border p-4 mb-4">
         <p className="text-xs text-muted-foreground mb-1">Say this phrase:</p>
@@ -386,7 +403,7 @@ function VoicePromptStep({
       </div>
 
       {canContinueAfterMismatch ? (
-        <div className="mt-auto flex gap-3">
+        <LessonActionBar className="flex gap-3">
           <Button
             type="button"
             variant="outline"
@@ -402,16 +419,18 @@ function VoicePromptStep({
           >
             Continue
           </Button>
-        </div>
+        </LessonActionBar>
       ) : (
-        <Button
-          type="button"
-          onClick={onContinue}
-          disabled={!voicePrompt.canContinue}
-          className="w-full h-12 rounded-xl mt-auto"
-        >
-          {voicePrompt.canContinue ? "Continue" : recordingLabel}
-        </Button>
+        <LessonActionBar>
+          <Button
+            type="button"
+            onClick={onContinue}
+            disabled={!voicePrompt.canContinue}
+            className="h-12 w-full rounded-xl"
+          >
+            {voicePrompt.canContinue ? "Continue" : recordingLabel}
+          </Button>
+        </LessonActionBar>
       )}
     </div>
   );
@@ -479,7 +498,7 @@ function ArrangeStep({
   };
 
   return (
-    <div className="flex-1 flex flex-col">
+    <div className="flex min-h-0 flex-1 flex-col">
       <h3 className="font-semibold text-foreground mb-1">Drag and Drop</h3>
       <p className="text-sm text-muted-foreground mb-3 break-words">"{translation}"</p>
 
@@ -542,9 +561,11 @@ function ArrangeStep({
         </TokenDropZone>
       </DndContext>
 
-      <Button onClick={onContinue} disabled={!isCorrect} className="w-full h-12 rounded-xl mt-auto">
-        Continue
-      </Button>
+      <LessonActionBar>
+        <Button onClick={onContinue} disabled={!isCorrect} className="h-12 w-full rounded-xl">
+          Continue
+        </Button>
+      </LessonActionBar>
     </div>
   );
 }
@@ -649,7 +670,7 @@ function WriteStep({
         : "text-destructive";
 
   return (
-    <div className="flex-1 flex flex-col">
+    <div className="flex min-h-0 flex-1 flex-col">
       <h3 className="font-semibold text-foreground mb-1">Write yourself</h3>
       <p className="text-sm text-muted-foreground mb-4 break-words">"{translation}"</p>
       <input
@@ -696,7 +717,7 @@ function WriteStep({
         )}
       </div>
 
-      <div className="flex gap-3 mt-auto">
+      <LessonActionBar className="flex gap-3">
         {answer.canReveal && !answer.canContinue && (
           <Button
             type="button"
@@ -716,7 +737,7 @@ function WriteStep({
         >
           {answer.canContinue ? "Continue" : "Check"}
         </Button>
-      </div>
+      </LessonActionBar>
     </div>
   );
 }
@@ -767,7 +788,7 @@ function ShareStep({
   const trimmedContent = content.trim();
 
   return (
-    <div className="flex-1 flex flex-col">
+    <div className="flex min-h-0 flex-1 flex-col">
       <div className="rounded-2xl border border-border bg-card p-4 mb-5">
         <div className="mb-3 flex items-start justify-between gap-3">
           <div>
@@ -860,7 +881,7 @@ function ShareStep({
         </div>
       </div>
 
-      <div className="flex gap-3 mt-6">
+      <LessonActionBar className="flex gap-3">
         <Button
           variant="outline"
           onClick={onDiscard}
@@ -877,7 +898,7 @@ function ShareStep({
           {isPosting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           Post
         </Button>
-      </div>
+      </LessonActionBar>
     </div>
   );
 }
