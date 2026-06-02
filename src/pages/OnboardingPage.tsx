@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts";
+import { geocodingApi } from "@/services/api/geocoding";
 import { usersApi } from "@/services/api/users";
 import { hasCompletedOnboarding } from "@/lib/onboarding";
 import { cn } from "@/lib/utils";
@@ -130,7 +131,7 @@ function LocaleLogo({ className = "h-20 w-20" }: { className?: string }) {
 
 function PageSpinner() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
+    <div className="flex min-h-svh items-center justify-center bg-background">
       <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
     </div>
   );
@@ -144,10 +145,10 @@ function OnboardingFrame({
   compact?: boolean;
 }) {
   return (
-    <div className="flex min-h-screen bg-background px-6 py-8 text-foreground">
+    <div className="flex h-dvh min-h-svh overflow-hidden bg-background px-4 py-4 text-foreground sm:px-6 sm:py-8">
       <main
         className={cn(
-          "mx-auto flex w-full max-w-md flex-col",
+          "mx-auto flex h-full min-h-0 w-full max-w-md flex-col",
           compact ? "justify-start" : "justify-between",
         )}
       >
@@ -157,12 +158,40 @@ function OnboardingFrame({
   );
 }
 
+function OnboardingScrollArea({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={cn("min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1 scrollbar-thin", className)}>
+      {children}
+    </div>
+  );
+}
+
+function OnboardingFooter({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={cn("safe-area-bottom shrink-0 bg-background pt-3 sm:pt-4", className)}>
+      {children}
+    </div>
+  );
+}
+
 function PreferenceProgress({ step }: { step: OnboardingStep }) {
   const index = PREFERENCE_STEPS.indexOf(step);
   if (index < 0) return null;
 
   return (
-    <div className="mb-8">
+    <div className="mb-6 sm:mb-8">
       <div className="mb-3 flex items-center justify-between text-xs font-semibold text-muted-foreground">
         <span>Step {index + 1} of {PREFERENCE_STEPS.length}</span>
         <span>{Math.round(((index + 1) / PREFERENCE_STEPS.length) * 100)}%</span>
@@ -179,6 +208,15 @@ function PreferenceProgress({ step }: { step: OnboardingStep }) {
 
 function languageByCode(code: string) {
   return LANGUAGE_OPTIONS.find((language) => language.code === code);
+}
+
+async function resolveLocationLabel(latitude: number, longitude: number): Promise<string | undefined> {
+  try {
+    return await geocodingApi.getCurrentLocationLabel({ latitude, longitude });
+  } catch (error) {
+    console.warn("[OnboardingPage] Failed to resolve location label:", error);
+    return undefined;
+  }
 }
 
 export default function OnboardingPage() {
@@ -283,10 +321,17 @@ export default function OnboardingPage() {
     setLocationStatus("loading");
     navigator.geolocation.getCurrentPosition(
       async (position) => {
+        const latitude = position.coords.latitude;
+        const longitude = position.coords.longitude;
         try {
+          const location = user?.location?.trim()
+            ? undefined
+            : await resolveLocationLabel(latitude, longitude);
+
           await updateProfile({
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
+            latitude,
+            longitude,
+            ...(location ? { location } : {}),
           });
           setLocationStatus("granted");
           dispatch({ type: "go", step: "registrationSuccess" });
@@ -348,25 +393,25 @@ export default function OnboardingPage() {
   if (state.step === "welcome") {
     return (
       <OnboardingFrame>
-        <div className="flex flex-1 flex-col justify-center">
-          <div className="mb-10 flex justify-center">
-            <LocaleLogo className="h-24 w-24" />
+        <OnboardingScrollArea className="flex flex-col justify-center">
+          <div className="mb-8 flex justify-center sm:mb-10">
+            <LocaleLogo className="h-20 w-20 sm:h-24 sm:w-24" />
           </div>
 
           <section className="space-y-6">
             <p className="text-sm font-semibold uppercase tracking-wide text-orange">
               Welcome to Locale
             </p>
-            <h1 className="text-[42px] font-black leading-tight text-foreground">
+            <h1 className="text-4xl font-black leading-tight text-foreground sm:text-5xl">
               Learn from your world, with your people.
             </h1>
-            <p className="text-lg font-light leading-8 text-muted-foreground">
+            <p className="text-base font-light leading-7 text-muted-foreground sm:text-lg sm:leading-8">
               Create your account, choose your languages, and set up the feed around what you want to practise.
             </p>
           </section>
-        </div>
+        </OnboardingScrollArea>
 
-        <div className="safe-area-bottom mt-10 space-y-4">
+        <OnboardingFooter className="space-y-4">
           <Button type="button" onClick={() => go("signup")} className="w-full text-base">
             Get started
             <ArrowRight className="h-5 w-5" />
@@ -378,7 +423,7 @@ export default function OnboardingPage() {
               Log in
             </button>
           </p>
-        </div>
+        </OnboardingFooter>
       </OnboardingFrame>
     );
   }
@@ -388,35 +433,35 @@ export default function OnboardingPage() {
 
     return (
       <OnboardingFrame compact>
-        <button
-          type="button"
-          onClick={() => go("welcome")}
-          className="mb-8 flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card text-foreground transition-colors hover:bg-muted"
-          aria-label="Back to welcome"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </button>
+        <OnboardingScrollArea>
+          <button
+            type="button"
+            onClick={() => go("welcome")}
+            className="mb-6 flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card text-foreground transition-colors hover:bg-muted"
+            aria-label="Back to welcome"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
 
-        <div className="mb-8">
-          <LocaleLogo className="mb-8 h-16 w-16" />
-          <h1 className="text-[38px] font-black leading-tight text-foreground">
-            {isSignup ? "Create your account." : "Welcome back."}
-          </h1>
-          <p className="mt-4 text-base leading-7 text-muted-foreground">
-            {isSignup
-              ? "Sign up first, then we will set up your location and language preferences."
-              : "Log in and we will take you straight to your feed."}
-          </p>
-        </div>
-
-        {formError && (
-          <div className="mb-5 rounded-2xl bg-destructive px-4 py-3 text-sm font-medium text-destructive-foreground" role="alert">
-            {formError}
+          <div className="mb-7">
+            <LocaleLogo className="mb-6 h-14 w-14 sm:h-16 sm:w-16" />
+            <h1 className="text-4xl font-black leading-tight text-foreground sm:text-5xl">
+              {isSignup ? "Create your account." : "Welcome back."}
+            </h1>
+            <p className="mt-4 text-base leading-7 text-muted-foreground">
+              {isSignup
+                ? "Sign up first, then we will set up your location and language preferences."
+                : "Log in and we will take you straight to your feed."}
+            </p>
           </div>
-        )}
 
-        <form onSubmit={isSignup ? handleSignup : handleLogin} className="flex flex-1 flex-col">
-          <div className="space-y-6">
+          {formError && (
+            <div className="mb-5 rounded-2xl bg-destructive px-4 py-3 text-sm font-medium text-destructive-foreground" role="alert">
+              {formError}
+            </div>
+          )}
+
+          <form id="onboarding-auth-form" onSubmit={isSignup ? handleSignup : handleLogin} className="space-y-6 pb-3">
             {isSignup && (
               <div>
                 <label htmlFor="onboarding-display-name" className="mb-2 block text-base font-medium text-foreground">
@@ -477,31 +522,31 @@ export default function OnboardingPage() {
                 </button>
               </div>
             </div>
-          </div>
+          </form>
+        </OnboardingScrollArea>
 
-          <div className="safe-area-bottom mt-auto pt-10">
-            <Button type="submit" disabled={isSubmittingAuth} className="w-full text-base">
-              {isSubmittingAuth ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
-              ) : isSignup ? (
-                "Create Account"
-              ) : (
-                "Log in"
-              )}
-            </Button>
+        <OnboardingFooter>
+          <Button type="submit" form="onboarding-auth-form" disabled={isSubmittingAuth} className="w-full text-base">
+            {isSubmittingAuth ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : isSignup ? (
+              "Create Account"
+            ) : (
+              "Log in"
+            )}
+          </Button>
 
-            <p className="mt-6 text-center text-sm text-foreground">
-              {isSignup ? "Already have an account? " : "Don't have an account? "}
-              <button
-                type="button"
-                onClick={() => go(isSignup ? "login" : "signup")}
-                className="link-orange"
-              >
-                {isSignup ? "Log in" : "Sign up"}
-              </button>
-            </p>
-          </div>
-        </form>
+          <p className="mt-4 text-center text-sm text-foreground">
+            {isSignup ? "Already have an account? " : "Don't have an account? "}
+            <button
+              type="button"
+              onClick={() => go(isSignup ? "login" : "signup")}
+              className="link-orange"
+            >
+              {isSignup ? "Log in" : "Sign up"}
+            </button>
+          </p>
+        </OnboardingFooter>
       </OnboardingFrame>
     );
   }
@@ -509,11 +554,11 @@ export default function OnboardingPage() {
   if (state.step === "location") {
     return (
       <OnboardingFrame>
-        <div className="flex flex-1 flex-col justify-center">
-          <div className="mb-8 flex h-20 w-20 items-center justify-center rounded-full bg-lime/25 text-navy">
-            <MapPin className="h-9 w-9" />
+        <OnboardingScrollArea className="flex flex-col justify-center">
+          <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-lime/25 text-navy sm:mb-8 sm:h-20 sm:w-20">
+            <MapPin className="h-8 w-8 sm:h-9 sm:w-9" />
           </div>
-          <h1 className="text-[36px] font-black leading-tight text-foreground">
+          <h1 className="text-3xl font-black leading-tight text-foreground sm:text-4xl">
             Allow location services
           </h1>
           <p className="mt-5 text-base leading-7 text-muted-foreground">
@@ -524,9 +569,9 @@ export default function OnboardingPage() {
               {locationMessage}
             </p>
           )}
-        </div>
+        </OnboardingScrollArea>
 
-        <div className="safe-area-bottom mt-10 space-y-3">
+        <OnboardingFooter className="space-y-3">
           <Button type="button" onClick={requestLocation} disabled={locationStatus === "loading"} className="w-full text-base">
             {locationStatus === "loading" ? (
               <Loader2 className="h-5 w-5 animate-spin" />
@@ -540,7 +585,7 @@ export default function OnboardingPage() {
           <Button type="button" variant="outline" onClick={skipLocation} className="w-full text-base">
             Skip for now
           </Button>
-        </div>
+        </OnboardingFooter>
       </OnboardingFrame>
     );
   }
@@ -548,24 +593,24 @@ export default function OnboardingPage() {
   if (state.step === "registrationSuccess") {
     return (
       <OnboardingFrame>
-        <div className="flex flex-1 flex-col items-center justify-center text-center">
-          <div className="mb-8 flex h-24 w-24 items-center justify-center rounded-full bg-navy text-white">
-            <Check className="h-12 w-12" />
+        <OnboardingScrollArea className="flex flex-col items-center justify-center text-center">
+          <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-navy text-white sm:mb-8 sm:h-24 sm:w-24">
+            <Check className="h-10 w-10 sm:h-12 sm:w-12" />
           </div>
-          <h1 className="text-[36px] font-black leading-tight text-foreground">
+          <h1 className="text-3xl font-black leading-tight text-foreground sm:text-4xl">
             Congratulations
           </h1>
           <p className="mt-5 text-base leading-7 text-muted-foreground">
             {state.registeredEmail || authEmail} has been successfully registered! Let's continue to your preferences.
           </p>
-        </div>
+        </OnboardingScrollArea>
 
-        <div className="safe-area-bottom mt-10">
+        <OnboardingFooter>
           <Button type="button" onClick={() => go("appLanguage")} className="w-full text-base">
             Continue
             <ArrowRight className="h-5 w-5" />
           </Button>
-        </div>
+        </OnboardingFooter>
       </OnboardingFrame>
     );
   }
@@ -573,52 +618,54 @@ export default function OnboardingPage() {
   if (state.step === "appLanguage") {
     return (
       <OnboardingFrame compact>
-        <PreferenceProgress step={state.step} />
-        <div className="mb-7">
-          <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-purple/15 text-purple">
-            <Languages className="h-7 w-7" />
+        <OnboardingScrollArea>
+          <PreferenceProgress step={state.step} />
+          <div className="mb-6 sm:mb-7">
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-purple/15 text-purple sm:mb-5 sm:h-14 sm:w-14">
+              <Languages className="h-6 w-6 sm:h-7 sm:w-7" />
+            </div>
+            <h1 className="text-3xl font-black leading-tight text-foreground sm:text-4xl">
+              First, let's choose your preferred language
+            </h1>
+            <p className="mt-3 text-base leading-7 text-muted-foreground">
+              This sets the main language for your profile and app experience.
+            </p>
           </div>
-          <h1 className="text-[32px] font-black leading-tight text-foreground">
-            First, let's choose your preferred language
-          </h1>
-          <p className="mt-3 text-base leading-7 text-muted-foreground">
-            This sets the main language for your profile and app experience.
-          </p>
-        </div>
 
-        <div className="max-h-[48vh] space-y-3 overflow-y-auto pr-1 scrollbar-thin">
-          {LANGUAGE_OPTIONS.map((language) => {
-            const selected = state.appLanguage === language.code;
-            return (
-              <button
-                key={language.code}
-                type="button"
-                onClick={() => dispatch({ type: "setAppLanguage", code: language.code })}
-                className={cn(
-                  "flex w-full items-center gap-4 rounded-2xl border-2 bg-card px-4 py-4 text-left transition-all",
-                  selected
-                    ? "border-primary shadow-locale-md"
-                    : "border-border hover:border-purple/60 hover:bg-muted/40",
-                )}
-              >
-                <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-muted text-2xl">
-                  {language.flag}
-                </span>
-                <span className="text-lg font-semibold text-foreground">{language.name}</span>
-                {selected && <Check className="ml-auto h-5 w-5 text-primary" />}
-              </button>
-            );
-          })}
-        </div>
+          <div className="space-y-3 pb-3">
+            {LANGUAGE_OPTIONS.map((language) => {
+              const selected = state.appLanguage === language.code;
+              return (
+                <button
+                  key={language.code}
+                  type="button"
+                  onClick={() => dispatch({ type: "setAppLanguage", code: language.code })}
+                  className={cn(
+                    "flex w-full items-center gap-3 rounded-2xl border-2 bg-card px-4 py-3 text-left transition-all sm:gap-4 sm:py-4",
+                    selected
+                      ? "border-primary shadow-locale-md"
+                      : "border-border hover:border-purple/60 hover:bg-muted/40",
+                  )}
+                >
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-muted text-2xl sm:h-12 sm:w-12">
+                    {language.flag}
+                  </span>
+                  <span className="text-base font-semibold text-foreground sm:text-lg">{language.name}</span>
+                  {selected && <Check className="ml-auto h-5 w-5 text-primary" />}
+                </button>
+              );
+            })}
+          </div>
+        </OnboardingScrollArea>
 
-        <div className="safe-area-bottom mt-auto grid grid-cols-2 gap-3 pt-8">
+        <OnboardingFooter className="grid grid-cols-2 gap-3">
           <Button type="button" variant="outline" onClick={() => go("registrationSuccess")}>
             Back
           </Button>
           <Button type="button" onClick={() => go("learningLanguage")} disabled={!state.appLanguage}>
             Next
           </Button>
-        </div>
+        </OnboardingFooter>
       </OnboardingFrame>
     );
   }
@@ -626,50 +673,52 @@ export default function OnboardingPage() {
   if (state.step === "learningLanguage") {
     return (
       <OnboardingFrame compact>
-        <PreferenceProgress step={state.step} />
-        <div className="mb-7">
-          <h1 className="text-[32px] font-black leading-tight text-foreground">
-            What language do you want to learn?
-          </h1>
-          <p className="mt-3 text-base leading-7 text-muted-foreground">
-            Choose one language to focus your feed and lessons.
-          </p>
-        </div>
+        <OnboardingScrollArea>
+          <PreferenceProgress step={state.step} />
+          <div className="mb-6 sm:mb-7">
+            <h1 className="text-3xl font-black leading-tight text-foreground sm:text-4xl">
+              What language do you want to learn?
+            </h1>
+            <p className="mt-3 text-base leading-7 text-muted-foreground">
+              Choose one language to focus your feed and lessons.
+            </p>
+          </div>
 
-        <div className="max-h-[54vh] space-y-4 overflow-y-auto pr-1 scrollbar-thin">
-          {learningLanguages.map((language) => {
-            const selected = state.learningLanguage === language.code;
-            return (
-              <button
-                key={language.code}
-                type="button"
-                onClick={() => dispatch({ type: "setLearningLanguage", code: language.code })}
-                className={cn(
-                  "flex w-full items-center gap-5 rounded-3xl border-2 bg-card px-5 py-5 text-left transition-all",
-                  selected
-                    ? "border-primary shadow-locale-md"
-                    : "border-foreground/20 hover:border-purple/60 hover:bg-muted/40",
-                )}
-              >
-                <span className="flex h-16 w-16 items-center justify-center rounded-xl bg-muted text-3xl">
-                  {language.flag}
-                </span>
-                <span className="text-xl font-semibold text-foreground">{language.name}</span>
-                {selected && <Check className="ml-auto h-5 w-5 text-primary" />}
-              </button>
-            );
-          })}
-        </div>
+          <div className="space-y-4 pb-3">
+            {learningLanguages.map((language) => {
+              const selected = state.learningLanguage === language.code;
+              return (
+                <button
+                  key={language.code}
+                  type="button"
+                  onClick={() => dispatch({ type: "setLearningLanguage", code: language.code })}
+                  className={cn(
+                    "flex w-full items-center gap-4 rounded-2xl border-2 bg-card px-4 py-4 text-left transition-all sm:gap-5 sm:rounded-3xl sm:px-5 sm:py-5",
+                    selected
+                      ? "border-primary shadow-locale-md"
+                      : "border-foreground/20 hover:border-purple/60 hover:bg-muted/40",
+                  )}
+                >
+                  <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-muted text-2xl sm:h-16 sm:w-16 sm:text-3xl">
+                    {language.flag}
+                  </span>
+                  <span className="text-lg font-semibold text-foreground sm:text-xl">{language.name}</span>
+                  {selected && <Check className="ml-auto h-5 w-5 text-primary" />}
+                </button>
+              );
+            })}
+          </div>
+        </OnboardingScrollArea>
 
         {state.learningLanguage && (
-          <div className="safe-area-bottom mt-auto grid grid-cols-2 gap-3 pt-8">
+          <OnboardingFooter className="grid grid-cols-2 gap-3">
             <Button type="button" variant="outline" onClick={() => go("appLanguage")}>
               Back
             </Button>
             <Button type="button" onClick={() => go("proficiency")}>
               Next
             </Button>
-          </div>
+          </OnboardingFooter>
         )}
       </OnboardingFrame>
     );
@@ -680,50 +729,54 @@ export default function OnboardingPage() {
 
     return (
       <OnboardingFrame compact>
-        <PreferenceProgress step={state.step} />
-        <div className="mb-8">
-          <h1 className="text-[32px] font-black leading-tight text-foreground">
-            Proficiency Level
-          </h1>
-          <p className="mt-3 text-base leading-7 text-muted-foreground">
-            How comfortable are you with {selectedLanguage?.name ?? "this language"} today?
-          </p>
-        </div>
+        <OnboardingScrollArea>
+          <div className="pb-3">
+            <PreferenceProgress step={state.step} />
+            <div className="mb-6 sm:mb-8">
+              <h1 className="text-3xl font-black leading-tight text-foreground sm:text-4xl">
+                Proficiency Level
+              </h1>
+              <p className="mt-3 text-base leading-7 text-muted-foreground">
+                How comfortable are you with {selectedLanguage?.name ?? "this language"} today?
+              </p>
+            </div>
 
-        <div className="space-y-5">
-          {[
-            { level: "BEGINNER", label: "Beginner" },
-            { level: "INTERMEDIATE", label: "Intermediate" },
-            { level: "ADVANCED", label: "Advanced" },
-          ].map((option) => {
-            const selected = state.proficiency === option.level;
-            return (
-              <button
-                key={option.level}
-                type="button"
-                onClick={() => dispatch({ type: "setProficiency", level: option.level as ProficiencyLevel })}
-                className={cn(
-                  "flex w-full items-center justify-between rounded-2xl border-2 bg-card px-6 py-5 text-left text-xl font-semibold transition-all",
-                  selected
-                    ? "border-primary shadow-locale-md"
-                    : "border-foreground/20 hover:border-purple/60 hover:bg-muted/40",
-                )}
-              >
-                {option.label}
-                {selected && <Check className="h-5 w-5 text-primary" />}
-              </button>
-            );
-          })}
-        </div>
+            <div className="space-y-5">
+              {[
+                { level: "BEGINNER", label: "Beginner" },
+                { level: "INTERMEDIATE", label: "Intermediate" },
+                { level: "ADVANCED", label: "Advanced" },
+              ].map((option) => {
+                const selected = state.proficiency === option.level;
+                return (
+                  <button
+                    key={option.level}
+                    type="button"
+                    onClick={() => dispatch({ type: "setProficiency", level: option.level as ProficiencyLevel })}
+                    className={cn(
+                      "flex w-full items-center justify-between rounded-2xl border-2 bg-card px-5 py-4 text-left text-lg font-semibold transition-all sm:px-6 sm:py-5 sm:text-xl",
+                      selected
+                        ? "border-primary shadow-locale-md"
+                        : "border-foreground/20 hover:border-purple/60 hover:bg-muted/40",
+                    )}
+                  >
+                    {option.label}
+                    {selected && <Check className="h-5 w-5 text-primary" />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </OnboardingScrollArea>
 
-        <div className="safe-area-bottom mt-auto grid grid-cols-2 gap-3 pt-8">
+        <OnboardingFooter className="grid grid-cols-2 gap-3">
           <Button type="button" variant="outline" onClick={() => go("learningLanguage")}>
             Back
           </Button>
           <Button type="button" onClick={() => go("topics")} disabled={!state.proficiency}>
             Next
           </Button>
-        </div>
+        </OnboardingFooter>
       </OnboardingFrame>
     );
   }
@@ -731,24 +784,24 @@ export default function OnboardingPage() {
   if (state.step === "topics") {
     return (
       <OnboardingFrame compact>
-        <PreferenceProgress step={state.step} />
-        <div className="mb-8">
-          <h1 className="text-[32px] font-black leading-tight text-foreground">
-            Let's choose your topic!
-          </h1>
-          <p className="mt-3 text-base leading-7 text-muted-foreground">
-            Choose what you like so your feed starts with familiar conversations.
-          </p>
-        </div>
-
-        {formError && (
-          <div className="mb-5 rounded-2xl bg-destructive px-4 py-3 text-sm font-medium text-destructive-foreground" role="alert">
-            {formError}
+        <OnboardingScrollArea>
+          <PreferenceProgress step={state.step} />
+          <div className="mb-6 sm:mb-8">
+            <h1 className="text-3xl font-black leading-tight text-foreground sm:text-4xl">
+              Let's choose your topic!
+            </h1>
+            <p className="mt-3 text-base leading-7 text-muted-foreground">
+              Choose what you like so your feed starts with familiar conversations.
+            </p>
           </div>
-        )}
 
-        <div className="max-h-[52vh] overflow-y-auto pr-1 scrollbar-thin">
-          <div className="flex flex-wrap gap-3">
+          {formError && (
+            <div className="mb-5 rounded-2xl bg-destructive px-4 py-3 text-sm font-medium text-destructive-foreground" role="alert">
+              {formError}
+            </div>
+          )}
+
+          <div className="flex flex-wrap gap-3 pb-3">
             {TOPIC_OPTIONS.map((topic) => {
               const selected = state.topics.includes(topic);
               return (
@@ -757,7 +810,7 @@ export default function OnboardingPage() {
                   type="button"
                   onClick={() => dispatch({ type: "toggleTopic", topic })}
                   className={cn(
-                    "rounded-full border-2 px-5 py-3 text-sm font-semibold shadow-locale-sm transition-all",
+                    "rounded-full border-2 px-4 py-2.5 text-sm font-semibold shadow-locale-sm transition-all sm:px-5 sm:py-3",
                     selected
                       ? "border-primary bg-primary text-primary-foreground"
                       : "border-border bg-card text-foreground hover:border-purple/60 hover:bg-muted/40",
@@ -768,16 +821,16 @@ export default function OnboardingPage() {
               );
             })}
           </div>
-        </div>
+        </OnboardingScrollArea>
 
-        <div className="safe-area-bottom mt-auto grid grid-cols-2 gap-3 pt-8">
+        <OnboardingFooter className="grid grid-cols-2 gap-3">
           <Button type="button" variant="outline" onClick={() => go("proficiency")} disabled={isSavingPreferences}>
             Back
           </Button>
           <Button type="button" onClick={savePreferences} disabled={state.topics.length === 0 || isSavingPreferences}>
             {isSavingPreferences ? <Loader2 className="h-5 w-5 animate-spin" /> : "Next"}
           </Button>
-        </div>
+        </OnboardingFooter>
       </OnboardingFrame>
     );
   }
@@ -785,28 +838,28 @@ export default function OnboardingPage() {
   if (state.step === "finalSuccess") {
     return (
       <OnboardingFrame>
-        <div className="flex flex-1 flex-col items-center justify-center text-center">
-          <div className="mb-8 flex h-24 w-24 items-center justify-center rounded-full bg-navy text-white">
-            <Check className="h-12 w-12" />
+        <OnboardingScrollArea className="flex flex-col items-center justify-center text-center">
+          <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-navy text-white sm:mb-8 sm:h-24 sm:w-24">
+            <Check className="h-10 w-10 sm:h-12 sm:w-12" />
           </div>
-          <h1 className="text-[32px] font-black text-foreground">Success</h1>
+          <h1 className="text-3xl font-black text-foreground sm:text-4xl">Success</h1>
           <p className="mt-5 max-w-xs text-base font-semibold leading-7 text-muted-foreground">
             Congratulations, you have completed your registration!
           </p>
-        </div>
+        </OnboardingScrollArea>
       </OnboardingFrame>
     );
   }
 
   return (
     <OnboardingFrame>
-      <div className="flex flex-1 flex-col items-center justify-center text-center">
+      <OnboardingScrollArea className="flex flex-col items-center justify-center text-center">
         <Sparkles className="mb-7 h-11 w-11 text-lime" />
-        <div className="mb-7 h-2 w-52 overflow-hidden rounded-full bg-navy">
+        <div className="mb-7 h-2 w-3/5 max-w-52 overflow-hidden rounded-full bg-navy">
           <div className="h-full w-3/4 rounded-full bg-lime" />
         </div>
         <p className="text-2xl font-medium text-foreground">Loading...</p>
-      </div>
+      </OnboardingScrollArea>
     </OnboardingFrame>
   );
 }
