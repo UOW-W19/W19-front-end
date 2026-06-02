@@ -44,7 +44,7 @@ const transformConversation = (c: BackendConversation): Conversation => ({
     })) as UserProfile[],
     isGroup: c.isGroup || false,
     groupName: c.groupName,
-    groupAvatar: c.groupAvatar,
+    groupAvatar: c.groupAvatar || c.group_avatar,
     unreadCount: c.unreadCount || 0,
     updatedAt: c.lastMessageAt || c.updatedAt,
     lastMessage: {
@@ -72,6 +72,22 @@ const buildMessageFormData = (data: { content?: string; image?: File; recipientI
     }
     if (data.image) {
         formData.append('image', data.image);
+    }
+
+    return formData;
+};
+
+const buildGroupFormData = (data: { groupName?: string; participantIds?: string[]; groupAvatarFile?: File }) => {
+    const formData = new FormData();
+
+    if (data.groupName !== undefined && data.groupName.trim()) {
+        formData.append('groupName', data.groupName.trim());
+    }
+    data.participantIds?.forEach(participantId => {
+        formData.append('participantIds', participantId);
+    });
+    if (data.groupAvatarFile) {
+        formData.append('groupAvatar', data.groupAvatarFile);
     }
 
     return formData;
@@ -141,10 +157,10 @@ export const messagesApi = {
         });
     },
 
-    createGroup: async (groupName: string, participantIds: string[], groupAvatar?: string): Promise<Conversation> => {
+    createGroup: async (groupName: string, participantIds: string[], groupAvatarFile?: File): Promise<Conversation> => {
         const response = await authenticatedRequest<BackendConversation>('/conversations/group', {
             method: 'POST',
-            body: JSON.stringify({ groupName, participantIds, groupAvatar }),
+            body: buildGroupFormData({ groupName, participantIds, groupAvatarFile }),
         });
         return transformConversation(response);
     },
@@ -163,10 +179,13 @@ export const messagesApi = {
         });
     },
 
-    updateGroup: async (conversationId: string, groupName?: string, groupAvatar?: string): Promise<Conversation> => {
+    updateGroup: async (
+        conversationId: string,
+        data: { groupName?: string; groupAvatarFile?: File },
+    ): Promise<Conversation> => {
         const response = await authenticatedRequest<BackendConversation>(`/conversations/${conversationId}`, {
             method: 'PATCH',
-            body: JSON.stringify({ groupName, groupAvatar }),
+            body: buildGroupFormData(data),
         });
         return transformConversation(response);
     },

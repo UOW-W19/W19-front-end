@@ -121,16 +121,68 @@ export default function ExplorePage() {
     requestLocation();
   }, [requestLocation]);
 
-  // Persist coordinates to the backend the first time geolocation is granted.
-  // Skipped if the user already has saved coordinates (user.latitude != null).
+  // Persist coordinates and a readable label without overwriting manual location text.
   useEffect(() => {
-    if (locationState.status !== 'granted' || user?.latitude != null) return;
-    updateProfile({ latitude: locationState.latitude, longitude: locationState.longitude })
-      .catch((error) => {
-        console.warn('Failed to persist user coordinates', error);
-        toast.error('We could not save your location preferences. Explore will still work for now.');
-      });
-  }, [locationState, user?.latitude, updateProfile]);
+    if (locationState.status !== 'granted') return;
+
+    const profileLocation = user?.location?.trim();
+    const savedLatitude = user?.latitude;
+    const savedLongitude = user?.longitude;
+    const hasSavedCoordinates = typeof savedLatitude === 'number' && typeof savedLongitude === 'number';
+    const needsCoordinates = !hasSavedCoordinates;
+    const needsLocationLabel = !profileLocation;
+
+    if (!needsCoordinates && !needsLocationLabel) return;
+
+    const controller = new AbortController();
+    let isCancelled = false;
+
+    const persistLocation = async () => {
+      const payload: { latitude?: number; longitude?: number; location?: string } = {};
+
+      if (needsCoordinates) {
+        payload.latitude = locationState.latitude;
+        payload.longitude = locationState.longitude;
+      }
+
+      if (needsLocationLabel) {
+        const labelLatitude = hasSavedCoordinates ? savedLatitude : locationState.latitude;
+        const labelLongitude = hasSavedCoordinates ? savedLongitude : locationState.longitude;
+
+        if (typeof labelLatitude === 'number' && typeof labelLongitude === 'number') {
+          try {
+            const label = await geocodingApi.getCurrentLocationLabel({
+              latitude: labelLatitude,
+              longitude: labelLongitude,
+              signal: controller.signal,
+            });
+            if (label.trim()) {
+              payload.location = label;
+            }
+          } catch (error: unknown) {
+            if (isAbortError(error)) return;
+            console.warn('[ExplorePage] Failed to resolve profile location label:', error);
+          }
+        }
+      }
+
+      if (isCancelled) return;
+      if (payload.latitude === undefined && payload.longitude === undefined && payload.location === undefined) return;
+
+      await updateProfile(payload);
+    };
+
+    persistLocation().catch((error) => {
+      if (isAbortError(error)) return;
+      console.warn('Failed to persist user location preferences', error);
+      toast.error('We could not save your location preferences. Explore will still work for now.');
+    });
+
+    return () => {
+      isCancelled = true;
+      controller.abort();
+    };
+  }, [locationState, user?.latitude, user?.longitude, user?.location, updateProfile]);
 
   useEffect(() => {
     const profileLocation = user?.location?.trim() || undefined;

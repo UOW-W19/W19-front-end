@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts";
 import { usersApi } from "@/services/api/users";
 import { friendsApi } from "@/services/api/friends";
+import { geocodingApi } from "@/services/api/geocoding";
 import type { PublicUserProfile, UserPostsResponse } from "@/services/api/users";
 import type { FriendRequestResponse } from "@/types/api";
 import { PostCard } from "@/components/feed/PostCard";
@@ -27,6 +28,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+
+const isAbortError = (error: unknown): boolean =>
+  error instanceof DOMException && error.name === "AbortError";
 
 export default function UserProfilePage() {
   const { userId } = useParams<{ userId: string }>();
@@ -41,6 +45,7 @@ export default function UserProfilePage() {
   const [isFriendLoading, setIsFriendLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<"posts" | "activity">("posts");
   const [error, setError] = useState<string | null>(null);
+  const [derivedLocation, setDerivedLocation] = useState<string | undefined>();
 
   const postsRef = useRef<HTMLElement>(null);
 
@@ -91,6 +96,28 @@ export default function UserProfilePage() {
 
     fetchProfile();
   }, [userId, isOwnProfile, navigate]);
+
+  useEffect(() => {
+    setDerivedLocation(undefined);
+
+    if (!profile || profile.location?.trim()) return;
+    if (typeof profile.latitude !== "number" || typeof profile.longitude !== "number") return;
+
+    const controller = new AbortController();
+
+    geocodingApi.getCurrentLocationLabel({
+      latitude: profile.latitude,
+      longitude: profile.longitude,
+      signal: controller.signal,
+    })
+      .then(setDerivedLocation)
+      .catch((error: unknown) => {
+        if (isAbortError(error)) return;
+        console.warn("[UserProfilePage] Failed to resolve profile location label:", error);
+      });
+
+    return () => controller.abort();
+  }, [profile]);
 
   const loadMorePosts = async () => {
     if (!userId || !posts?.hasMore) return;
@@ -162,6 +189,8 @@ export default function UserProfilePage() {
     );
   }
 
+  const profileLocation = profile.location?.trim() || derivedLocation;
+
   return (
     <div className="h-full overflow-y-auto pb-24 scrollbar-hide mx-auto max-w-2xl">
 
@@ -206,16 +235,16 @@ export default function UserProfilePage() {
         </div>
 
         {/* Location pill — overlaps bottom edge */}
-        {profile.location && (
+        {profileLocation && (
           <div className="absolute -bottom-5 left-1/2 -translate-x-1/2 bg-card rounded-full px-4 py-2 shadow-md flex items-center gap-2 text-sm whitespace-nowrap border border-border z-10">
             <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-            <span className="text-foreground font-medium">{profile.location}</span>
+            <span className="text-foreground font-medium">{profileLocation}</span>
           </div>
         )}
       </div>
 
       {/* ── Name + bio ── */}
-      <div className={cn("text-center px-4 pb-2", profile.location ? "pt-10" : "pt-5")}>
+      <div className={cn("text-center px-4 pb-2", profileLocation ? "pt-10" : "pt-5")}>
         <h1 className="text-lg font-bold text-foreground">{profile.displayName}</h1>
         <p className="text-sm text-muted-foreground">@{profile.username}</p>
         {profile.bio && (

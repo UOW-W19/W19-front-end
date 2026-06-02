@@ -2,6 +2,7 @@ import { formatDistanceToNow } from "date-fns";
 import { CheckCheck, Users } from "lucide-react";
 import type { Conversation } from "@/types/message";
 import { useAuth } from "@/contexts";
+import { isImageAvatar } from "@/lib/avatar";
 
 interface ConversationListProps {
     conversations: Conversation[];
@@ -71,7 +72,7 @@ export function ConversationList({ conversations, selectedId, onSelect, onNewGro
                                 >
                                     {/* Avatar */}
                                     <div className="relative shrink-0 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary/60 text-lg font-semibold text-primary-foreground">
-                                        {info.avatar && info.avatar.startsWith('http') ? (
+                                        {isImageAvatar(info.avatar) ? (
                                             <img
                                                 src={info.avatar}
                                                 alt={info.name}

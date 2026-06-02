@@ -52,6 +52,7 @@ export interface BackendConversation {
     isGroup: boolean;
     groupName?: string;
     groupAvatar?: string;
+    group_avatar?: string;
     lastMessagePreview: string;
     lastMessageAt: string;
     unreadCount: number;

@@ -11,6 +11,8 @@ export interface BackendPublicProfile {
   avatar_url?: string;
   bio?: string;
   location?: string;
+  latitude?: number | null;
+  longitude?: number | null;
   created_at: string;
   languages: Array<{
     code: string;
@@ -72,6 +74,8 @@ export interface PublicUserProfile {
   avatarUrl?: string;
   bio?: string;
   location?: string;
+  latitude?: number;
+  longitude?: number;
   createdAt: string;
   languages: Array<{
     code: string;
@@ -165,6 +169,8 @@ export const transformPublicProfile = (profile: BackendPublicProfile): PublicUse
   avatarUrl: profile.avatar_url,
   bio: profile.bio,
   location: profile.location,
+  latitude: profile.latitude ?? undefined,
+  longitude: profile.longitude ?? undefined,
   createdAt: profile.created_at,
   languages: dedupeLanguagesByCode((profile.languages || []).map(lang => ({
     code: lang.code,

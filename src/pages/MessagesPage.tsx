@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { ConversationList } from "@/components/messages/ConversationList";
 import { ChatWindow } from "@/components/messages/ChatWindow";
 import { CreateGroupModal } from "@/components/messages/CreateGroupModal";
@@ -101,14 +102,17 @@ export default function MessagesPage() {
 
   // Group mutations
   const createGroupMutation = useMutation({
-    mutationFn: ({ groupName, participantIds }: { groupName: string; participantIds: string[] }) =>
-      messagesApi.createGroup(groupName, participantIds),
+    mutationFn: ({ groupName, participantIds, groupAvatarFile }: { groupName: string; participantIds: string[]; groupAvatarFile?: File }) =>
+      messagesApi.createGroup(groupName, participantIds, groupAvatarFile),
     onSuccess: (newConversation) => {
       queryClient.setQueryData(['conversations'], (old: typeof conversations) =>
         [newConversation, ...(old || [])]
       );
       setSelectedConversationId(newConversation.id);
       setShowCreateGroup(false);
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "Failed to create group");
     },
   });
 
@@ -126,12 +130,19 @@ export default function MessagesPage() {
   });
 
   const updateGroupMutation = useMutation({
-    mutationFn: ({ conversationId, groupName }: { conversationId: string; groupName: string }) =>
-      messagesApi.updateGroup(conversationId, groupName),
+    mutationFn: ({ conversationId, updates }: { conversationId: string; updates: { groupName?: string; groupAvatarFile?: File } }) =>
+      messagesApi.updateGroup(conversationId, updates),
     onSuccess: (updated) => {
       queryClient.setQueryData(['conversations'], (old: typeof conversations) =>
-        (old || []).map(c => c.id === updated.id ? { ...c, groupName: updated.groupName } : c)
+        (old || []).map(c => c.id === updated.id ? {
+          ...c,
+          groupName: updated.groupName ?? c.groupName,
+          groupAvatar: updated.groupAvatar ?? c.groupAvatar,
+        } : c)
       );
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "Failed to update group");
     },
   });
 
@@ -263,7 +274,7 @@ export default function MessagesPage() {
         <CreateGroupModal
           candidates={groupCandidates}
           onClose={() => setShowCreateGroup(false)}
-          onCreated={(groupName, participantIds) => createGroupMutation.mutate({ groupName, participantIds })}
+          onCreated={(groupName, participantIds, groupAvatarFile) => createGroupMutation.mutate({ groupName, participantIds, groupAvatarFile })}
           isLoading={createGroupMutation.isPending}
         />
       )}
@@ -302,7 +313,7 @@ export default function MessagesPage() {
             onSendMessage={async (content, image) => { await sendMessageMutation.mutateAsync({ content, image }); }}
             onDeleteMessage={(messageId) => deleteMessageMutation.mutate(messageId)}
             onLeaveGroup={(conversationId) => leaveGroupMutation.mutate(conversationId)}
-            onUpdateGroup={(conversationId, groupName) => updateGroupMutation.mutate({ conversationId, groupName })}
+            onUpdateGroup={async (conversationId, updates) => { await updateGroupMutation.mutateAsync({ conversationId, updates }); }}
             onBack={() => setSelectedConversationId(null)}
           />
         </div>
