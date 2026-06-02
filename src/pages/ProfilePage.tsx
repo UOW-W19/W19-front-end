@@ -8,6 +8,7 @@ import { usersApi } from "@/services/api/users";
 import { languagesApi } from "@/services/api/languages";
 import { postsApi } from "@/services/api/posts";
 import { AvatarPickerModal } from "@/components/profile/AvatarPickerModal";
+import { BadgesSheet } from "@/components/profile/BadgesSheet";
 import { PostCard } from "@/components/feed/PostCard";
 import { cn } from "@/lib/utils";
 import type { Language } from "@/types/api";
@@ -51,6 +52,7 @@ export default function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
+  const [isBadgesSheetOpen, setIsBadgesSheetOpen] = useState(false);
 
   const [editForm, setEditForm] = useState({
     displayName: user?.displayName || "",
@@ -273,6 +275,12 @@ export default function ProfilePage() {
         onSave={handleAvatarSave}
       />
 
+      <BadgesSheet
+        open={isBadgesSheetOpen}
+        onOpenChange={setIsBadgesSheetOpen}
+        joinedAt={user.createdAt}
+      />
+
       {/* ── Name + bio ── */}
       <div className={cn("text-center px-4 pb-2", user.location ? "pt-10" : "pt-5")}>
         <h1 className="text-lg font-bold text-foreground">{user.displayName}</h1>
@@ -482,7 +490,11 @@ export default function ProfilePage() {
           {/* 2×2 tiles */}
           <div className="grid grid-cols-2 gap-3 mb-6">
             {/* Badges */}
-            <button className="rounded-2xl bg-card border border-border p-4 flex items-center gap-3 text-left hover:bg-muted/30 active:scale-95 transition-all">
+            <button
+              type="button"
+              onClick={() => setIsBadgesSheetOpen(true)}
+              className="rounded-2xl bg-card border border-border p-4 flex items-center gap-3 text-left hover:bg-muted/30 active:scale-95 transition-all"
+            >
               <div
                 className="h-11 w-11 rounded-full flex items-center justify-center flex-shrink-0"
                 style={{ background: '#BDE6FF' }}
