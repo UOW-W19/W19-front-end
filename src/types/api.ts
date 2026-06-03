@@ -333,6 +333,8 @@ export interface AppNotification {
   title: string;
   body?: string;
   targetUrl?: string;
+  entityType?: string;
+  entityId?: string;
   readAt?: string;
   createdAt: string;
   actor?: NotificationActor | null;

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
@@ -7,11 +7,13 @@ import { ConversationList } from "@/components/messages/ConversationList";
 import { ChatWindow } from "@/components/messages/ChatWindow";
 import { CreateGroupModal } from "@/components/messages/CreateGroupModal";
 import { messagesApi } from "@/services/api/messages";
+import type { NotificationsPageResponse } from "@/services/api/notifications";
 import { usersApi } from "@/services/api/users";
 import type { Conversation, Message } from "@/types/message";
-import type { UserProfile } from "@/types/api";
+import type { AppNotification, UserProfile } from "@/types/api";
 import { useAuth } from "@/contexts";
 import { useChatSubscription } from "@/hooks/useChatSubscription";
+import { closeConversationPushNotifications } from "@/lib/pushNotifications";
 
 const appendUniqueMessage = (messages: Message[], newMessage: Message) => {
   if (messages.some(m => m.id === newMessage.id)) return messages;
@@ -20,6 +22,39 @@ const appendUniqueMessage = (messages: Message[], newMessage: Message) => {
 
 const draftConversationId = (userId: string) => `draft:${userId}`;
 const isDraftConversationId = (conversationId: string | null) => !!conversationId?.startsWith("draft:");
+
+const isMessageNotificationForConversation = (
+  notification: AppNotification,
+  conversationId: string,
+) => {
+  if (notification.type !== "MESSAGE") return false;
+  if (notification.entityType === "CONVERSATION" && notification.entityId === conversationId) return true;
+  if (!notification.targetUrl) return false;
+
+  try {
+    const target = new URL(notification.targetUrl, "https://locale.local");
+    return (
+      target.searchParams.get("conversationId") === conversationId ||
+      target.pathname === `/conversations/${conversationId}` ||
+      target.pathname.startsWith(`/conversations/${conversationId}/`)
+    );
+  } catch {
+    return notification.targetUrl.includes(`/conversations/${conversationId}`);
+  }
+};
+
+const markConversationNotificationsRead = (
+  page: NotificationsPageResponse,
+  conversationId: string,
+  readAt: string,
+): NotificationsPageResponse => ({
+  ...page,
+  notifications: page.notifications.map((notification) =>
+    !notification.readAt && isMessageNotificationForConversation(notification, conversationId)
+      ? { ...notification, readAt }
+      : notification,
+  ),
+});
 
 const toConversationParticipant = (
   profile: Partial<UserProfile> & { id: string; displayName?: string; username?: string },
@@ -47,6 +82,7 @@ export default function MessagesPage() {
   const [isStartingChat, setIsStartingChat] = useState(false);
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const startingForUserRef = useRef<string | null>(null);
+  const readRequestsRef = useRef(new Set<string>());
   const queryClient = useQueryClient();
   const location = useLocation();
   const navigate = useNavigate();
@@ -62,6 +98,56 @@ export default function MessagesPage() {
     }
   };
 
+  const markConversationRead = useCallback(async (conversationId: string) => {
+    if (isDraftConversationId(conversationId) || readRequestsRef.current.has(conversationId)) return;
+
+    readRequestsRef.current.add(conversationId);
+    const optimisticReadAt = new Date().toISOString();
+
+    queryClient.setQueryData(['conversations'], (old: Conversation[] | undefined) =>
+      old?.map((conversation) =>
+        conversation.id === conversationId ? { ...conversation, unreadCount: 0 } : conversation
+      )
+    );
+    queryClient.setQueryData(['messages', conversationId], (old: Message[] | undefined) =>
+      old?.map((message) => ({ ...message, isRead: true }))
+    );
+
+    try {
+      const receipt = await messagesApi.markAsRead(conversationId);
+      const readAt = receipt.readAt ?? optimisticReadAt;
+
+      queryClient.setQueryData(['conversations'], (old: Conversation[] | undefined) =>
+        old?.map((conversation) =>
+          conversation.id === conversationId
+            ? { ...conversation, unreadCount: receipt.conversationUnreadCount }
+            : conversation
+        )
+      );
+      queryClient.setQueriesData<NotificationsPageResponse>(
+        { queryKey: ['notifications'] },
+        (old) => old ? markConversationNotificationsRead(old, conversationId, readAt) : old,
+      );
+
+      if (receipt.notificationSummary) {
+        queryClient.setQueryData(['notifications-summary'], receipt.notificationSummary);
+      } else {
+        void queryClient.invalidateQueries({ queryKey: ['notifications-summary'] });
+      }
+
+      closeConversationPushNotifications(conversationId);
+      void queryClient.invalidateQueries({ queryKey: ['conversations'] });
+      void queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    } catch (err) {
+      console.warn("Failed to mark conversation as read:", err);
+      void queryClient.invalidateQueries({ queryKey: ['conversations'] });
+      void queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      void queryClient.invalidateQueries({ queryKey: ['notifications-summary'] });
+    } finally {
+      readRequestsRef.current.delete(conversationId);
+    }
+  }, [queryClient]);
+
   // Fetch conversations
   const { data: conversations = [], isLoading: loadingConversations } = useQuery({
     queryKey: ['conversations'],
@@ -70,7 +156,7 @@ export default function MessagesPage() {
   });
 
   const conversationIds = useMemo(() => conversations.map(c => c.id), [conversations]);
-  useChatSubscription(conversationIds, selectedConversationId);
+  useChatSubscription(conversationIds, selectedConversationId, markConversationRead);
 
   const displayedConversations = useMemo(() => {
     if (!draftConversation || conversations.some(c => c.id === draftConversation.id)) {
@@ -243,11 +329,9 @@ export default function MessagesPage() {
   // Mark as read when selecting a conversation
   useEffect(() => {
     if (selectedConversationId && !isDraftConversationId(selectedConversationId)) {
-      messagesApi.markAsRead(selectedConversationId)
-        .then(() => queryClient.invalidateQueries({ queryKey: ['conversations'] }))
-        .catch(err => console.warn("Failed to mark conversation as read:", err));
+      void markConversationRead(selectedConversationId);
     }
-  }, [selectedConversationId, queryClient]);
+  }, [selectedConversationId, markConversationRead]);
 
   const selectedConversation = displayedConversations.find(c => c.id === selectedConversationId);
 

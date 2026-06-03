@@ -1,12 +1,13 @@
-import { useState, useRef, type ChangeEvent } from "react";
+import { useEffect, useMemo, useState, useRef, type ChangeEvent } from "react";
 import { createPortal } from "react-dom";
 import { X, Globe, MapPin, Sparkles, Send, ImagePlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Post } from "@/types";
 import { useAuth } from "@/contexts";
 import { LANGUAGES } from "@/services/api";
+import { getUserLanguagePreferences } from "@/lib/userLanguages";
 
-export interface ComposePostPayload extends Omit<Post, "id" | "time" | "reactions"> {
+export interface ComposePostPayload extends Omit<Post, "id" | "time" | "reactions" | "translation"> {
   imageFile?: File;
   imageFiles?: File[];
 }
@@ -20,11 +21,21 @@ export interface ComposeModalProps {
 export function ComposeModal({ isOpen, onClose, onSubmit }: ComposeModalProps) {
   const { user } = useAuth();
   const [content, setContent] = useState("");
-  const [translation, setTranslation] = useState("");
-  const [selectedLanguage, setSelectedLanguage] = useState(LANGUAGES[0]);
+  const { primaryLearningLanguage } = getUserLanguagePreferences(user?.languages);
+  const defaultPostLanguage = useMemo(
+    () => LANGUAGES.find((language) => language.code === primaryLearningLanguage?.code) ?? LANGUAGES[0],
+    [primaryLearningLanguage?.code]
+  );
+  const [selectedLanguage, setSelectedLanguage] = useState(defaultPostLanguage);
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
   const [selectedImages, setSelectedImages] = useState<Array<{ file: File; preview: string }>>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      setSelectedLanguage(defaultPostLanguage);
+    }
+  }, [defaultPostLanguage, isOpen]);
 
   const clearSelectedImages = () => {
     selectedImages.forEach((image) => URL.revokeObjectURL(image.preview));
@@ -80,7 +91,6 @@ export function ComposeModal({ isOpen, onClose, onSubmit }: ComposeModalProps) {
       },
       content: content.trim(),
       originalLanguage: selectedLanguage.code,
-      translation: translation.trim() || "Translation pending...",
       location: "Your Location",
       distance: "0 km",
       image: selectedImages[0]?.preview,
@@ -90,7 +100,6 @@ export function ComposeModal({ isOpen, onClose, onSubmit }: ComposeModalProps) {
     });
 
     setContent("");
-    setTranslation("");
     clearSelectedImages();
     onClose();
   };
@@ -232,20 +241,6 @@ export function ComposeModal({ isOpen, onClose, onSubmit }: ComposeModalProps) {
                 <span className="text-sm font-medium">Add up to 3 photos</span>
               </button>
             )}
-          </div>
-
-          {/* Translation input */}
-          <div className="space-y-2">
-            <label className="flex items-center gap-2 text-sm font-medium text-foreground">
-              <Globe className="h-4 w-4 text-sage" />
-              English translation (optional)
-            </label>
-            <textarea
-              value={translation}
-              onChange={(e) => setTranslation(e.target.value)}
-              placeholder="Add a translation to help others learn..."
-              className="w-full min-h-[100px] p-4 rounded-2xl bg-muted border-0 text-foreground text-base placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-2 focus:ring-sage/30 transition-shadow"
-            />
           </div>
 
           {/* Location hint */}

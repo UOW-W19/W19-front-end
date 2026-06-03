@@ -1,17 +1,17 @@
 import { useState, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
-import { MapPin, Heart, MessageCircle, Share2, Send, X, Loader2, Languages, MoreHorizontal, Trash2, Flag, BookmarkPlus, Star, ScanLine, Save, Check, ChevronLeft, ChevronRight } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { MapPin, Heart, MessageCircle, Share2, Send, X, Loader2, Languages, MoreHorizontal, Trash2, Flag, BookmarkPlus, Star, ScanLine, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import UserAvatar from "@/components/common/UserAvatar";
 import { useAuth } from "@/contexts/useAuth";
 import { commentsApi, postsApi, wordsApi } from "@/services/api";
-import { saveDetectedObject as saveDetectedObjectById, scanPostImage } from "@/services/api/scanner";
 import { learnKeys } from "@/hooks/useLearnApi";
 import { LANGUAGES } from "@/services/api";
+import { getUserLanguagePreferences } from "@/lib/userLanguages";
 import type { Post } from "@/types";
 import type { ApiComment } from "@/types/api";
-import type { DetectedObject } from "@/types/scanner";
+import type { ScannerRouteState } from "@/types/scanner";
 
 export interface PostCardProps {
   post: Post;
@@ -29,13 +29,9 @@ const formatRelativeTime = (dateStr: string): string => {
   return `${Math.floor(diffHours / 24)}d ago`;
 };
 
-const confidenceLabel = (confidence: number) => `${Math.round(confidence * 100)}%`;
-
-const detectedObjectKey = (object: DetectedObject) =>
-  object.id ?? `${object.label}:${object.languageCode}:${object.learningWord}`;
-
 export function PostCard({ post, onLikeToggle }: PostCardProps) {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [isLiked, setIsLiked] = useState(post.isLiked ?? false);
   const [likesCount, setLikesCount] = useState(post.reactions.likes);
@@ -49,7 +45,6 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
   const [translationCache, setTranslationCache] = useState<Record<string, string>>({});
   const [activeTranslationLang, setActiveTranslationLang] = useState<string | null>(null);
   const [isTranslating, setIsTranslating] = useState(false);
-  const [showLangPicker, setShowLangPicker] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [reportReason, setReportReason] = useState<'SPAM' | 'HARASSMENT' | 'INAPPROPRIATE' | 'MISINFORMATION' | 'OTHER'>('SPAM');
@@ -65,12 +60,6 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
   const [isAutoTranslating, setIsAutoTranslating] = useState(false);
   const [isSavingWord, setIsSavingWord] = useState(false);
   const [savedWordDone, setSavedWordDone] = useState(false);
-  const [isScanningPostImage, setIsScanningPostImage] = useState(false);
-  const [postImageScanOpen, setPostImageScanOpen] = useState(false);
-  const [postImageScanError, setPostImageScanError] = useState("");
-  const [postImageDetections, setPostImageDetections] = useState<DetectedObject[]>([]);
-  const [postImageSaveStates, setPostImageSaveStates] = useState<Record<string, 'saved' | 'duplicate' | 'error'>>({});
-  const [postImageSavingKeys, setPostImageSavingKeys] = useState<Set<string>>(new Set());
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [lightboxImageIndex, setLightboxImageIndex] = useState<number | null>(null);
 
@@ -88,9 +77,6 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
   useEffect(() => {
     setActiveImageIndex(0);
     setLightboxImageIndex(null);
-    setPostImageScanOpen(false);
-    setPostImageScanError("");
-    setPostImageDetections([]);
   }, [post.id, post.image, post.imageUrls]);
 
   const handleSavePost = async () => {
@@ -166,23 +152,19 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
     }
   };
 
-  const learningLanguages = user?.languages?.filter((l) => l.isLearning) ?? [];
+  const { nativeLanguage } = getUserLanguagePreferences(user?.languages);
+  const canTranslatePost = Boolean(nativeLanguage && nativeLanguage.code !== post.originalLanguage);
 
   const handleTranslate = () => {
-    if (learningLanguages.length === 0) return;
+    if (!nativeLanguage || !canTranslatePost) return;
     if (activeTranslationLang) {
       setActiveTranslationLang(null);
       return;
     }
-    if (learningLanguages.length === 1) {
-      translateTo(learningLanguages[0].code);
-    } else {
-      setShowLangPicker((prev) => !prev);
-    }
+    translateTo(nativeLanguage.code);
   };
 
   const translateTo = async (langCode: string) => {
-    setShowLangPicker(false);
     if (activeTranslationLang === langCode) {
       setActiveTranslationLang(null);
       return;
@@ -263,7 +245,7 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
       await wordsApi.saveWord({
         word: selectedPhrase,
         translation: phraseAutoTranslation,
-        languageCode: phraseTargetLang,
+        languageCode: post.originalLanguage,
         postId: post.id,
         context: post.content,
       });
@@ -278,55 +260,19 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
     }
   };
 
-  const handleScanPostImage = async () => {
-    if (isScanningPostImage) return;
+  const handleScanPostImage = () => {
+    if (lightboxImageIndex === null || !lightboxImage) return;
 
-    if (postImageDetections.length > 0) {
-      setPostImageScanOpen((current) => !current);
-      return;
-    }
+    const scannerState: ScannerRouteState = {
+      source: "post-image",
+      postId: post.id,
+      imageUrl: lightboxImage,
+      imageIndex: lightboxImageIndex,
+      authorName: post.author.name,
+      postContext: post.content,
+    };
 
-    setPostImageScanOpen(true);
-    setPostImageScanError("");
-    setIsScanningPostImage(true);
-
-    try {
-      const result = await scanPostImage(post.id);
-      setPostImageDetections(result.detectedObjects);
-    } catch (err) {
-      setPostImageScanError(err instanceof Error ? err.message : "Failed to scan post image");
-    } finally {
-      setIsScanningPostImage(false);
-    }
-  };
-
-  const handleSaveDetectedPostObject = async (object: DetectedObject) => {
-    const key = detectedObjectKey(object);
-    if (!object.id) {
-      setPostImageSaveStates((current) => ({ ...current, [key]: "error" }));
-      return;
-    }
-
-    setPostImageSavingKeys((current) => new Set(current).add(key));
-
-    try {
-      await saveDetectedObjectById(object.id);
-      setPostImageSaveStates((current) => ({ ...current, [key]: "saved" }));
-      queryClient.invalidateQueries({ queryKey: learnKeys.words() });
-      queryClient.invalidateQueries({ queryKey: learnKeys.stats() });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "";
-      setPostImageSaveStates((current) => ({
-        ...current,
-        [key]: message === "Word already saved" ? "duplicate" : "error",
-      }));
-    } finally {
-      setPostImageSavingKeys((current) => {
-        const next = new Set(current);
-        next.delete(key);
-        return next;
-      });
-    }
+    navigate("/scanner", { state: scannerState });
   };
 
   const langInfo = LANGUAGES.find((l) => l.code === post.originalLanguage);
@@ -370,7 +316,7 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
                 name={post.author.name}
                 avatarUrl={post.author.avatarUrl}
                 className="h-9 w-9"
-                fallbackClassName="text-xs font-semibold"
+                fallbackClassName="bg-gradient-to-br from-coral to-coral/70 text-white text-xs font-semibold"
               />
             </Link>
           ) : (
@@ -391,26 +337,30 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
                 <span className="truncate text-sm font-medium leading-tight text-foreground">{post.author.name}</span>
               )}
             </div>
-            {post.author.location && (
-              <div className="mt-0.5 flex items-center gap-1 text-[11px] leading-tight text-muted-foreground">
-                <MapPin className="h-3 w-3" />
-                <span className="truncate">{post.author.location}</span>
-              </div>
-            )}
-            {(post.author.learningLanguages?.length ?? 0) > 0 && (
-              <div className="mt-0.5 flex items-center gap-1 flex-wrap">
-                <span className="text-[11px] leading-tight text-muted-foreground">Learning</span>
-                {post.author.learningLanguages!.slice(0, 3).map((lang) => (
-                  <span
-                    key={lang.code}
-                    title={lang.name}
-                    className="rounded-full bg-muted px-1 py-0.5 text-xs leading-none"
-                  >
-                    {lang.flagEmoji}
-                  </span>
-                ))}
-                {post.author.learningLanguages!.length > 3 && (
-                  <span className="text-[11px] text-muted-foreground">+{post.author.learningLanguages!.length - 3}</span>
+            {(post.author.location || (post.author.learningLanguages?.length ?? 0) > 0) && (
+              <div className="mt-0.5 flex min-w-0 items-center gap-2 overflow-hidden text-[11px] leading-tight text-muted-foreground">
+                {post.author.location && (
+                  <div className="flex min-w-0 items-center gap-1">
+                    <MapPin className="h-3 w-3 shrink-0" />
+                    <span className="truncate">{post.author.location}</span>
+                  </div>
+                )}
+                {(post.author.learningLanguages?.length ?? 0) > 0 && (
+                  <div className="flex shrink-0 items-center gap-1">
+                    <span>Learning</span>
+                    {post.author.learningLanguages!.slice(0, 3).map((lang) => (
+                      <span
+                        key={lang.code}
+                        title={lang.name}
+                        className="rounded-full bg-muted px-1 py-0.5 text-xs leading-none"
+                      >
+                        {lang.flagEmoji}
+                      </span>
+                    ))}
+                    {post.author.learningLanguages!.length > 3 && (
+                      <span>+{post.author.learningLanguages!.length - 3}</span>
+                    )}
+                  </div>
                 )}
               </div>
             )}
@@ -469,8 +419,7 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
             <div className="flex-1">
               <p className="text-sm text-muted-foreground italic">{translationCache[activeTranslationLang]}</p>
               <p className="text-xs text-muted-foreground/60 mt-1">
-                {learningLanguages.find((l) => l.code === activeTranslationLang)?.flagEmoji}{" "}
-                {learningLanguages.find((l) => l.code === activeTranslationLang)?.name}
+                {nativeLanguage?.flagEmoji} {nativeLanguage?.name}
               </p>
             </div>
           </div>
@@ -597,13 +546,15 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
           <span className="text-sm font-medium">{commentsCount}</span>
         </Button>
 
-        {learningLanguages.length > 0 && (
+        {canTranslatePost && (
           <div className="relative">
             <Button
               variant="ghost"
               size="sm"
               onClick={handleTranslate}
               disabled={isTranslating}
+              aria-label={activeTranslationLang ? "Hide translation" : `Translate post to ${nativeLanguage?.name ?? "native language"}`}
+              title={activeTranslationLang ? "Hide translation" : `Translate post to ${nativeLanguage?.name ?? "native language"}`}
               className={`flex items-center gap-1.5 h-10 px-3 rounded-full active:scale-95 transition-colors ${
                 activeTranslationLang ? "text-primary" : "text-muted-foreground active:text-primary"
               }`}
@@ -615,26 +566,6 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
               )}
             </Button>
 
-            {showLangPicker && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setShowLangPicker(false)} />
-                <div className="absolute bottom-full left-0 mb-2 w-44 bg-card border border-border rounded-xl shadow-lg py-1 z-50">
-                  {learningLanguages.map((lang) => (
-                    <button
-                      key={lang.code}
-                      onClick={() => translateTo(lang.code)}
-                      className={`w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted transition-colors text-left ${
-                        activeTranslationLang === lang.code ? "text-primary font-medium" : "text-foreground"
-                      }`}
-                    >
-                      <span>{lang.flagEmoji}</span>
-                      <span>{lang.name}</span>
-                      {activeTranslationLang === lang.code && <span className="ml-auto text-primary">✓</span>}
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
           </div>
         )}
 
@@ -752,30 +683,19 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
               )}
             </div>
             <div className="flex items-center gap-2">
-              {lightboxImageIndex === 0 && (
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    handleScanPostImage();
-                  }}
-                  disabled={isScanningPostImage}
-                  className="h-9 gap-2 rounded-full bg-white text-foreground hover:bg-white/90"
-                >
-                  {isScanningPostImage ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <ScanLine className="h-4 w-4" />
-                  )}
-                  {isScanningPostImage
-                    ? "Scanning"
-                    : postImageDetections.length > 0 && postImageScanOpen
-                      ? "Hide vocab"
-                      : "Scan image vocab"}
-                </Button>
-              )}
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  handleScanPostImage();
+                }}
+                className="h-9 gap-2 rounded-full bg-white text-foreground hover:bg-white/90"
+              >
+                <ScanLine className="h-4 w-4" />
+                Scan image vocab
+              </Button>
               <button
                 type="button"
                 onClick={(event) => {
@@ -818,65 +738,6 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
               onClick={(event) => event.stopPropagation()}
             />
           </div>
-
-          {postImageScanOpen && lightboxImageIndex === 0 && (
-            <div
-              className="max-h-[42vh] shrink-0 overflow-y-auto border-t border-white/10 bg-background p-4 text-foreground shadow-2xl"
-              onClick={(event) => event.stopPropagation()}
-            >
-              {postImageScanError ? (
-                <p className="text-sm text-destructive">{postImageScanError}</p>
-              ) : isScanningPostImage ? (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Identifying objects...</span>
-                </div>
-              ) : postImageDetections.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No objects detected in this image.</p>
-              ) : (
-                <div className="space-y-2">
-                  {postImageDetections.map((object) => {
-                    const key = detectedObjectKey(object);
-                    const saveState = postImageSaveStates[key];
-                    const isSaving = postImageSavingKeys.has(key);
-                    const isSavedObject = saveState === "saved";
-                    const isDuplicate = saveState === "duplicate";
-
-                    return (
-                      <div key={key} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card px-3 py-2">
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold text-foreground">{object.learningWord}</p>
-                          <p className="truncate text-xs text-muted-foreground">
-                            {object.nativeWord} - {confidenceLabel(object.confidence)}
-                          </p>
-                        </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={isSavedObject || isDuplicate || isSaving}
-                          onClick={() => handleSaveDetectedPostObject(object)}
-                          className={`h-8 flex-shrink-0 gap-1.5 ${
-                            isSavedObject || isDuplicate
-                              ? "border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-50"
-                              : ""
-                          }`}
-                        >
-                          {isSaving ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          ) : isSavedObject ? (
-                            <Check className="h-3.5 w-3.5 text-amber-600" />
-                          ) : (
-                            <Save className={`h-3.5 w-3.5 ${isDuplicate ? "text-amber-600" : ""}`} />
-                          )}
-                          {isDuplicate ? "Duplicate" : isSavedObject ? "Saved" : "Save"}
-                        </Button>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
         </div>
       )}
 
@@ -907,26 +768,25 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
                   <p className="font-medium text-foreground">{selectedPhrase}</p>
                 </div>
 
-                {/* Translate to: language buttons */}
-                {learningLanguages.length > 0 && (
+                {/* Translate to native language */}
+                {nativeLanguage && (
                   <div className="mb-4">
-                    <p className="text-xs text-muted-foreground mb-2">Translate to:</p>
+                    <p className="text-xs text-muted-foreground mb-2">Translate to native:</p>
                     <div className="flex flex-wrap gap-2">
-                      {learningLanguages.map((lang) => (
-                        <button
-                          key={lang.code}
-                          onClick={() => handleTranslatePhrase(lang.code)}
-                          disabled={isAutoTranslating}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm border transition-colors ${
-                            phraseTargetLang === lang.code
-                              ? 'bg-primary text-primary-foreground border-primary'
-                              : 'bg-muted text-foreground border-border hover:bg-muted/80'
-                          }`}
-                        >
-                          <span>{lang.flagEmoji}</span>
-                          <span>{lang.name}</span>
-                        </button>
-                      ))}
+                      <button
+                        type="button"
+                        onClick={() => handleTranslatePhrase(nativeLanguage.code)}
+                        disabled={isAutoTranslating}
+                        aria-label={`Translate phrase to ${nativeLanguage.name}`}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm border transition-colors ${
+                          phraseTargetLang === nativeLanguage.code
+                            ? 'bg-primary text-primary-foreground border-primary'
+                            : 'bg-muted text-foreground border-border hover:bg-muted/80'
+                        }`}
+                      >
+                        <span>{nativeLanguage.flagEmoji}</span>
+                        <span>{nativeLanguage.name}</span>
+                      </button>
                     </div>
                   </div>
                 )}
@@ -940,8 +800,7 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
                 {!isAutoTranslating && phraseAutoTranslation && phraseTargetLang && (
                   <div className="mb-4 rounded-xl bg-primary/5 border border-primary/20 px-3 py-2.5">
                     <p className="text-xs text-muted-foreground mb-1">
-                      {learningLanguages.find(l => l.code === phraseTargetLang)?.flagEmoji}{' '}
-                      {learningLanguages.find(l => l.code === phraseTargetLang)?.name}
+                      {nativeLanguage?.flagEmoji} {nativeLanguage?.name}
                     </p>
                     <p className="font-medium text-foreground">{phraseAutoTranslation}</p>
                   </div>

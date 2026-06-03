@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, MessageCircle, MapPin, Loader2, X, Maximize2 } from 'lucide-react';
+import { Plus, MapPin, Loader2, X, Maximize2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import type { Meetup, NearbyLearner, CreateMeetupRequest } from '@/types/meetup';
@@ -332,17 +332,9 @@ export default function ExplorePage() {
 
   return (
     <div className="h-full overflow-y-auto pb-24 scrollbar-hide mx-auto max-w-4xl px-4 py-6">
-      {/* Header with Messages button */}
-      <div className="flex items-center justify-between mb-4">
+      {/* Header */}
+      <div className="mb-4">
         <h1 className="text-2xl font-bold">Explore</h1>
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={() => navigate('/messages')}
-          className="rounded-full"
-        >
-          <MessageCircle className="h-5 w-5" />
-        </Button>
       </div>
 
       {/* Location status */}

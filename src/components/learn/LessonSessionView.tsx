@@ -120,7 +120,7 @@ export function LessonSessionView({
         totalWords={totalWords}
       />
 
-      {step < 4 && <LessonWordCard word={word} />}
+      {step < 4 && <LessonWordCard key={word.id} word={word} step={step} />}
 
       {step === 1 && (
         <VoicePromptStep
@@ -233,14 +233,14 @@ function LessonProgress({
               <div className="flex flex-col items-center gap-1">
                 <div className={cn(
                   "h-7 w-7 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300",
-                  done ? "bg-sage text-white" : active ? "bg-primary text-primary-foreground ring-2 ring-primary/25" : "bg-muted text-muted-foreground"
+                  done ? "bg-lime text-navy" : active ? "bg-primary text-primary-foreground ring-2 ring-primary/25" : "bg-muted text-muted-foreground"
                 )}>
                   {done ? <Check className="h-3.5 w-3.5" /> : step}
                 </div>
                 <span className={cn("text-[10px]", active ? "text-primary font-medium" : "text-muted-foreground")}>{label}</span>
               </div>
               {index < STEPS.length - 1 && (
-                <div className={cn("h-0.5 w-10 mb-4 transition-all duration-300", done ? "bg-sage" : "bg-muted")} />
+                <div className={cn("h-0.5 w-10 mb-4 transition-all duration-300", done ? "bg-lime" : "bg-muted")} />
               )}
             </div>
           );
@@ -250,7 +250,7 @@ function LessonProgress({
         <div>
           <div className="h-1.5 overflow-hidden rounded-full bg-muted">
             <div
-              className="h-full rounded-full bg-sage transition-all duration-300"
+              className="h-full rounded-full bg-lime transition-all duration-300"
               style={{ width: `${currentStep === 4 ? 100 : wordProgress}%` }}
             />
           </div>
@@ -263,17 +263,33 @@ function LessonProgress({
   );
 }
 
-function LessonWordCard({ word }: { word: LessonWord }) {
+function LessonWordCard({ word, step }: { word: LessonWord; step: LessonStepNumber }) {
+  const [revealHint, setRevealHint] = useState(false);
   return (
     <div className="mb-4 rounded-2xl border border-border bg-card p-4 sm:mb-5">
       <div className="flex items-start justify-between mb-3">
         <div className="min-w-0 flex-1 pr-3">
           <p className="text-sm text-foreground">
             <span className="text-muted-foreground">{word.languageName}:</span>{" "}
-            <span className="font-semibold break-words">{word.word}</span>
+            {step === 3 ? (
+              <button
+                onClick={() => setRevealHint(true)}
+                className="font-semibold break-words transition-all duration-300 rounded"
+                style={{
+                  filter: revealHint ? 'none' : 'blur(6px)',
+                  userSelect: revealHint ? 'auto' : 'none',
+                  cursor: revealHint ? 'default' : 'pointer',
+                }}
+                title={revealHint ? undefined : 'Tap to reveal'}
+              >
+                {word.word}
+              </button>
+            ) : (
+              <span className="font-semibold break-words">{word.word}</span>
+            )}
           </p>
           <p className="text-sm text-foreground">
-            <span className="text-muted-foreground">English:</span>{" "}
+            <span className="text-muted-foreground">Native translation:</span>{" "}
             <span className="font-medium break-words">{word.translation}</span>
           </p>
         </div>
@@ -383,12 +399,12 @@ function VoicePromptStep({
         {voicePrompt.transcript && (
           <div className={cn(
             "rounded-xl border px-3 py-2 text-sm",
-            voicePrompt.isCorrect ? "border-sage/40 bg-sage/10" : "border-destructive/30 bg-destructive/5"
+            voicePrompt.isCorrect ? "border-lime/40 bg-lime/10" : "border-destructive/30 bg-destructive/5"
           )}>
             <p className="text-xs text-muted-foreground">I heard:</p>
             <p className="font-medium text-foreground break-words">{voicePrompt.transcript}</p>
             {scorePercent !== null && (
-              <p className={cn("text-xs mt-1", voicePrompt.isCorrect ? "text-sage" : "text-destructive")}>
+              <p className={cn("text-xs mt-1", voicePrompt.isCorrect ? "text-lime" : "text-destructive")}>
                 {voicePrompt.isCorrect ? "Matched" : `${scorePercent}% match`}
               </p>
             )}
@@ -511,7 +527,7 @@ function ArrangeStep({
           id={ANSWER_ZONE_ID}
           className={cn(
             "flex flex-wrap gap-2 p-3 rounded-xl border min-h-[56px] mb-3 transition-colors",
-            isCorrect ? "bg-sage/10 border-sage/40" : "bg-muted/30 border-border"
+            isCorrect ? "bg-lime/10 border-lime/40" : "bg-muted/30 border-border"
           )}
         >
           <SortableContext items={placedChipIds} strategy={rectSortingStrategy}>
@@ -532,7 +548,7 @@ function ArrangeStep({
         {isComplete && (
           <p className={cn(
             "text-xs font-medium mb-3 text-center",
-            isCorrect ? "text-sage" : "text-destructive"
+            isCorrect ? "text-lime" : "text-destructive"
           )}>
             {isCorrect ? "Correct! Great job." : "Not quite - drag chips to reorder."}
           </p>
@@ -556,7 +572,7 @@ function ArrangeStep({
             <span className="text-xs text-muted-foreground self-center">Drag or tap a placed chip to return it</span>
           )}
           {isCorrect && (
-            <span className="text-xs text-sage self-center">All chips in order</span>
+            <span className="text-xs text-lime self-center">All chips in order</span>
           )}
         </TokenDropZone>
       </DndContext>
@@ -624,7 +640,7 @@ function SortableTokenChip({
         "inline-flex max-w-full touch-none select-none items-center gap-1.5 rounded-lg border px-3 py-1.5 text-left text-sm font-medium shadow-sm transition-colors",
         variant === "pool" && "bg-card border-border hover:bg-primary/5 hover:border-primary/30",
         variant === "placed" && !isCorrect && "bg-primary/15 text-primary border-primary/30 hover:bg-primary/25",
-        variant === "placed" && isCorrect && "bg-sage/20 text-sage border-sage/40",
+        variant === "placed" && isCorrect && "bg-lime/20 text-lime border-lime/40",
         isDragging && "opacity-60 shadow-md"
       )}
       aria-label={`${variant === "pool" ? "Move" : "Reorder"} ${token.text}`}
@@ -664,7 +680,7 @@ function WriteStep({
     .join(" ");
   const feedbackTone =
     answer.status === "correct" || answer.status === "revealed"
-      ? "text-sage"
+      ? "text-lime"
       : answer.status === "close"
         ? "text-primary"
         : "text-destructive";
@@ -691,14 +707,21 @@ function WriteStep({
         autoFocus
         className={cn(
           "w-full min-w-0 rounded-xl border bg-card px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary mb-3",
-          answer.status === "correct" && "border-sage/50",
+          answer.status === "correct" && "border-lime/40",
           (answer.status === "incorrect" || answer.status === "close") && "border-destructive/40"
         )}
       />
 
       <div className="min-h-[92px] space-y-2 mb-5">
         {answer.feedback && (
-          <div className="rounded-xl border border-border bg-muted/25 px-3 py-2">
+          <div className={cn(
+            "rounded-xl border px-3 py-2",
+            answer.status === "correct" || answer.status === "revealed"
+              ? "border-lime/40 bg-lime/10"
+              : answer.status === "close"
+                ? "border-primary/30 bg-primary/5"
+                : "border-destructive/30 bg-destructive/5"
+          )}>
             <p className={cn("text-sm font-medium", feedbackTone)}>{answer.feedback}</p>
             {scorePercent !== null && !answer.canContinue && (
               <p className="mt-1 text-xs text-muted-foreground">{scorePercent}% match</p>
@@ -711,7 +734,7 @@ function WriteStep({
           </p>
         )}
         {answer.status === "revealed" && (
-          <p className="break-words rounded-xl border border-sage/30 bg-sage/10 px-3 py-2 text-sm font-medium text-sage">
+          <p className="break-words rounded-xl border border-lime/30 bg-lime/10 px-3 py-2 text-sm font-medium text-lime">
             {expectedAnswer}
           </p>
         )}
@@ -742,18 +765,6 @@ function WriteStep({
   );
 }
 
-function formatShareWordList(words: LessonWord[]): string {
-  const quotedWords = words.map((lessonWord) => `"${lessonWord.word}"`);
-  if (quotedWords.length <= 1) return quotedWords[0] ?? "a new phrase";
-  if (quotedWords.length === 2) return `${quotedWords[0]} and ${quotedWords[1]}`;
-
-  const previewWords = quotedWords.slice(0, 3).join(", ");
-  const remainingCount = quotedWords.length - 3;
-  return remainingCount > 0
-    ? `${previewWords}, and ${remainingCount} more`
-    : `${quotedWords.slice(0, -1).join(", ")}, and ${quotedWords[quotedWords.length - 1]}`;
-}
-
 function ShareStep({
   bank,
   words,
@@ -781,8 +792,8 @@ function ShareStep({
   const lessonWords = words.length ? words : fallbackWords;
   const languageFlags = [...new Set(lessonWords.map((lessonWord) => lessonWord.languageFlag))].slice(0, 4);
   const defaultContent = useMemo(
-    () => `I finished a ${bank.label.toLowerCase()} lesson and practiced ${formatShareWordList(lessonWords)}.`,
-    [bank.label, lessonWords]
+    () => lessonWords.map((lessonWord) => lessonWord.word).join("\n"),
+    [lessonWords]
   );
   const [content, setContent] = useState(defaultContent);
   const trimmedContent = content.trim();

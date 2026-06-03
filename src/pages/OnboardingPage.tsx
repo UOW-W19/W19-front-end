@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useReducer, useState, type FormEvent } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
   ArrowRight,
@@ -25,12 +25,10 @@ type OnboardingStep =
   | "signup"
   | "login"
   | "location"
-  | "registrationSuccess"
   | "appLanguage"
   | "learningLanguage"
   | "proficiency"
   | "topics"
-  | "finalSuccess"
   | "loading";
 
 type ProficiencyLevel = "BEGINNER" | "INTERMEDIATE" | "ADVANCED";
@@ -166,7 +164,7 @@ function OnboardingScrollArea({
   className?: string;
 }) {
   return (
-    <div className={cn("min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1 scrollbar-thin", className)}>
+    <div className={cn("min-h-0 flex-1 overflow-y-auto overscroll-contain scrollbar-hide", className)}>
       {children}
     </div>
   );
@@ -206,6 +204,44 @@ function PreferenceProgress({ step }: { step: OnboardingStep }) {
   );
 }
 
+function OnboardingSuccessDialog({
+  title,
+  message,
+  actionLabel,
+  onAction,
+}: {
+  title: string;
+  message: string;
+  actionLabel?: string;
+  onAction?: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-navy/35 px-4 py-5 backdrop-blur-sm sm:items-center"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="onboarding-success-title"
+    >
+      <div className="w-full max-w-sm rounded-3xl border border-primary/20 bg-card p-6 text-center shadow-locale-md animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-4 duration-200">
+        <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-lime/25 text-navy">
+          <Check className="h-8 w-8" />
+        </div>
+        <p className="mb-2 text-sm font-semibold text-orange">Locale</p>
+        <h2 id="onboarding-success-title" className="text-2xl font-black leading-tight text-foreground">
+          {title}
+        </h2>
+        <p className="mt-3 text-sm leading-6 text-muted-foreground">{message}</p>
+        {actionLabel && onAction && (
+          <Button type="button" onClick={onAction} className="mt-6 w-full text-base">
+            {actionLabel}
+            <ArrowRight className="h-5 w-5" />
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function languageByCode(code: string) {
   return LANGUAGE_OPTIONS.find((language) => language.code === code);
 }
@@ -221,8 +257,17 @@ async function resolveLocationLabel(latitude: number, longitude: number): Promis
 
 export default function OnboardingPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user, isAuthenticated, isLoading: authLoading, login, register, updateProfile, refreshUser } = useAuth();
-  const [state, dispatch] = useReducer(onboardingReducer, initialState);
+  const [state, dispatch] = useReducer(onboardingReducer, initialState, (): OnboardingState => {
+    const authStep = typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search).get("auth")
+      : null;
+
+    return authStep === "login" || authStep === "signup"
+      ? { ...initialState, step: authStep }
+      : initialState;
+  });
 
   const [authEmail, setAuthEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -233,6 +278,9 @@ export default function OnboardingPage() {
   const [locationStatus, setLocationStatus] = useState<"idle" | "loading" | "granted" | "skipped" | "denied">("idle");
   const [locationMessage, setLocationMessage] = useState<string | null>(null);
   const [isSavingPreferences, setIsSavingPreferences] = useState(false);
+  const [showRegistrationDialog, setShowRegistrationDialog] = useState(false);
+  const [showCompletionDialog, setShowCompletionDialog] = useState(false);
+  const cameFromAuthChoice = searchParams.get("entry") === "choice";
 
   const learningLanguages = useMemo(
     () => LANGUAGE_OPTIONS.filter((language) => language.code !== state.appLanguage),
@@ -241,14 +289,14 @@ export default function OnboardingPage() {
   const onboardingComplete = hasCompletedOnboarding(user);
 
   useEffect(() => {
-    if (state.step !== "loading" && state.step !== "finalSuccess") return;
+    if (state.step !== "loading" && !showCompletionDialog) return;
 
     const timeoutId = window.setTimeout(() => {
       navigate("/", { replace: true });
-    }, state.step === "loading" ? 950 : 1400);
+    }, state.step === "loading" ? 950 : 1600);
 
     return () => window.clearTimeout(timeoutId);
-  }, [navigate, state.step]);
+  }, [navigate, showCompletionDialog, state.step]);
 
   useEffect(() => {
     if (authLoading || !isAuthenticated || onboardingComplete || state.step !== "welcome") return;
@@ -259,13 +307,36 @@ export default function OnboardingPage() {
     return <PageSpinner />;
   }
 
-  if (isAuthenticated && onboardingComplete && state.step === "welcome") {
+  if (
+    isAuthenticated &&
+    onboardingComplete &&
+    (state.step === "welcome" || state.step === "signup" || state.step === "login")
+  ) {
     return <Navigate to="/" replace />;
   }
 
   const go = (step: OnboardingStep) => {
     setFormError(null);
+    setShowRegistrationDialog(false);
     dispatch({ type: "go", step });
+  };
+
+  const returnFromAuthForm = () => {
+    setFormError(null);
+    if (cameFromAuthChoice) {
+      navigate("/auth", { replace: true });
+      return;
+    }
+
+    dispatch({ type: "go", step: "welcome" });
+  };
+
+  const continueToPreferences = () => {
+    setShowRegistrationDialog(false);
+    if (cameFromAuthChoice) {
+      navigate("/onboarding", { replace: true });
+    }
+    dispatch({ type: "go", step: "appLanguage" });
   };
 
   const handleSignup = async (event: FormEvent<HTMLFormElement>) => {
@@ -334,11 +405,11 @@ export default function OnboardingPage() {
             ...(location ? { location } : {}),
           });
           setLocationStatus("granted");
-          dispatch({ type: "go", step: "registrationSuccess" });
+          setShowRegistrationDialog(true);
         } catch {
           setLocationStatus("granted");
           setLocationMessage("Location was found, but could not be saved yet.");
-          dispatch({ type: "go", step: "registrationSuccess" });
+          setShowRegistrationDialog(true);
         }
       },
       (error) => {
@@ -359,7 +430,7 @@ export default function OnboardingPage() {
 
   const skipLocation = () => {
     setLocationStatus("skipped");
-    dispatch({ type: "go", step: "registrationSuccess" });
+    setShowRegistrationDialog(true);
   };
 
   const savePreferences = async () => {
@@ -382,7 +453,10 @@ export default function OnboardingPage() {
 
       window.localStorage.setItem("locale_onboarding_topics", JSON.stringify(state.topics));
       await refreshUser();
-      dispatch({ type: "go", step: "finalSuccess" });
+      if (cameFromAuthChoice) {
+        navigate("/onboarding", { replace: true });
+      }
+      setShowCompletionDialog(true);
     } catch (error) {
       setFormError(error instanceof Error ? error.message : "Could not save your preferences");
     } finally {
@@ -436,9 +510,9 @@ export default function OnboardingPage() {
         <OnboardingScrollArea>
           <button
             type="button"
-            onClick={() => go("welcome")}
+            onClick={returnFromAuthForm}
             className="mb-6 flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card text-foreground transition-colors hover:bg-muted"
-            aria-label="Back to welcome"
+            aria-label="Back"
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
@@ -553,65 +627,51 @@ export default function OnboardingPage() {
 
   if (state.step === "location") {
     return (
-      <OnboardingFrame>
-        <OnboardingScrollArea className="flex flex-col justify-center">
-          <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-lime/25 text-navy sm:mb-8 sm:h-20 sm:w-20">
-            <MapPin className="h-8 w-8 sm:h-9 sm:w-9" />
-          </div>
-          <h1 className="text-3xl font-black leading-tight text-foreground sm:text-4xl">
-            Allow location services
-          </h1>
-          <p className="mt-5 text-base leading-7 text-muted-foreground">
-            Locale uses your location to help you discover nearby learners, meetups, and local posts.
-          </p>
-          {locationMessage && (
-            <p className="mt-5 rounded-2xl bg-muted px-4 py-3 text-sm text-muted-foreground">
-              {locationMessage}
+      <>
+        <OnboardingFrame>
+          <OnboardingScrollArea className="flex flex-col justify-center">
+            <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-lime/25 text-navy sm:mb-8 sm:h-20 sm:w-20">
+              <MapPin className="h-8 w-8 sm:h-9 sm:w-9" />
+            </div>
+            <h1 className="text-3xl font-black leading-tight text-foreground sm:text-4xl">
+              Allow location services
+            </h1>
+            <p className="mt-5 text-base leading-7 text-muted-foreground">
+              Locale uses your location to help you discover nearby learners, meetups, and local posts.
             </p>
-          )}
-        </OnboardingScrollArea>
-
-        <OnboardingFooter className="space-y-3">
-          <Button type="button" onClick={requestLocation} disabled={locationStatus === "loading"} className="w-full text-base">
-            {locationStatus === "loading" ? (
-              <Loader2 className="h-5 w-5 animate-spin" />
-            ) : (
-              <>
-                <LocateFixed className="h-5 w-5" />
-                Allow location
-              </>
+            {locationMessage && (
+              <p className="mt-5 rounded-2xl bg-muted px-4 py-3 text-sm text-muted-foreground">
+                {locationMessage}
+              </p>
             )}
-          </Button>
-          <Button type="button" variant="outline" onClick={skipLocation} className="w-full text-base">
-            Skip for now
-          </Button>
-        </OnboardingFooter>
-      </OnboardingFrame>
-    );
-  }
+          </OnboardingScrollArea>
 
-  if (state.step === "registrationSuccess") {
-    return (
-      <OnboardingFrame>
-        <OnboardingScrollArea className="flex flex-col items-center justify-center text-center">
-          <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-navy text-white sm:mb-8 sm:h-24 sm:w-24">
-            <Check className="h-10 w-10 sm:h-12 sm:w-12" />
-          </div>
-          <h1 className="text-3xl font-black leading-tight text-foreground sm:text-4xl">
-            Congratulations
-          </h1>
-          <p className="mt-5 text-base leading-7 text-muted-foreground">
-            {state.registeredEmail || authEmail} has been successfully registered! Let's continue to your preferences.
-          </p>
-        </OnboardingScrollArea>
+          <OnboardingFooter className="space-y-3">
+            <Button type="button" onClick={requestLocation} disabled={locationStatus === "loading"} className="w-full text-base">
+              {locationStatus === "loading" ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <>
+                  <LocateFixed className="h-5 w-5" />
+                  Allow location
+                </>
+              )}
+            </Button>
+            <Button type="button" variant="outline" onClick={skipLocation} className="w-full text-base">
+              Skip for now
+            </Button>
+          </OnboardingFooter>
+        </OnboardingFrame>
 
-        <OnboardingFooter>
-          <Button type="button" onClick={() => go("appLanguage")} className="w-full text-base">
-            Continue
-            <ArrowRight className="h-5 w-5" />
-          </Button>
-        </OnboardingFooter>
-      </OnboardingFrame>
+        {showRegistrationDialog && (
+          <OnboardingSuccessDialog
+            title="Account ready"
+            message={`${state.registeredEmail || authEmail} is set up. Now choose your native language and the language you want to learn.`}
+            actionLabel="Continue setup"
+            onAction={continueToPreferences}
+          />
+        )}
+      </>
     );
   }
 
@@ -625,10 +685,10 @@ export default function OnboardingPage() {
               <Languages className="h-6 w-6 sm:h-7 sm:w-7" />
             </div>
             <h1 className="text-3xl font-black leading-tight text-foreground sm:text-4xl">
-              First, let's choose your preferred language
+              First, let's choose your native language
             </h1>
             <p className="mt-3 text-base leading-7 text-muted-foreground">
-              This sets the main language for your profile and app experience.
+              This sets the language you use most naturally for your profile and app experience.
             </p>
           </div>
 
@@ -659,7 +719,7 @@ export default function OnboardingPage() {
         </OnboardingScrollArea>
 
         <OnboardingFooter className="grid grid-cols-2 gap-3">
-          <Button type="button" variant="outline" onClick={() => go("registrationSuccess")}>
+          <Button type="button" variant="outline" onClick={() => go("location")}>
             Back
           </Button>
           <Button type="button" onClick={() => go("learningLanguage")} disabled={!state.appLanguage}>
@@ -783,71 +843,65 @@ export default function OnboardingPage() {
 
   if (state.step === "topics") {
     return (
-      <OnboardingFrame compact>
-        <OnboardingScrollArea>
-          <PreferenceProgress step={state.step} />
-          <div className="mb-6 sm:mb-8">
-            <h1 className="text-3xl font-black leading-tight text-foreground sm:text-4xl">
-              Let's choose your topic!
-            </h1>
-            <p className="mt-3 text-base leading-7 text-muted-foreground">
-              Choose what you like so your feed starts with familiar conversations.
-            </p>
-          </div>
-
-          {formError && (
-            <div className="mb-5 rounded-2xl bg-destructive px-4 py-3 text-sm font-medium text-destructive-foreground" role="alert">
-              {formError}
+      <>
+        <OnboardingFrame compact>
+          <OnboardingScrollArea>
+            <PreferenceProgress step={state.step} />
+            <div className="mb-6 sm:mb-8">
+              <h1 className="text-3xl font-black leading-tight text-foreground sm:text-4xl">
+                Let's choose your topic!
+              </h1>
+              <p className="mt-3 text-base leading-7 text-muted-foreground">
+                Choose what you like so your feed starts with familiar conversations.
+              </p>
             </div>
-          )}
 
-          <div className="flex flex-wrap gap-3 pb-3">
-            {TOPIC_OPTIONS.map((topic) => {
-              const selected = state.topics.includes(topic);
-              return (
-                <button
-                  key={topic}
-                  type="button"
-                  onClick={() => dispatch({ type: "toggleTopic", topic })}
-                  className={cn(
-                    "rounded-full border-2 px-4 py-2.5 text-sm font-semibold shadow-locale-sm transition-all sm:px-5 sm:py-3",
-                    selected
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : "border-border bg-card text-foreground hover:border-purple/60 hover:bg-muted/40",
-                  )}
-                >
-                  {topic}
-                </button>
-              );
-            })}
-          </div>
-        </OnboardingScrollArea>
+            {formError && (
+              <div className="mb-5 rounded-2xl bg-destructive px-4 py-3 text-sm font-medium text-destructive-foreground" role="alert">
+                {formError}
+              </div>
+            )}
 
-        <OnboardingFooter className="grid grid-cols-2 gap-3">
-          <Button type="button" variant="outline" onClick={() => go("proficiency")} disabled={isSavingPreferences}>
-            Back
-          </Button>
-          <Button type="button" onClick={savePreferences} disabled={state.topics.length === 0 || isSavingPreferences}>
-            {isSavingPreferences ? <Loader2 className="h-5 w-5 animate-spin" /> : "Next"}
-          </Button>
-        </OnboardingFooter>
-      </OnboardingFrame>
-    );
-  }
+            <div className="flex flex-wrap gap-3 pb-3">
+              {TOPIC_OPTIONS.map((topic) => {
+                const selected = state.topics.includes(topic);
+                return (
+                  <button
+                    key={topic}
+                    type="button"
+                    onClick={() => dispatch({ type: "toggleTopic", topic })}
+                    disabled={showCompletionDialog}
+                    className={cn(
+                      "rounded-full border-2 px-4 py-2.5 text-sm font-semibold shadow-locale-sm transition-all disabled:pointer-events-none disabled:opacity-70 sm:px-5 sm:py-3",
+                      selected
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-border bg-card text-foreground hover:border-purple/60 hover:bg-muted/40",
+                    )}
+                  >
+                    {topic}
+                  </button>
+                );
+              })}
+            </div>
+          </OnboardingScrollArea>
 
-  if (state.step === "finalSuccess") {
-    return (
-      <OnboardingFrame>
-        <OnboardingScrollArea className="flex flex-col items-center justify-center text-center">
-          <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-navy text-white sm:mb-8 sm:h-24 sm:w-24">
-            <Check className="h-10 w-10 sm:h-12 sm:w-12" />
-          </div>
-          <h1 className="text-3xl font-black text-foreground sm:text-4xl">Success</h1>
-          <p className="mt-5 max-w-xs text-base font-semibold leading-7 text-muted-foreground">
-            Congratulations, you have completed your registration!
-          </p>
-        </OnboardingScrollArea>
-      </OnboardingFrame>
+          <OnboardingFooter className="grid grid-cols-2 gap-3">
+            <Button type="button" variant="outline" onClick={() => go("proficiency")} disabled={isSavingPreferences || showCompletionDialog}>
+              Back
+            </Button>
+            <Button type="button" onClick={savePreferences} disabled={state.topics.length === 0 || isSavingPreferences || showCompletionDialog}>
+              {isSavingPreferences ? <Loader2 className="h-5 w-5 animate-spin" /> : "Next"}
+            </Button>
+          </OnboardingFooter>
+        </OnboardingFrame>
+
+        {showCompletionDialog && (
+          <OnboardingSuccessDialog
+            title="You're ready for Locale"
+            message="Your native language, learning goal, and topics are saved. Your feed is opening now."
+          />
+        )}
+      </>
     );
   }
 

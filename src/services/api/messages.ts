@@ -3,12 +3,14 @@ import type {
     Conversation,
     Message,
     CreateMessageRequest,
+    ConversationReadReceipt,
     BackendConversation,
     BackendConversationParticipant,
     BackendMessage,
     BackendPaginatedResponse
 } from '@/types/message';
 import type { UserProfile } from '@/types/api';
+import { normalizeBackendTimestamp } from '@/lib/backendTimestamp';
 
 // ============ TRANSFORMATIONS ============
 
@@ -17,10 +19,11 @@ const transformMessage = (m: BackendMessage): Message => ({
     conversationId: String(m.conversationId),
     senderId: String(m.sender.id),
     senderDisplayName: m.sender.displayName || m.sender.display_name || m.sender.username,
+    senderUsername: m.sender.username,
     senderAvatarUrl: m.sender.avatarUrl || m.sender.avatar_url,
     content: m.content || '',
     imageUrl: m.imageUrl || m.image_url,
-    createdAt: m.createdAt,
+    createdAt: normalizeBackendTimestamp(m.createdAt),
     isRead: m.isRead,
 });
 
@@ -32,6 +35,48 @@ const dedupeMessages = (messages: Message[]) => {
         return true;
     });
 };
+
+interface BackendNotificationSummary {
+    unread_notifications?: number;
+    unreadNotifications?: number;
+    total?: number;
+}
+
+interface BackendConversationReadReceipt {
+    conversation_id?: string;
+    conversationId?: string;
+    read_at?: string;
+    readAt?: string;
+    conversation_unread_count?: number;
+    conversationUnreadCount?: number;
+    notifications_read?: number;
+    notificationsRead?: number;
+    notification_summary?: BackendNotificationSummary;
+    notificationSummary?: BackendNotificationSummary;
+}
+
+const transformNotificationSummary = (summary?: BackendNotificationSummary) => {
+    if (!summary) return undefined;
+
+    return {
+        unreadNotifications: summary.unread_notifications ?? summary.unreadNotifications ?? 0,
+        total: summary.total ?? 0,
+    };
+};
+
+const transformReadReceipt = (
+    receipt: BackendConversationReadReceipt | undefined,
+    conversationId: string,
+): ConversationReadReceipt => ({
+    conversationId: String(receipt?.conversation_id ?? receipt?.conversationId ?? conversationId),
+    readAt: normalizeBackendTimestamp(receipt?.read_at ?? receipt?.readAt),
+    conversationUnreadCount:
+        receipt?.conversation_unread_count ?? receipt?.conversationUnreadCount ?? 0,
+    notificationsRead: receipt?.notifications_read ?? receipt?.notificationsRead ?? 0,
+    notificationSummary: transformNotificationSummary(
+        receipt?.notification_summary ?? receipt?.notificationSummary,
+    ),
+});
 
 const transformConversation = (c: BackendConversation): Conversation => ({
     id: String(c.id),
@@ -46,14 +91,15 @@ const transformConversation = (c: BackendConversation): Conversation => ({
     groupName: c.groupName,
     groupAvatar: c.groupAvatar || c.group_avatar,
     unreadCount: c.unreadCount || 0,
-    updatedAt: c.lastMessageAt || c.updatedAt,
+    updatedAt: normalizeBackendTimestamp(c.lastMessageAt || c.updatedAt),
     lastMessage: {
         id: 'last-' + c.id,
         content: c.lastMessagePreview,
-        createdAt: c.lastMessageAt || c.updatedAt,
+        createdAt: normalizeBackendTimestamp(c.lastMessageAt || c.updatedAt),
         conversationId: String(c.id),
         senderId: '',
         senderDisplayName: '',
+        senderUsername: '',
         senderAvatarUrl: undefined,
         isRead: true
     } as Message
@@ -145,10 +191,11 @@ export const messagesApi = {
         return transformMessage(response);
     },
 
-    markAsRead: async (conversationId: string): Promise<void> => {
-        await authenticatedRequest<void>(`/conversations/${conversationId}/read`, {
+    markAsRead: async (conversationId: string): Promise<ConversationReadReceipt> => {
+        const response = await authenticatedRequest<BackendConversationReadReceipt>(`/conversations/${conversationId}/read`, {
             method: 'POST'
         });
+        return transformReadReceipt(response, conversationId);
     },
 
     deleteMessage: async (conversationId: string, messageId: string): Promise<void> => {

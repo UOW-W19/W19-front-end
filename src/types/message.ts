@@ -1,10 +1,11 @@
-import type { UserProfile } from './api';
+import type { NotificationCenterSummary, UserProfile } from './api';
 
 export interface Message {
     id: string;
     conversationId: string;
     senderId: string;
     senderDisplayName?: string;
+    senderUsername?: string;
     senderAvatarUrl?: string;
     content: string;
     imageUrl?: string;
@@ -32,6 +33,14 @@ export interface CreateMessageRequest {
     conversationId: string;
     content: string;
     image?: File;
+}
+
+export interface ConversationReadReceipt {
+    conversationId: string;
+    readAt?: string;
+    conversationUnreadCount: number;
+    notificationsRead: number;
+    notificationSummary?: NotificationCenterSummary;
 }
 
 // Backend DTOs matching the Spring Boot ProfileResponse/MessageResponse

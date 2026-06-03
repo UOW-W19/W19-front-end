@@ -291,6 +291,8 @@ export function ChatWindow({ conversation, messages, onSendMessage, onDeleteMess
                         const showAvatar = index === 0 || visibleMessages[index - 1].senderId !== msg.senderId;
                         const sender = conversation.participants.find(p => p.id === msg.senderId);
                         const senderName = msg.senderDisplayName || sender?.displayName || (isMeMock ? user?.displayName : undefined) || "Unknown User";
+                        const senderUsername = msg.senderUsername || sender?.username || (isMeMock ? user?.username : undefined);
+                        const senderLabel = senderUsername ? `@${senderUsername.replace(/^@/, "")}` : senderName;
                         const senderAvatar = msg.senderAvatarUrl || sender?.avatarUrl || (isMeMock ? user?.avatarUrl : undefined);
                         const senderInitial = senderName[0] ?? '?';
 
@@ -317,9 +319,11 @@ export function ChatWindow({ conversation, messages, onSendMessage, onDeleteMess
                                         )}
                                     </div>
 
-                                    <div className="flex flex-col gap-0.5">
-                                        {conversation.isGroup && !isMeMock && showAvatar && (
-                                            <span className="text-[11px] text-muted-foreground font-medium pl-1">{senderName}</span>
+                                    <div className={`flex flex-col gap-0.5 ${isMeMock ? "items-end" : "items-start"}`}>
+                                        {conversation.isGroup && showAvatar && (
+                                            <span className={`max-w-full truncate px-1 text-[11px] font-medium text-muted-foreground ${isMeMock ? "text-right" : "text-left"}`}>
+                                                {senderLabel}
+                                            </span>
                                         )}
                                         <div
                                             className={`rounded-2xl px-4 py-2 shadow-sm ${isMeMock

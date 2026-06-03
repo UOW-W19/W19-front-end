@@ -19,6 +19,8 @@ import { useAuth } from "@/contexts";
 import { usersApi } from "@/services/api/users";
 import type { LocationVisibility } from "@/types/api";
 
+const POST_LOGOUT_REDIRECT_KEY = "locale_post_logout_redirect";
+
 const settingsSections = [
   {
     title: "Account",
@@ -71,8 +73,9 @@ export default function SettingsPage() {
   };
 
   const handleLogout = async () => {
+    window.sessionStorage.setItem(POST_LOGOUT_REDIRECT_KEY, '/auth');
     await logout();
-    navigate('/onboarding');
+    navigate('/auth', { replace: true });
   };
 
   return (

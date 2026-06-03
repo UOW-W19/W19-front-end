@@ -1,5 +1,5 @@
-import { useState, useMemo, useCallback, useRef } from "react";
-import { Sparkles, RotateCcw, Check, X, ChevronLeft, BookOpen, Camera, TrendingUp, Globe, Zap, ArrowUpDown, ChevronDown, Loader2, Flame } from "lucide-react";
+import { useState, useMemo, useCallback, useEffect, useRef, type ComponentType } from "react";
+import { Sparkles, RotateCcw, Check, X, ChevronLeft, BookOpen, Camera, ArrowUpDown, ChevronDown, Loader2, Plus, Target, Trophy, BookMarked, Gauge, Languages as LanguagesIcon, Brain } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { LessonSessionView } from "@/components/learn/LessonSessionView";
@@ -18,6 +18,8 @@ import {
   useSubmitPracticeResult,
   useCompletePracticeSession,
   useUpdateWord,
+  useCreateWord,
+  useDeleteWord,
   transformSessionWord,
   type PracticeResult,
 } from "@/hooks/useLearnApi";
@@ -25,12 +27,51 @@ import { useLessonSession } from "@/hooks/useLessonSession";
 import { postsApi } from "@/services/api/posts";
 import { useAuth } from "@/contexts/useAuth";
 import { notifyFeedPostCreated } from "@/lib/feedRefresh";
+import { getUserLanguagePreferences } from "@/lib/userLanguages";
 
 type PracticeMode = 'idle' | 'practicing' | 'results' | 'learning';
 type SortOption = 'newest' | 'mastery_high' | 'mastery_low';
 type WordBank = LessonWordBank;
 
 const SESSION_SIZE_OPTIONS = [5, 10, 15] as const;
+
+type StatTileTone = 'purple' | 'lime' | 'coral';
+
+const statTileToneClasses: Record<StatTileTone, string> = {
+  purple: 'bg-purple/10 text-purple',
+  lime: 'bg-lime/15 text-lime',
+  coral: 'bg-coral/10 text-coral',
+};
+
+function StatTile({
+  icon: Icon,
+  label,
+  value,
+  tone,
+  isLoading,
+}: {
+  icon: ComponentType<{ className?: string }>;
+  label: string;
+  value: string | number;
+  tone: StatTileTone;
+  isLoading?: boolean;
+}) {
+  return (
+    <div className="min-h-[8rem] rounded-2xl border border-purple/15 bg-card p-3 text-center shadow-locale-sm sm:p-4">
+      <div className={cn("mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-xl", statTileToneClasses[tone])}>
+        <Icon className="h-5 w-5" />
+      </div>
+      <div className="flex min-h-8 items-center justify-center">
+        {isLoading ? (
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        ) : (
+          <p className="text-xl font-bold leading-none text-foreground sm:text-2xl">{value}</p>
+        )}
+      </div>
+      <p className="mt-2 text-[11px] leading-tight text-muted-foreground sm:text-xs">{label}</p>
+    </div>
+  );
+}
 
 // ── Concept categorisation ──────────────────────────────────────────────────
 
@@ -92,6 +133,7 @@ function categoriseWord(word: string, translation: string): string {
 
 export default function LearnPage() {
   const { user } = useAuth();
+  const { primaryLearningLanguage } = getUserLanguagePreferences(user?.languages);
   const [mode, setMode] = useState<PracticeMode>('idle');
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
@@ -135,6 +177,39 @@ export default function LearnPage() {
   const [languageFilter, setLanguageFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<SortOption>('newest');
 
+  // Add-word modal state
+  const [showAddWord, setShowAddWord] = useState(false);
+  const [addWord, setAddWord] = useState('');
+  const [addTranslation, setAddTranslation] = useState('');
+  const defaultAddLangCode = primaryLearningLanguage?.code ?? 'en';
+  const [addLangCode, setAddLangCode] = useState(defaultAddLangCode);
+  const ADD_LANGUAGES = [
+    { code: 'en', flag: '🇺🇸', name: 'English'  },
+    { code: 'es', flag: '🇪🇸', name: 'Spanish'  },
+    { code: 'fr', flag: '🇫🇷', name: 'French'   },
+    { code: 'ja', flag: '🇯🇵', name: 'Japanese' },
+    { code: 'zh', flag: '🇨🇳', name: 'Chinese'  },
+    { code: 'it', flag: '🇮🇹', name: 'Italian'  },
+  ];
+
+  const addLanguages =
+    primaryLearningLanguage && !ADD_LANGUAGES.some((language) => language.code === primaryLearningLanguage.code)
+      ? [
+          {
+            code: primaryLearningLanguage.code,
+            flag: primaryLearningLanguage.flagEmoji,
+            name: primaryLearningLanguage.name,
+          },
+          ...ADD_LANGUAGES,
+        ]
+      : ADD_LANGUAGES;
+
+  useEffect(() => {
+    if (showAddWord) {
+      setAddLangCode(defaultAddLangCode);
+    }
+  }, [defaultAddLangCode, showAddWord]);
+
   // Session size options
   const [sessionSize, setSessionSize] = useState<5 | 10 | 15>(10);
 
@@ -156,6 +231,24 @@ export default function LearnPage() {
   const submitResultMutation = useSubmitPracticeResult();
   const completeSessionMutation = useCompletePracticeSession();
   const updateWordMutation = useUpdateWord();
+  const createWordMutation = useCreateWord();
+  const deleteWordMutation = useDeleteWord();
+
+  const [deletedWordIds, setDeletedWordIds] = useState<Set<string>>(new Set());
+  const [confirmDeleteWordId, setConfirmDeleteWordId] = useState<string | null>(null);
+
+  const handleAddWord = async () => {
+    if (!addWord.trim() || !addTranslation.trim()) return;
+    await createWordMutation.mutateAsync({
+      word: addWord.trim(),
+      translation: addTranslation.trim(),
+      language_code: addLangCode,
+      source: 'MANUAL',
+    });
+    setAddWord('');
+    setAddTranslation('');
+    setShowAddWord(false);
+  };
 
   // Get unique languages for filter
   const uniqueLanguages = useMemo(() => {
@@ -440,7 +533,7 @@ export default function LearnPage() {
             <span>Current mastery:</span>
             <div className="h-1.5 w-16 rounded-full bg-muted overflow-hidden">
               <div
-                className="h-full rounded-full bg-sage transition-all"
+                className="h-full rounded-full bg-lime transition-all"
                 style={{ width: `${currentWord.masteryLevel}%` }}
               />
             </div>
@@ -463,7 +556,7 @@ export default function LearnPage() {
             <Button
               onClick={() => handleAnswer(true)}
               disabled={isSubmitting}
-              className="flex-1 h-14 gap-2 rounded-xl bg-sage hover:bg-sage/90"
+              className="flex-1 h-14 gap-2 rounded-xl border border-lime/30 bg-lime/15 text-lime hover:bg-lime/20"
             >
               {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Check className="h-5 w-5" />}
               Got it!
@@ -502,16 +595,18 @@ export default function LearnPage() {
                 className={cn(
                   "flex items-center gap-3 rounded-xl border p-4 transition-all",
                   result.correct
-                    ? "border-sage/30 bg-sage/5"
+                    ? "border-lime/30 bg-lime/10"
                     : "border-destructive/30 bg-destructive/5"
                 )}
               >
-                <div className={cn(
-                  "flex h-8 w-8 items-center justify-center rounded-full",
-                  result.correct ? "bg-sage/20" : "bg-destructive/20"
-                )}>
+                <div
+                  className={cn(
+                    "flex h-8 w-8 items-center justify-center rounded-full flex-shrink-0",
+                    result.correct ? "bg-lime/15" : "bg-destructive/20"
+                  )}
+                >
                   {result.correct ? (
-                    <Check className="h-4 w-4 text-sage" />
+                    <Check className="h-4 w-4 text-lime" />
                   ) : (
                     <X className="h-4 w-4 text-destructive" />
                   )}
@@ -522,10 +617,12 @@ export default function LearnPage() {
                 </div>
                 <div className="text-right flex-shrink-0">
                   <span className="text-lg">{result.word.languageFlag}</span>
-                  <p className={cn(
-                    "text-xs font-medium",
-                    masteryChange > 0 ? "text-sage" : "text-destructive"
-                  )}>
+                  <p
+                    className={cn(
+                      "text-xs font-medium",
+                      masteryChange > 0 ? "text-lime" : "text-destructive"
+                    )}
+                  >
                     {masteryChange > 0 ? '+' : ''}{masteryChange}%
                   </p>
                 </div>
@@ -599,6 +696,7 @@ export default function LearnPage() {
   const dailyGoal = 1;
   const goalMet = sessionsDoneToday >= dailyGoal;
   const progressPct = Math.min((sessionsDoneToday / dailyGoal) * 100, 100);
+  const DailyProgressIcon = goalMet ? Trophy : Target;
 
   return (
     <div className="h-full overflow-y-auto pb-24 scrollbar-hide mx-auto max-w-2xl px-4 py-6">
@@ -608,34 +706,58 @@ export default function LearnPage() {
       </div>
       {/* Today's Progress */}
       <section className="mb-5">
-        <div className={cn(
-          "rounded-2xl border p-4",
-          goalMet ? "bg-sage/5 border-sage/30" : "bg-card border-border"
-        )}>
+        <div
+          className={cn(
+            "rounded-2xl border bg-card p-4 shadow-locale-sm transition-colors duration-500",
+            goalMet ? "border-lime/30" : "border-purple/15"
+          )}
+        >
           <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <Flame className={cn("h-4 w-4", goalMet ? "text-sage" : "text-muted-foreground")} />
-              <span className="text-sm font-medium text-foreground">Today's Progress</span>
+            <div className="flex min-w-0 items-center gap-3">
+              <div
+                className={cn(
+                  "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-colors duration-300",
+                  goalMet ? "bg-lime/15 text-lime" : "bg-coral/10 text-coral"
+                )}
+              >
+                <DailyProgressIcon className="h-5 w-5" />
+              </div>
+              <span className="truncate text-sm font-semibold text-foreground">Today's Progress</span>
             </div>
-            <span className={cn(
-              "text-xs font-medium px-2 py-0.5 rounded-full",
-              goalMet ? "bg-sage/20 text-sage" : "bg-muted text-muted-foreground"
-            )}>
-              {goalMet ? "Goal met!" : `${sessionsDoneToday} / ${dailyGoal} session`}
+            <span
+              className={cn(
+                "shrink-0 rounded-full border px-2.5 py-0.5 text-xs font-bold transition-colors duration-300",
+                goalMet
+                  ? "border-lime/30 bg-lime/15 text-lime"
+                  : "border-purple/15 bg-purple/10 text-purple"
+              )}
+            >
+              {goalMet
+                ? `${sessionsDoneToday}/${dailyGoal} session${dailyGoal !== 1 ? 's' : ''}`
+                : `${sessionsDoneToday} / ${dailyGoal} session`}
             </span>
           </div>
-          <div className="h-2 rounded-full bg-muted overflow-hidden mb-3">
+          <div
+            className="h-2 rounded-full bg-muted/80 overflow-hidden mb-3"
+            role="progressbar"
+            aria-label="Daily practice progress"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={Math.round(progressPct)}
+          >
             <div
               className={cn(
                 "h-full rounded-full transition-all duration-500",
-                goalMet ? "bg-sage" : "bg-primary"
+                goalMet ? "bg-lime" : "bg-primary"
               )}
-              style={{ width: `${progressPct}%` }}
+              style={{
+                width: `${progressPct}%`,
+              }}
             />
           </div>
           {sessionsDoneToday > 0 ? (
             <p className="text-xs text-muted-foreground">
-              {sessionsDoneToday} session{sessionsDoneToday !== 1 ? "s" : ""} completed today — keep it up!
+              {sessionsDoneToday} session{sessionsDoneToday !== 1 ? "s" : ""} completed today - keep it up!
             </p>
           ) : (
             <p className="text-xs text-muted-foreground">Complete a practice session to hit your daily goal</p>
@@ -645,45 +767,28 @@ export default function LearnPage() {
 
       {/* Stats Dashboard */}
       <section className="mb-6">
-        <div className="grid grid-cols-3 gap-3">
-          {/* Words Saved */}
-          <div className="rounded-2xl bg-card border border-border p-4 text-center">
-            <div className="flex items-center justify-center h-10 w-10 mx-auto rounded-xl bg-primary/10 mb-2">
-              <BookOpen className="h-5 w-5 text-primary" />
-            </div>
-            {isLoadingStats ? (
-              <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
-            ) : (
-              <p className="text-2xl font-bold text-foreground">{displayStats.totalWords}</p>
-            )}
-            <p className="text-xs text-muted-foreground">Words Saved</p>
-          </div>
-
-          {/* Avg Mastery */}
-          <div className="rounded-2xl bg-card border border-border p-4 text-center">
-            <div className="flex items-center justify-center h-10 w-10 mx-auto rounded-xl bg-sage/10 mb-2">
-              <TrendingUp className="h-5 w-5 text-sage" />
-            </div>
-            {isLoadingStats ? (
-              <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
-            ) : (
-              <p className="text-2xl font-bold text-foreground">{displayStats.avgMastery}%</p>
-            )}
-            <p className="text-xs text-muted-foreground">Avg Mastery</p>
-          </div>
-
-          {/* Languages */}
-          <div className="rounded-2xl bg-card border border-border p-4 text-center">
-            <div className="flex items-center justify-center h-10 w-10 mx-auto rounded-xl bg-coral/10 mb-2">
-              <Globe className="h-5 w-5 text-coral" />
-            </div>
-            {isLoadingStats ? (
-              <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
-            ) : (
-              <p className="text-2xl font-bold text-foreground">{displayStats.languages.length}</p>
-            )}
-            <p className="text-xs text-muted-foreground">Languages</p>
-          </div>
+        <div className="grid grid-cols-3 gap-2 sm:gap-3">
+          <StatTile
+            icon={BookMarked}
+            label="Words Saved"
+            value={displayStats.totalWords}
+            tone="purple"
+            isLoading={isLoadingStats}
+          />
+          <StatTile
+            icon={Gauge}
+            label="Avg Mastery"
+            value={`${displayStats.avgMastery}%`}
+            tone="lime"
+            isLoading={isLoadingStats}
+          />
+          <StatTile
+            icon={LanguagesIcon}
+            label="Languages"
+            value={displayStats.languages.length}
+            tone="coral"
+            isLoading={isLoadingStats}
+          />
         </div>
 
         {/* Language flags row */}
@@ -698,12 +803,12 @@ export default function LearnPage() {
 
       {/* Practice Card */}
       <section className="mb-6">
-        <div className="rounded-2xl bg-gradient-to-br from-primary/5 to-coral/5 border border-primary/20 p-5">
+        <div className="rounded-2xl border border-coral/20 bg-card p-5 shadow-locale-sm">
           <div className="flex items-center gap-3 mb-4">
-            <div className="flex items-center justify-center h-12 w-12 rounded-xl bg-primary/10">
-              <Zap className="h-6 w-6 text-primary" />
+            <div className="flex items-center justify-center h-12 w-12 shrink-0 rounded-xl bg-coral/10 text-coral">
+              <Brain className="h-6 w-6" />
             </div>
-            <div>
+            <div className="min-w-0">
               <h2 className="font-semibold text-foreground">Ready to practice?</h2>
               <p className="text-sm text-muted-foreground">
                 {/* {displayStats.masteredWords} of {displayStats.totalWords}  */}
@@ -717,9 +822,9 @@ export default function LearnPage() {
           </p> */}
 
           {/* Session Size Selector */}
-          <div className="flex items-center justify-between mb-4 p-3 rounded-xl bg-background/50 border border-border">
+          <div className="flex items-center justify-between gap-3 mb-4 p-3 rounded-xl bg-card/80 border border-purple/15">
             <span className="text-sm text-muted-foreground">Words per session</span>
-            <div className="flex gap-2">
+            <div className="flex shrink-0 gap-2">
               {SESSION_SIZE_OPTIONS.map((size) => (
                 <button
                   key={size}
@@ -762,15 +867,23 @@ export default function LearnPage() {
 
       {/* Word Bank Section */}
       <section>
+        <h2 className="text-lg font-semibold text-foreground mb-3">Word Banks</h2>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-foreground">Word Banks</h2>
+          {/* Add word pill */}
+          <button
+            onClick={() => setShowAddWord(true)}
+            className="flex items-center gap-1 h-8 px-3 rounded-full border border-coral/20 bg-card text-coral text-xs font-medium shadow-locale-sm hover:bg-coral/10 transition-colors"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Add
+          </button>
 
           <div className="flex items-center gap-2">
             {/* Language Filter */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="h-8 gap-1.5">
-                  <Globe className="h-3.5 w-3.5" />
+                <Button variant="ghost" size="sm" className="h-8 gap-1.5 border border-purple/15 bg-card shadow-locale-sm hover:bg-purple/10">
+                  <LanguagesIcon className="h-3.5 w-3.5" />
                   {languageFilter === 'all' ? 'All' : languageFilter}
                   <ChevronDown className="h-3 w-3" />
                 </Button>
@@ -793,7 +906,7 @@ export default function LearnPage() {
             {/* Sort Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="h-8 gap-1.5">
+                <Button variant="ghost" size="sm" className="h-8 gap-1.5 border border-purple/15 bg-card shadow-locale-sm hover:bg-purple/10">
                   <ArrowUpDown className="h-3.5 w-3.5" />
                   Sort
                   <ChevronDown className="h-3 w-3" />
@@ -815,8 +928,10 @@ export default function LearnPage() {
         </div>
 
         {wordBanks.length === 0 ? (
-          <div className="text-center py-12 rounded-2xl border border-dashed border-border">
-            <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+          <div className="rounded-2xl border border-dashed border-purple/20 bg-card/80 px-6 py-12 text-center shadow-locale-sm">
+            <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-purple/10 text-purple">
+              <BookMarked className="h-7 w-7" />
+            </div>
             <h3 className="font-medium text-foreground mb-1">No words saved yet</h3>
             <p className="text-sm text-muted-foreground max-w-xs mx-auto">
               Save words from posts or use the scanner to build your vocabulary
@@ -841,14 +956,14 @@ export default function LearnPage() {
                 });
 
               return (
-                <div key={bank.id} className="rounded-2xl border border-border bg-card overflow-hidden">
+                <div key={bank.id} className="overflow-hidden rounded-2xl border border-purple/15 bg-card shadow-locale-sm">
                   {/* Card header */}
                   <button
                     onClick={toggleOpen}
-                    className="w-full flex items-center gap-3 p-4 hover:bg-muted/30 transition-colors text-left"
+                    className="w-full flex items-center gap-3 p-4 hover:bg-purple/5 transition-colors text-left"
                   >
-                    <div className="flex items-center justify-center h-9 w-9 rounded-xl bg-primary/10 flex-shrink-0">
-                      <BookOpen className="h-4 w-4 text-primary" />
+                    <div className="flex items-center justify-center h-9 w-9 rounded-xl bg-purple/10 text-purple flex-shrink-0">
+                      <BookMarked className="h-4 w-4" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-foreground text-sm">{bank.label}</p>
@@ -857,7 +972,7 @@ export default function LearnPage() {
                     {/* Avg mastery pill */}
                     <div className="flex items-center gap-1.5 mr-2">
                       <div className="h-1.5 w-14 rounded-full bg-muted overflow-hidden">
-                        <div className="h-full rounded-full bg-sage transition-all" style={{ width: `${avgMastery}%` }} />
+                        <div className="h-full rounded-full bg-lime transition-all" style={{ width: `${avgMastery}%` }} />
                       </div>
                       <span className="text-xs text-muted-foreground w-7 text-right">{avgMastery}%</span>
                     </div>
@@ -865,7 +980,7 @@ export default function LearnPage() {
                   </button>
 
                   {/* Learn button row — always visible */}
-                  <div className="px-4 pb-3 flex justify-end border-t border-border/50 pt-3">
+                  <div className="px-4 pb-3 flex justify-end border-t border-purple/10 pt-3">
                     <Button size="sm" onClick={() => startLesson(bank)} className="h-8 px-4 rounded-lg gap-1.5">
                       <Sparkles className="h-3.5 w-3.5" />
                       Learn
@@ -874,27 +989,68 @@ export default function LearnPage() {
 
                   {/* Collapsible word list */}
                   {isOpen && (
-                    <div className="border-t border-border divide-y divide-border/50">
-                      {bank.words.map((word) => (
-                        <div key={word.id} className="flex items-center gap-3 px-4 py-2.5">
-                          <span className="text-base flex-shrink-0">{word.languageFlag}</span>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              <p className="font-medium text-foreground text-sm truncate">{word.word}</p>
-                              {word.source === 'MANUAL' && (
-                                <Camera className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                              )}
+                    <div className="border-t border-purple/10 divide-y divide-border/50">
+                      {bank.words.filter(w => !deletedWordIds.has(w.id)).map((word) => {
+                        const pendingDelete = confirmDeleteWordId === word.id;
+                        return (
+                          <div key={word.id}>
+                            <div className="flex items-center gap-3 px-4 py-2.5">
+                              <span className="text-base flex-shrink-0">{word.languageFlag}</span>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5">
+                                  <p className="font-medium text-foreground text-sm truncate">{word.word}</p>
+                                  {word.source === 'MANUAL' && (
+                                    <Camera className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                                  )}
+                                </div>
+                                <p className="text-xs text-muted-foreground truncate">{word.translation}</p>
+                              </div>
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                <div className="h-1.5 w-10 rounded-full bg-muted overflow-hidden">
+                                  <div className="h-full rounded-full bg-lime transition-all" style={{ width: `${word.masteryLevel}%` }} />
+                                </div>
+                                <span className="text-xs text-muted-foreground w-7 text-right">{word.masteryLevel}%</span>
+                              </div>
+                              <button
+                                onClick={() => setConfirmDeleteWordId(pendingDelete ? null : word.id)}
+                                className={cn(
+                                  "h-6 w-6 rounded-full flex items-center justify-center transition-colors flex-shrink-0",
+                                  pendingDelete
+                                    ? "bg-destructive/15 text-destructive ring-1 ring-destructive/30"
+                                    : "text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                )}
+                                title="Remove from word bank"
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </button>
                             </div>
-                            <p className="text-xs text-muted-foreground truncate">{word.translation}</p>
+
+                            {pendingDelete && (
+                              <div className="mx-4 mb-2 flex items-center justify-between rounded-lg bg-destructive/10 px-3 py-2 animate-in fade-in duration-200">
+                                <span className="text-destructive font-medium text-xs">Remove this word?</span>
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={() => setConfirmDeleteWordId(null)}
+                                    className="text-muted-foreground hover:text-foreground text-xs px-2 py-1 rounded"
+                                  >
+                                    Cancel
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setDeletedWordIds(prev => new Set([...prev, word.id]));
+                                      setConfirmDeleteWordId(null);
+                                      deleteWordMutation.mutate(word.id);
+                                    }}
+                                    className="bg-destructive text-destructive-foreground text-xs px-3 py-1 rounded-lg font-medium"
+                                  >
+                                    Remove
+                                  </button>
+                                </div>
+                              </div>
+                            )}
                           </div>
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            <div className="h-1.5 w-10 rounded-full bg-muted overflow-hidden">
-                              <div className="h-full rounded-full bg-sage transition-all" style={{ width: `${word.masteryLevel}%` }} />
-                            </div>
-                            <span className="text-xs text-muted-foreground w-7 text-right">{word.masteryLevel}%</span>
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -903,6 +1059,67 @@ export default function LearnPage() {
           </div>
         )}
       </section>
+
+      {/* Add Word Modal */}
+      {showAddWord && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center">
+          <div className="absolute inset-0 bg-foreground/40 backdrop-blur-sm" onClick={() => setShowAddWord(false)} />
+          <div className="relative w-full max-w-md bg-card rounded-t-3xl shadow-soft p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-lg font-semibold text-foreground">Add to Word Bank</h3>
+              <button onClick={() => setShowAddWord(false)} className="h-8 w-8 rounded-full flex items-center justify-center text-muted-foreground hover:bg-muted transition-colors">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3 mb-5">
+              {/* Language picker */}
+              <div className="flex gap-2 flex-wrap">
+                {addLanguages.map(l => (
+                  <button
+                    key={l.code}
+                    onClick={() => setAddLangCode(l.code)}
+                    className={cn(
+                      "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border transition-colors",
+                      addLangCode === l.code
+                        ? "border-lime/30 bg-lime/15 text-lime"
+                        : "border-border text-muted-foreground hover:bg-muted"
+                    )}
+                  >
+                    <span>{l.flag}</span>
+                    <span>{l.name}</span>
+                  </button>
+                ))}
+              </div>
+
+              <input
+                type="text"
+                value={addWord}
+                onChange={e => setAddWord(e.target.value)}
+                placeholder="Word or phrase..."
+                className="w-full rounded-xl border border-border bg-muted px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+              />
+              <input
+                type="text"
+                value={addTranslation}
+                onChange={e => setAddTranslation(e.target.value)}
+                placeholder="Native translation..."
+                className="w-full rounded-xl border border-border bg-muted px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                onKeyDown={e => { if (e.key === 'Enter') handleAddWord(); }}
+              />
+
+              <Button
+                onClick={handleAddWord}
+                disabled={!addWord.trim() || !addTranslation.trim() || createWordMutation.isPending}
+                className="w-full h-12 rounded-xl gap-2"
+              >
+                {createWordMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                Add
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
