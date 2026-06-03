@@ -20,6 +20,7 @@ import ScannerAnnotationPill from "@/components/scanner/ScannerAnnotationPill";
 import { scanImage } from "@/services/api/scanner";
 import { createSavedWord } from "@/services/api/learn";
 import { learnKeys } from "@/hooks/useLearnApi";
+import { getScannerConfidenceLabel } from "@/lib/scannerPrecision";
 import type { DetectedObject } from "@/types/scanner";
 
 type ScannerStep = "select" | "preview" | "result";
@@ -28,7 +29,7 @@ type SaveState = "saved" | "duplicate" | "error";
 const DEMO_SCAN_LIMIT = 3;
 const DEMO_SCAN_COUNT_KEY = "locale_demo_scan_count";
 
-const confidenceLabel = (confidence: number) => `${Math.round(confidence * 100)}%`;
+const confidenceLabel = getScannerConfidenceLabel;
 const objectKey = (object: DetectedObject) =>
   object.id ?? `${object.label}:${object.languageCode}`;
 
@@ -154,7 +155,7 @@ export default function ScannerPage() {
         language_code: object.languageCode,
         source: "SCANNER",
         source_id: object.id,
-        context: `Detected in photo with ${confidenceLabel(object.confidence)} confidence`,
+        context: `Detected in photo with ${confidenceLabel(object.confidence)}`,
       });
       setSaveStates((current) => ({ ...current, [key]: "saved" }));
       queryClient.invalidateQueries({ queryKey: learnKeys.words() });

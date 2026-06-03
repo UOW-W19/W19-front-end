@@ -1,5 +1,6 @@
 import { API_BASE_URL } from './config';
 import { getStoredToken } from './auth';
+import { prepareScannerDetections } from '@/lib/scannerPrecision';
 import type { BoundingBox, DetectedObject, ScanResult, ScannerTranslationSource } from '@/types/scanner';
 import type { SavedWordResponse } from './learn';
 
@@ -73,7 +74,7 @@ export const scanImage = async (image: File): Promise<ScanResult> => {
   const data: BackendScanResponse = await response.json();
   return {
     scanSessionId: data.scan_session_id,
-    detectedObjects: (data.detected_objects ?? []).map(transformDetectedObject),
+    detectedObjects: prepareScannerDetections((data.detected_objects ?? []).map(transformDetectedObject)),
   };
 };
 
@@ -97,7 +98,7 @@ export const scanPostImage = async (postId: string): Promise<ScanResult> => {
   const data: BackendScanResponse = await response.json();
   return {
     scanSessionId: data.scan_session_id,
-    detectedObjects: (data.detected_objects ?? []).map(transformDetectedObject),
+    detectedObjects: prepareScannerDetections((data.detected_objects ?? []).map(transformDetectedObject)),
   };
 };
 

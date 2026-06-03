@@ -1,11 +1,12 @@
 import type { DetectedObject } from "@/types/scanner";
+import { getScannerConfidenceLabel } from "@/lib/scannerPrecision";
 
 interface ScannerAnnotationPillProps {
   object: DetectedObject;
   offsetIndex?: number;
 }
 
-const confidenceLabel = (confidence: number) => `${Math.round(confidence * 100)}%`;
+const confidenceLabel = getScannerConfidenceLabel;
 
 export function ScannerAnnotationPill({
   object,

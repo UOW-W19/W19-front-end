@@ -9,6 +9,7 @@ import { commentsApi, postsApi, wordsApi } from "@/services/api";
 import { saveDetectedObject as saveDetectedObjectById, scanPostImage } from "@/services/api/scanner";
 import { learnKeys } from "@/hooks/useLearnApi";
 import { LANGUAGES } from "@/services/api";
+import { getScannerConfidenceLabel } from "@/lib/scannerPrecision";
 import { getUserLanguagePreferences } from "@/lib/userLanguages";
 import type { Post } from "@/types";
 import type { ApiComment } from "@/types/api";
@@ -30,7 +31,7 @@ const formatRelativeTime = (dateStr: string): string => {
   return `${Math.floor(diffHours / 24)}d ago`;
 };
 
-const confidenceLabel = (confidence: number) => `${Math.round(confidence * 100)}%`;
+const confidenceLabel = getScannerConfidenceLabel;
 
 const detectedObjectKey = (object: DetectedObject) =>
   object.id ?? `${object.label}:${object.languageCode}:${object.learningWord}`;
