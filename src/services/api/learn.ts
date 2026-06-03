@@ -16,6 +16,7 @@ export interface SavedWordResponse {
   source: 'POST' | 'MANUAL' | 'SCANNER';
   source_id?: string;
   context?: string;
+  topic?: string;
   mastery_level: number;
   next_review?: string;
   created_at: string;
@@ -28,11 +29,13 @@ export interface CreateWordRequest {
   source?: 'POST' | 'MANUAL' | 'SCANNER';
   source_id?: string;
   context?: string;
+  topic?: string;
 }
 
 export interface UpdateWordRequest {
   translation?: string;
   mastery_level?: number;
+  topic?: string;
 }
 
 export interface StartSessionRequest {

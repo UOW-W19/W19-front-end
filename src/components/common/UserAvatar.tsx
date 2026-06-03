@@ -34,7 +34,7 @@ export function UserAvatar({
       )}
       <AvatarFallback
         className={cn(
-          "bg-gradient-to-br from-lavender to-accent text-accent-foreground",
+          "bg-gradient-to-br from-coral to-coral/70 text-white",
           fallbackClassName
         )}
       >

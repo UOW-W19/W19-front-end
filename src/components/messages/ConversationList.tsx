@@ -71,7 +71,7 @@ export function ConversationList({ conversations, selectedId, onSelect, onNewGro
                                         }`}
                                 >
                                     {/* Avatar */}
-                                    <div className="relative shrink-0 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary/60 text-lg font-semibold text-primary-foreground">
+                                    <div className="relative shrink-0 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-coral to-coral/70 text-lg font-semibold text-white">
                                         {isImageAvatar(info.avatar) ? (
                                             <img
                                                 src={info.avatar}
