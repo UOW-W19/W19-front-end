@@ -1,12 +1,9 @@
 import type { DetectedObject } from "@/types/scanner";
-import { getScannerConfidenceLabel } from "@/lib/scannerPrecision";
 
 interface ScannerAnnotationPillProps {
   object: DetectedObject;
   offsetIndex?: number;
 }
-
-const confidenceLabel = getScannerConfidenceLabel;
 
 export function ScannerAnnotationPill({
   object,
@@ -23,7 +20,7 @@ export function ScannerAnnotationPill({
             {object.learningWord}
           </p>
           <p className="mt-0.5 whitespace-normal break-words text-[10px] leading-tight text-primary-foreground/75">
-            {object.nativeWord} - {confidenceLabel(object.confidence)}
+            {object.nativeWord}
           </p>
         </div>
       </div>

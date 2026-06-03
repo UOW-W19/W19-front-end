@@ -25,6 +25,9 @@ interface BackendScanResponse {
   detected_objects: BackendDetectedObject[];
 }
 
+const POST_IMAGE_NOT_AVAILABLE_ERROR = 'Post image is not stored in the configured object store';
+const POST_IMAGE_NOT_AVAILABLE_MESSAGE = 'This post image is not available for scanning. Try an uploaded image.';
+
 const transformDetectedObject = (object: BackendDetectedObject): DetectedObject => ({
   id: object.id,
   label: object.label,
@@ -49,7 +52,8 @@ class ScannerApiError extends Error {
 const readErrorMessage = async (response: Response, fallback: string) => {
   try {
     const error = await response.json();
-    return error.message || error.error || fallback;
+    const message = error.message || error.error || fallback;
+    return message === POST_IMAGE_NOT_AVAILABLE_ERROR ? POST_IMAGE_NOT_AVAILABLE_MESSAGE : message;
   } catch {
     return response.statusText || fallback;
   }

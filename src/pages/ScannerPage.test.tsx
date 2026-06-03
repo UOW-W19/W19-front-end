@@ -72,10 +72,10 @@ beforeEach(() => {
     detectedObjects: [
       {
         id: "detection-1",
-        label: "chair",
+        label: "apple",
         confidence: 0.08,
-        nativeWord: "chair",
-        learningWord: "silla",
+        nativeWord: "apple",
+        learningWord: "manzana",
         languageCode: "es",
       },
     ],
@@ -106,7 +106,9 @@ describe("ScannerPage post image scans", () => {
       });
     });
 
-    expect(await screen.findAllByText("silla")).toHaveLength(2);
+    expect(await screen.findAllByText("manzana")).toHaveLength(2);
+    expect(screen.getAllByText("apple")).toHaveLength(2);
+    expect(screen.queryByText("High confidence")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Add to word bank" }));
 
     await waitFor(() => {

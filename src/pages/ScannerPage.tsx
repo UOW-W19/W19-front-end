@@ -497,16 +497,11 @@ export default function ScannerPage() {
                     key={key}
                     className="rounded-2xl border border-coral/15 bg-card p-4 shadow-locale-sm"
                   >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="font-semibold text-foreground truncate">
-                            {object.nativeWord}
-                          </p>
-                          <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                            {confidenceLabel(object.confidence)}
-                          </span>
-                        </div>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0 flex-1">
+                        <p className="break-words font-semibold text-foreground">
+                          {object.nativeWord}
+                        </p>
                         <p className="mt-1 break-words text-xl font-black text-primary">
                           {object.learningWord}
                         </p>
@@ -520,7 +515,7 @@ export default function ScannerPage() {
                         size="sm"
                         disabled={isSaved || isDuplicate || isSaving}
                         onClick={() => saveDetectedObject(object)}
-                        className={`flex-shrink-0 transition-colors ${
+                        className={`w-full flex-shrink-0 transition-colors sm:w-auto ${
                           isSaved || isDuplicate
                             ? "border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-50"
                             : ""
