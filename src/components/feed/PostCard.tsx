@@ -466,11 +466,11 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
         </p>
         {activeTranslationLang && translationCache[activeTranslationLang] && (
           <div className="flex items-start gap-2 rounded-lg bg-muted/50 px-3 py-2">
-                {nativeLanguage?.flagEmoji} {nativeLanguage?.name}
+            <Languages className="h-3.5 w-3.5 mt-0.5 shrink-0 text-primary" />
+            <div className="flex-1">
               <p className="text-sm text-muted-foreground italic">{translationCache[activeTranslationLang]}</p>
               <p className="text-xs text-muted-foreground/60 mt-1">
-                {learningLanguages.find((l) => l.code === activeTranslationLang)?.flagEmoji}{" "}
-                {learningLanguages.find((l) => l.code === activeTranslationLang)?.name}
+                {nativeLanguage?.flagEmoji} {nativeLanguage?.name}
               </p>
             </div>
           </div>
@@ -593,6 +593,10 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
             showComments ? "text-primary" : "text-muted-foreground active:text-primary"
           }`}
         >
+          <MessageCircle className={`h-5 w-5 ${showComments ? "fill-primary/20" : ""}`} />
+          <span className="text-sm font-medium">{commentsCount}</span>
+        </Button>
+
         {canTranslatePost && (
           <div className="relative">
             <Button
@@ -613,10 +617,6 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
               )}
             </Button>
 
-          </div>
-        )}
-              </>
-            )}
           </div>
         )}
 
@@ -885,6 +885,10 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
                 <div className="mb-4 rounded-xl bg-muted/50 px-3 py-2.5">
                   <p className="text-xs text-muted-foreground mb-1">
                     {langInfo ? `${langInfo.flag} ${langInfo.name}` : post.originalLanguage}
+                  </p>
+                  <p className="font-medium text-foreground">{selectedPhrase}</p>
+                </div>
+
                 {/* Translate to native language */}
                 {nativeLanguage && (
                   <div className="mb-4">
@@ -907,21 +911,17 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
                     </div>
                   </div>
                 )}
-                      ))}
-                    </div>
-                  </div>
-                )}
 
                 {/* Auto-translation result */}
                 {isAutoTranslating && (
                   <div className="mb-4 flex items-center justify-center py-3">
                     <Loader2 className="h-5 w-5 animate-spin text-primary" />
                   </div>
-                      {nativeLanguage?.flagEmoji} {nativeLanguage?.name}
+                )}
+                {!isAutoTranslating && phraseAutoTranslation && phraseTargetLang && (
                   <div className="mb-4 rounded-xl bg-primary/5 border border-primary/20 px-3 py-2.5">
                     <p className="text-xs text-muted-foreground mb-1">
-                      {learningLanguages.find(l => l.code === phraseTargetLang)?.flagEmoji}{' '}
-                      {learningLanguages.find(l => l.code === phraseTargetLang)?.name}
+                      {nativeLanguage?.flagEmoji} {nativeLanguage?.name}
                     </p>
                     <p className="font-medium text-foreground">{phraseAutoTranslation}</p>
                   </div>
