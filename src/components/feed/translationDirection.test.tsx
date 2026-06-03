@@ -236,6 +236,7 @@ describe("translation direction flows", () => {
         onAdvance={vi.fn()}
         onPlayVoicePrompt={vi.fn()}
         onToggleRecording={vi.fn()}
+        onSkipVoicePrompt={vi.fn()}
         onPlaceChip={vi.fn()}
         onRemoveChip={vi.fn()}
         onReorderPlacedChips={vi.fn()}
