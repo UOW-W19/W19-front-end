@@ -9,6 +9,7 @@ const toMessage = (m: BackendMessage): Message => ({
   conversationId: String(m.conversationId),
   senderId: String(m.sender.id),
   senderDisplayName: m.sender.displayName || m.sender.display_name || m.sender.username,
+  senderUsername: m.sender.username,
   senderAvatarUrl: m.sender.avatarUrl || m.sender.avatar_url,
   content: m.content || "",
   imageUrl: m.imageUrl || m.image_url,

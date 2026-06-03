@@ -5,6 +5,7 @@ export interface Message {
     conversationId: string;
     senderId: string;
     senderDisplayName?: string;
+    senderUsername?: string;
     senderAvatarUrl?: string;
     content: string;
     imageUrl?: string;
