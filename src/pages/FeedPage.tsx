@@ -8,6 +8,7 @@ import { useAuth } from "@/contexts/useAuth";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { postsApi, LANGUAGES, getLanguageByCode } from "@/services/api";
 import { consumePendingFeedPosts, subscribeToFeedPostCreated } from "@/lib/feedRefresh";
+import { getPrimaryLearningLanguage } from "@/lib/userLanguages";
 import type { ApiPost, CreatePostRequest, Post } from "@/types";
 
 const toUiPost = (apiPost: ApiPost): Post => {
@@ -63,14 +64,24 @@ export default function FeedPage() {
   const [hasMore, setHasMore] = useState(false);
   const [nextCursor, setNextCursor] = useState<string | undefined>(undefined);
   const [isComposeOpen, setIsComposeOpen] = useState(false);
-  const [selectedLanguage, setSelectedLanguage] = useState<string | null>(null);
+  const [selectedLanguageCode, setSelectedLanguageCode] = useState<string | null | undefined>(undefined);
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const isFetchingRef = useRef(false);
+  const primaryLearningLanguage = getPrimaryLearningLanguage(user?.languages);
+  const activeLanguageCode = selectedLanguageCode === undefined
+    ? primaryLearningLanguage?.code
+    : selectedLanguageCode;
+  const activeStaticLanguage = activeLanguageCode ? getLanguageByCode(activeLanguageCode) : undefined;
+  const activeUserLanguage = activeLanguageCode
+    ? user?.languages?.find((language) => language.code === activeLanguageCode)
+    : undefined;
+  const activeLanguageName = activeStaticLanguage?.name ?? activeUserLanguage?.name ?? "All Languages";
+  const activeLanguageFlag = activeStaticLanguage?.flag ?? activeUserLanguage?.flagEmoji ?? "🌍";
 
   const getLangCode = useCallback(() =>
-    selectedLanguage ? LANGUAGES.find((l) => l.name === selectedLanguage)?.code : undefined,
-    [selectedLanguage]
+    activeLanguageCode ?? undefined,
+    [activeLanguageCode]
   );
 
   const shouldShowApiPost = useCallback((post: ApiPost) => {
@@ -179,10 +190,7 @@ export default function FeedPage() {
     }
   };
 
-  const languageOptions = LANGUAGES.map((l) => l.name);
-  const languageFlags: Record<string, string> = Object.fromEntries(
-    LANGUAGES.map((l) => [l.name, l.flag])
-  );
+  const languageOptions = LANGUAGES;
 
   return (
     <PullToRefresh onRefresh={handleRefresh} className="h-full">
@@ -222,9 +230,9 @@ export default function FeedPage() {
               className="flex items-center gap-2 rounded-pill border border-purple/15 bg-card px-3 py-2 text-sm font-medium shadow-locale-sm transition-colors hover:bg-purple/10"
             >
               <span className="text-base">
-                {selectedLanguage ? languageFlags[selectedLanguage] : "🌍"}
+                {activeLanguageFlag}
               </span>
-              <span className="text-foreground">{selectedLanguage || "All Languages"}</span>
+              <span className="text-foreground">{activeLanguageName}</span>
               <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${showLanguageDropdown ? 'rotate-180' : ''}`} />
             </button>
 
@@ -233,26 +241,26 @@ export default function FeedPage() {
                 <div className="fixed inset-0 z-40" onClick={() => setShowLanguageDropdown(false)} />
                 <div className="absolute left-0 top-full z-50 mt-2 max-h-64 w-48 overflow-y-auto rounded-2xl border border-purple/15 bg-card py-1 shadow-locale-md">
                   <button
-                    onClick={() => { setSelectedLanguage(null); setShowLanguageDropdown(false); }}
+                    onClick={() => { setSelectedLanguageCode(null); setShowLanguageDropdown(false); }}
                     className="flex w-full items-center justify-between px-4 py-2.5 text-left transition-colors hover:bg-purple/10"
                   >
                     <div className="flex items-center gap-2">
                       <Globe className="h-4 w-4 text-muted-foreground" />
                       <span className="text-sm text-foreground">All Languages</span>
                     </div>
-                    {selectedLanguage === null && <Check className="h-4 w-4 text-primary" />}
+                    {!activeLanguageCode && <Check className="h-4 w-4 text-primary" />}
                   </button>
                   {languageOptions.map((lang) => (
                     <button
-                      key={lang}
-                      onClick={() => { setSelectedLanguage(lang); setShowLanguageDropdown(false); }}
+                      key={lang.code}
+                      onClick={() => { setSelectedLanguageCode(lang.code); setShowLanguageDropdown(false); }}
                       className="flex w-full items-center justify-between px-4 py-2.5 text-left transition-colors hover:bg-purple/10"
                     >
                       <div className="flex items-center gap-2">
-                        <span className="text-base">{languageFlags[lang]}</span>
-                        <span className="text-sm text-foreground">{lang}</span>
+                        <span className="text-base">{lang.flag}</span>
+                        <span className="text-sm text-foreground">{lang.name}</span>
                       </div>
-                      {selectedLanguage === lang && <Check className="h-4 w-4 text-primary" />}
+                      {activeLanguageCode === lang.code && <Check className="h-4 w-4 text-primary" />}
                     </button>
                   ))}
                 </div>
@@ -291,8 +299,8 @@ export default function FeedPage() {
                 </div>
                 <h3 className="text-lg font-semibold text-foreground mb-1">No posts yet</h3>
                 <p className="text-sm text-muted-foreground max-w-xs">
-                  {selectedLanguage
-                    ? `No posts in ${selectedLanguage} yet. Be the first to share something!`
+                  {activeLanguageCode
+                    ? `No posts in ${activeLanguageName} yet. Be the first to share something!`
                     : 'Be the first to share something!'}
                 </p>
               </div>
