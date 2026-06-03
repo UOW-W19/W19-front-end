@@ -153,10 +153,9 @@ export default function FeedPage() {
   }, [fetchPosts]);
 
   const handleCreatePost = async (newPostData: ComposePostPayload) => {
-    const langCode = LANGUAGES.find((l) => l.name === newPostData.author.language)?.code || 'en';
     const payload: CreatePostRequest = {
       content: newPostData.content,
-      originalLanguage: langCode,
+      originalLanguage: newPostData.originalLanguage,
       images: newPostData.imageFiles?.length ? newPostData.imageFiles : undefined,
       image: newPostData.imageFile || undefined,
     };

@@ -9,6 +9,7 @@ import { commentsApi, postsApi, wordsApi } from "@/services/api";
 import { saveDetectedObject as saveDetectedObjectById, scanPostImage } from "@/services/api/scanner";
 import { learnKeys } from "@/hooks/useLearnApi";
 import { LANGUAGES } from "@/services/api";
+import { getUserLanguagePreferences } from "@/lib/userLanguages";
 import type { Post } from "@/types";
 import type { ApiComment } from "@/types/api";
 import type { DetectedObject } from "@/types/scanner";
@@ -49,7 +50,6 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
   const [translationCache, setTranslationCache] = useState<Record<string, string>>({});
   const [activeTranslationLang, setActiveTranslationLang] = useState<string | null>(null);
   const [isTranslating, setIsTranslating] = useState(false);
-  const [showLangPicker, setShowLangPicker] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [reportReason, setReportReason] = useState<'SPAM' | 'HARASSMENT' | 'INAPPROPRIATE' | 'MISINFORMATION' | 'OTHER'>('SPAM');
@@ -166,23 +166,19 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
     }
   };
 
-  const learningLanguages = user?.languages?.filter((l) => l.isLearning) ?? [];
+  const { nativeLanguage } = getUserLanguagePreferences(user?.languages);
+  const canTranslatePost = Boolean(nativeLanguage && nativeLanguage.code !== post.originalLanguage);
 
   const handleTranslate = () => {
-    if (learningLanguages.length === 0) return;
+    if (!nativeLanguage || !canTranslatePost) return;
     if (activeTranslationLang) {
       setActiveTranslationLang(null);
       return;
     }
-    if (learningLanguages.length === 1) {
-      translateTo(learningLanguages[0].code);
-    } else {
-      setShowLangPicker((prev) => !prev);
-    }
+    translateTo(nativeLanguage.code);
   };
 
   const translateTo = async (langCode: string) => {
-    setShowLangPicker(false);
     if (activeTranslationLang === langCode) {
       setActiveTranslationLang(null);
       return;
@@ -263,7 +259,7 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
       await wordsApi.saveWord({
         word: selectedPhrase,
         translation: phraseAutoTranslation,
-        languageCode: phraseTargetLang,
+        languageCode: post.originalLanguage,
         postId: post.id,
         context: post.content,
       });
@@ -469,8 +465,7 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
         </p>
         {activeTranslationLang && translationCache[activeTranslationLang] && (
           <div className="flex items-start gap-2 rounded-lg bg-muted/50 px-3 py-2">
-            <Languages className="h-3.5 w-3.5 mt-0.5 shrink-0 text-primary" />
-            <div className="flex-1">
+                {nativeLanguage?.flagEmoji} {nativeLanguage?.name}
               <p className="text-sm text-muted-foreground italic">{translationCache[activeTranslationLang]}</p>
               <p className="text-xs text-muted-foreground/60 mt-1">
                 {learningLanguages.find((l) => l.code === activeTranslationLang)?.flagEmoji}{" "}
@@ -597,17 +592,15 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
             showComments ? "text-primary" : "text-muted-foreground active:text-primary"
           }`}
         >
-          <MessageCircle className={`h-5 w-5 ${showComments ? "fill-primary/20" : ""}`} />
-          <span className="text-sm font-medium">{commentsCount}</span>
-        </Button>
-
-        {learningLanguages.length > 0 && (
+        {canTranslatePost && (
           <div className="relative">
             <Button
               variant="ghost"
               size="sm"
               onClick={handleTranslate}
               disabled={isTranslating}
+              aria-label={activeTranslationLang ? "Hide translation" : `Translate post to ${nativeLanguage?.name ?? "native language"}`}
+              title={activeTranslationLang ? "Hide translation" : `Translate post to ${nativeLanguage?.name ?? "native language"}`}
               className={`flex items-center gap-1.5 h-10 px-3 rounded-full active:scale-95 transition-colors ${
                 activeTranslationLang ? "text-primary" : "text-muted-foreground active:text-primary"
               }`}
@@ -619,24 +612,8 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
               )}
             </Button>
 
-            {showLangPicker && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setShowLangPicker(false)} />
-                <div className="absolute bottom-full left-0 mb-2 w-44 bg-card border border-border rounded-xl shadow-lg py-1 z-50">
-                  {learningLanguages.map((lang) => (
-                    <button
-                      key={lang.code}
-                      onClick={() => translateTo(lang.code)}
-                      className={`w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted transition-colors text-left ${
-                        activeTranslationLang === lang.code ? "text-primary font-medium" : "text-foreground"
-                      }`}
-                    >
-                      <span>{lang.flagEmoji}</span>
-                      <span>{lang.name}</span>
-                      {activeTranslationLang === lang.code && <span className="ml-auto text-primary">✓</span>}
-                    </button>
-                  ))}
-                </div>
+          </div>
+        )}
               </>
             )}
           </div>
@@ -907,29 +884,28 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
                 <div className="mb-4 rounded-xl bg-muted/50 px-3 py-2.5">
                   <p className="text-xs text-muted-foreground mb-1">
                     {langInfo ? `${langInfo.flag} ${langInfo.name}` : post.originalLanguage}
-                  </p>
-                  <p className="font-medium text-foreground">{selectedPhrase}</p>
-                </div>
-
-                {/* Translate to: language buttons */}
-                {learningLanguages.length > 0 && (
+                {/* Translate to native language */}
+                {nativeLanguage && (
                   <div className="mb-4">
-                    <p className="text-xs text-muted-foreground mb-2">Translate to:</p>
+                    <p className="text-xs text-muted-foreground mb-2">Translate to native:</p>
                     <div className="flex flex-wrap gap-2">
-                      {learningLanguages.map((lang) => (
-                        <button
-                          key={lang.code}
-                          onClick={() => handleTranslatePhrase(lang.code)}
-                          disabled={isAutoTranslating}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm border transition-colors ${
-                            phraseTargetLang === lang.code
-                              ? 'bg-primary text-primary-foreground border-primary'
-                              : 'bg-muted text-foreground border-border hover:bg-muted/80'
-                          }`}
-                        >
-                          <span>{lang.flagEmoji}</span>
-                          <span>{lang.name}</span>
-                        </button>
+                      <button
+                        type="button"
+                        onClick={() => handleTranslatePhrase(nativeLanguage.code)}
+                        disabled={isAutoTranslating}
+                        aria-label={`Translate phrase to ${nativeLanguage.name}`}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm border transition-colors ${
+                          phraseTargetLang === nativeLanguage.code
+                            ? 'bg-primary text-primary-foreground border-primary'
+                            : 'bg-muted text-foreground border-border hover:bg-muted/80'
+                        }`}
+                      >
+                        <span>{nativeLanguage.flagEmoji}</span>
+                        <span>{nativeLanguage.name}</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
                       ))}
                     </div>
                   </div>
@@ -940,8 +916,7 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
                   <div className="mb-4 flex items-center justify-center py-3">
                     <Loader2 className="h-5 w-5 animate-spin text-primary" />
                   </div>
-                )}
-                {!isAutoTranslating && phraseAutoTranslation && phraseTargetLang && (
+                      {nativeLanguage?.flagEmoji} {nativeLanguage?.name}
                   <div className="mb-4 rounded-xl bg-primary/5 border border-primary/20 px-3 py-2.5">
                     <p className="text-xs text-muted-foreground mb-1">
                       {learningLanguages.find(l => l.code === phraseTargetLang)?.flagEmoji}{' '}

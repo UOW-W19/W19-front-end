@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { Sparkles, RotateCcw, Check, X, ChevronLeft, BookOpen, Camera, TrendingUp, Globe, Zap, ArrowUpDown, ChevronDown, Loader2, Flame, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,7 @@ import { useLessonSession } from "@/hooks/useLessonSession";
 import { postsApi } from "@/services/api/posts";
 import { useAuth } from "@/contexts/useAuth";
 import { notifyFeedPostCreated } from "@/lib/feedRefresh";
+import { getUserLanguagePreferences } from "@/lib/userLanguages";
 
 type PracticeMode = 'idle' | 'practicing' | 'results' | 'learning';
 type SortOption = 'newest' | 'mastery_high' | 'mastery_low';
@@ -94,6 +95,7 @@ function categoriseWord(word: string, translation: string): string {
 
 export default function LearnPage() {
   const { user } = useAuth();
+  const { primaryLearningLanguage } = getUserLanguagePreferences(user?.languages);
   const [mode, setMode] = useState<PracticeMode>('idle');
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
@@ -141,7 +143,8 @@ export default function LearnPage() {
   const [showAddWord, setShowAddWord] = useState(false);
   const [addWord, setAddWord] = useState('');
   const [addTranslation, setAddTranslation] = useState('');
-  const [addLangCode, setAddLangCode] = useState('en');
+  const defaultAddLangCode = primaryLearningLanguage?.code ?? 'en';
+  const [addLangCode, setAddLangCode] = useState(defaultAddLangCode);
   const ADD_LANGUAGES = [
     { code: 'en', flag: '🇺🇸', name: 'English'  },
     { code: 'es', flag: '🇪🇸', name: 'Spanish'  },
@@ -150,6 +153,24 @@ export default function LearnPage() {
     { code: 'zh', flag: '🇨🇳', name: 'Chinese'  },
     { code: 'it', flag: '🇮🇹', name: 'Italian'  },
   ];
+
+  const addLanguages =
+    primaryLearningLanguage && !ADD_LANGUAGES.some((language) => language.code === primaryLearningLanguage.code)
+      ? [
+          {
+            code: primaryLearningLanguage.code,
+            flag: primaryLearningLanguage.flagEmoji,
+            name: primaryLearningLanguage.name,
+          },
+          ...ADD_LANGUAGES,
+        ]
+      : ADD_LANGUAGES;
+
+  useEffect(() => {
+    if (showAddWord) {
+      setAddLangCode(defaultAddLangCode);
+    }
+  }, [defaultAddLangCode, showAddWord]);
 
   // Session size options
   const [sessionSize, setSessionSize] = useState<5 | 10 | 15>(10);
@@ -1012,7 +1033,7 @@ export default function LearnPage() {
             <div className="space-y-3 mb-5">
               {/* Language picker */}
               <div className="flex gap-2 flex-wrap">
-                {ADD_LANGUAGES.map(l => (
+                {addLanguages.map(l => (
                   <button
                     key={l.code}
                     onClick={() => setAddLangCode(l.code)}
@@ -1041,7 +1062,7 @@ export default function LearnPage() {
                 type="text"
                 value={addTranslation}
                 onChange={e => setAddTranslation(e.target.value)}
-                placeholder="Translation..."
+                placeholder="Native translation..."
                 className="w-full rounded-xl border border-border bg-muted px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
                 onKeyDown={e => { if (e.key === 'Enter') handleAddWord(); }}
               />

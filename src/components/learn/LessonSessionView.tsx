@@ -289,7 +289,7 @@ function LessonWordCard({ word, step }: { word: LessonWord; step: LessonStepNumb
             )}
           </p>
           <p className="text-sm text-foreground">
-            <span className="text-muted-foreground">English:</span>{" "}
+            <span className="text-muted-foreground">Native translation:</span>{" "}
             <span className="font-medium break-words">{word.translation}</span>
           </p>
         </div>
@@ -744,18 +744,6 @@ function WriteStep({
   );
 }
 
-function formatShareWordList(words: LessonWord[]): string {
-  const quotedWords = words.map((lessonWord) => `"${lessonWord.word}"`);
-  if (quotedWords.length <= 1) return quotedWords[0] ?? "a new phrase";
-  if (quotedWords.length === 2) return `${quotedWords[0]} and ${quotedWords[1]}`;
-
-  const previewWords = quotedWords.slice(0, 3).join(", ");
-  const remainingCount = quotedWords.length - 3;
-  return remainingCount > 0
-    ? `${previewWords}, and ${remainingCount} more`
-    : `${quotedWords.slice(0, -1).join(", ")}, and ${quotedWords[quotedWords.length - 1]}`;
-}
-
 function ShareStep({
   bank,
   words,
@@ -783,8 +771,8 @@ function ShareStep({
   const lessonWords = words.length ? words : fallbackWords;
   const languageFlags = [...new Set(lessonWords.map((lessonWord) => lessonWord.languageFlag))].slice(0, 4);
   const defaultContent = useMemo(
-    () => `I finished a ${bank.label.toLowerCase()} lesson and practiced ${formatShareWordList(lessonWords)}.`,
-    [bank.label, lessonWords]
+    () => lessonWords.map((lessonWord) => lessonWord.word).join("\n"),
+    [lessonWords]
   );
   const [content, setContent] = useState(defaultContent);
   const trimmedContent = content.trim();
