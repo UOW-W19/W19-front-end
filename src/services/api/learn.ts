@@ -13,7 +13,7 @@ export interface SavedWordResponse {
   language_code: string;
   language_name: string;
   language_flag: string;
-  source: 'POST' | 'MANUAL' | 'SCANNER';
+  source: 'POST' | 'MANUAL' | 'SCANNER' | 'STARTER';
   source_id?: string;
   context?: string;
   topic?: string;
@@ -26,7 +26,7 @@ export interface CreateWordRequest {
   word: string;
   translation: string;
   language_code: string;
-  source?: 'POST' | 'MANUAL' | 'SCANNER';
+  source?: 'POST' | 'MANUAL' | 'SCANNER' | 'STARTER';
   source_id?: string;
   context?: string;
   topic?: string;

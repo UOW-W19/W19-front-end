@@ -13,7 +13,6 @@ import {
 import { cn } from "@/lib/utils";
 import {
   useSavedWords,
-  useLearningStats,
   useStartPracticeSession,
   useSubmitPracticeResult,
   useCompletePracticeSession,
@@ -79,7 +78,12 @@ function StatTile({
 export default function LearnPage() {
   const { user } = useAuth();
   const dailyProgressUserId = user?.id ? String(user.id) : 'anonymous';
-  const { primaryLearningLanguage } = getUserLanguagePreferences(user?.languages);
+  const languagePreferences = useMemo(() => getUserLanguagePreferences(user?.languages), [user?.languages]);
+  const { learningLanguages, primaryLearningLanguage } = languagePreferences;
+  const learningLanguageCodeSet = useMemo(
+    () => new Set(learningLanguages.map(language => language.code)),
+    [learningLanguages]
+  );
   const [mode, setMode] = useState<PracticeMode>('idle');
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
@@ -181,11 +185,6 @@ export default function LearnPage() {
     sort: sortBy,
   });
 
-  const {
-    data: stats,
-    isLoading: isLoadingStats,
-  } = useLearningStats();
-
   const startSessionMutation = useStartPracticeSession();
   const submitResultMutation = useSubmitPracticeResult();
   const completeSessionMutation = useCompletePracticeSession();
@@ -195,6 +194,40 @@ export default function LearnPage() {
 
   const [deletedWordIds, setDeletedWordIds] = useState<Set<string>>(new Set());
   const [confirmDeleteWordId, setConfirmDeleteWordId] = useState<string | null>(null);
+
+  const scopedSavedWords = useMemo(() => {
+    if (learningLanguageCodeSet.size === 0) return savedWords;
+    return savedWords.filter(word => learningLanguageCodeSet.has(word.languageCode));
+  }, [learningLanguageCodeSet, savedWords]);
+
+  const languageOptions = useMemo(() => {
+    if (learningLanguages.length > 0) {
+      return learningLanguages.map(language => ({
+        code: language.code,
+        flag: language.flagEmoji,
+        name: language.name,
+      }));
+    }
+
+    const byCode = new Map<string, { code: string; flag: string; name: string }>();
+    for (const word of scopedSavedWords) {
+      if (!byCode.has(word.languageCode)) {
+        byCode.set(word.languageCode, {
+          code: word.languageCode,
+          flag: word.languageFlag,
+          name: word.languageName,
+        });
+      }
+    }
+    return Array.from(byCode.values());
+  }, [learningLanguages, scopedSavedWords]);
+
+  useEffect(() => {
+    if (languageFilter === 'all') return;
+    if (!languageOptions.some(language => language.code === languageFilter)) {
+      setLanguageFilter('all');
+    }
+  }, [languageFilter, languageOptions]);
 
   useEffect(() => {
     setSessionsDoneToday(loadDailyProgress(dailyProgressUserId).count);
@@ -206,7 +239,7 @@ export default function LearnPage() {
   }, [dailyProgressUserId]);
 
   useEffect(() => {
-    for (const word of savedWords) {
+    for (const word of scopedSavedWords) {
       if (word.topic !== 'electronics' || repairedTopicWordIdsRef.current.has(word.id)) continue;
 
       const suggestedTopic = categoriseWord(word.word, word.translation);
@@ -228,7 +261,7 @@ export default function LearnPage() {
         }
       );
     }
-  }, [savedWords, updateWordMutation]);
+  }, [scopedSavedWords, updateWordMutation]);
 
   const handleAddWord = async () => {
     if (!addWord.trim() || !addTranslation.trim()) return;
@@ -245,19 +278,11 @@ export default function LearnPage() {
     setShowAddWord(false);
   };
 
-  // Get unique languages for filter
-  const uniqueLanguages = useMemo(() => {
-    const langs = savedWords.map(w => ({ flag: w.languageFlag, name: w.languageName }));
-    return langs.filter((lang, index, self) =>
-      index === self.findIndex(l => l.flag === lang.flag)
-    );
-  }, [savedWords]);
-
   // Filter words (sorting handled by API)
   const filteredWords = useMemo(() => {
-    if (languageFilter === 'all') return savedWords;
-    return savedWords.filter(w => w.languageFlag === languageFilter);
-  }, [savedWords, languageFilter]);
+    if (languageFilter === 'all') return scopedSavedWords;
+    return scopedSavedWords.filter(w => w.languageCode === languageFilter);
+  }, [scopedSavedWords, languageFilter]);
 
   // Group filtered words by concept for Word Bank cards
   const wordBanks = useMemo(() => {
@@ -275,25 +300,16 @@ export default function LearnPage() {
     return banks;
   }, [filteredWords, topicOverrides]);
 
-  // Computed stats from API or fallback
+  // Computed stats from words scoped to the learner's active learning languages
   const displayStats = useMemo(() => {
-    if (stats) {
-      return {
-        totalWords: stats.total_words,
-        avgMastery: stats.average_mastery,
-        languages: stats.languages.map(l => l.flag),
-        masteredWords: stats.mastery_distribution.mastered,
-      };
-    }
-    // Fallback to local computation
-    const totalWords = savedWords.length;
+    const totalWords = scopedSavedWords.length;
     const avgMastery = totalWords > 0
-      ? Math.round(savedWords.reduce((acc, w) => acc + w.masteryLevel, 0) / totalWords)
+      ? Math.round(scopedSavedWords.reduce((acc, w) => acc + w.masteryLevel, 0) / totalWords)
       : 0;
-    const languages = [...new Set(savedWords.map(w => w.languageFlag))];
-    const masteredWords = savedWords.filter(w => w.masteryLevel >= 76).length;
+    const languages = [...new Set(scopedSavedWords.map(w => w.languageFlag))];
+    const masteredWords = scopedSavedWords.filter(w => w.masteryLevel >= 76).length;
     return { totalWords, avgMastery, languages, masteredWords };
-  }, [stats, savedWords]);
+  }, [scopedSavedWords]);
 
   const lessonShareLocation = useMemo(() => {
     const latitude = user?.latitude;
@@ -309,11 +325,15 @@ export default function LearnPage() {
 
   const startPractice = useCallback(async () => {
     try {
+      const practiceLanguageCode = languageFilter !== 'all'
+        ? languageFilter
+        : languageOptions.length === 1
+          ? languageOptions[0].code
+          : null;
+
       const session = await startSessionMutation.mutateAsync({
         session_size: sessionSize,
-        language_code: languageFilter !== 'all'
-          ? savedWords.find(w => w.languageFlag === languageFilter)?.languageCode
-          : null,
+        language_code: practiceLanguageCode,
       });
 
       setSessionId(session.session_id);
@@ -326,7 +346,7 @@ export default function LearnPage() {
     } catch {
       // Error handled by mutation
     }
-  }, [startSessionMutation, sessionSize, languageFilter, savedWords]);
+  }, [startSessionMutation, sessionSize, languageFilter, languageOptions]);
 
   const handleAnswer = useCallback(async (correct: boolean) => {
     if (!sessionId) return;
@@ -776,21 +796,21 @@ export default function LearnPage() {
             label="Words Saved"
             value={displayStats.totalWords}
             tone="purple"
-            isLoading={isLoadingStats}
+            isLoading={isLoadingWords}
           />
           <StatTile
             icon={Gauge}
             label="Avg Mastery"
             value={`${displayStats.avgMastery}%`}
             tone="lime"
-            isLoading={isLoadingStats}
+            isLoading={isLoadingWords}
           />
           <StatTile
             icon={LanguagesIcon}
             label="Languages"
             value={displayStats.languages.length}
             tone="coral"
-            isLoading={isLoadingStats}
+            isLoading={isLoadingWords}
           />
         </div>
 
@@ -832,13 +852,13 @@ export default function LearnPage() {
                 <button
                   key={size}
                   onClick={() => setSessionSize(size)}
-                  disabled={savedWords.length < size}
+                  disabled={scopedSavedWords.length < size}
                   className={cn(
                     "h-9 w-12 rounded-lg text-sm font-medium transition-all",
                     sessionSize === size
                       ? "bg-primary text-primary-foreground"
                       : "bg-muted text-foreground hover:bg-muted/80",
-                    savedWords.length < size && "opacity-50 cursor-not-allowed"
+                    scopedSavedWords.length < size && "opacity-50 cursor-not-allowed"
                   )}
                 >
                   {size}
@@ -849,7 +869,7 @@ export default function LearnPage() {
 
           <Button
             onClick={startPractice}
-            disabled={savedWords.length < sessionSize || startSessionMutation.isPending}
+            disabled={scopedSavedWords.length < sessionSize || startSessionMutation.isPending}
             className="w-full h-12 gap-2 rounded-xl"
           >
             {startSessionMutation.isPending ? (
@@ -860,7 +880,7 @@ export default function LearnPage() {
             Quick Practice ({sessionSize} words)
           </Button>
 
-          {savedWords.length < sessionSize && (
+          {scopedSavedWords.length < sessionSize && (
             <p className="text-xs text-muted-foreground text-center mt-2">
               Save at least {sessionSize} words to start practicing
             </p>
@@ -887,7 +907,9 @@ export default function LearnPage() {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="h-8 gap-1.5 border border-purple/15 bg-card shadow-locale-sm hover:bg-purple/10">
                   <LanguagesIcon className="h-3.5 w-3.5" />
-                  {languageFilter === 'all' ? 'All' : languageFilter}
+                  {languageFilter === 'all'
+                    ? 'All'
+                    : languageOptions.find(language => language.code === languageFilter)?.flag ?? languageFilter.toUpperCase()}
                   <ChevronDown className="h-3 w-3" />
                 </Button>
               </DropdownMenuTrigger>
@@ -895,10 +917,10 @@ export default function LearnPage() {
                 <DropdownMenuItem onClick={() => setLanguageFilter('all')}>
                   All Languages
                 </DropdownMenuItem>
-                {uniqueLanguages.map((lang) => (
+                {languageOptions.map((lang) => (
                   <DropdownMenuItem
-                    key={lang.flag}
-                    onClick={() => setLanguageFilter(lang.flag)}
+                    key={lang.code}
+                    onClick={() => setLanguageFilter(lang.code)}
                   >
                     {lang.flag} {lang.name}
                   </DropdownMenuItem>
