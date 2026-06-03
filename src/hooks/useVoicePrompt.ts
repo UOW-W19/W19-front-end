@@ -4,6 +4,12 @@ import {
   normalizeLessonAnswer,
   scoreLessonAnswer,
 } from "@/lib/lesson";
+import {
+  canSpeakTextInLocale,
+  getSpeechLocale,
+  getUnsupportedSpeechTextMessage,
+  selectSpeechVoice,
+} from "@/lib/speech";
 import type { LessonWord } from "@/types";
 
 export type VoicePromptStatus =
@@ -12,6 +18,7 @@ export type VoicePromptStatus =
   | "listening"
   | "correct"
   | "incorrect"
+  | "skipped"
   | "unsupported"
   | "error";
 
@@ -89,7 +96,8 @@ function canUseSpeechSynthesis(): boolean {
 }
 
 function getSpeechLang(word: LessonWord | null): string {
-  return word?.languageCode || (typeof navigator !== "undefined" ? navigator.language : "en-US");
+  const fallbackLocale = typeof navigator !== "undefined" ? navigator.language : "en-US";
+  return getSpeechLocale(word?.languageCode, fallbackLocale);
 }
 
 function getSpeechErrorMessage(error: string): string {
@@ -98,7 +106,7 @@ function getSpeechErrorMessage(error: string): string {
   }
 
   if (error === "no-speech") {
-    return "I did not catch anything. Try speaking again.";
+    return "I did not catch anything. You can continue or try again.";
   }
 
   if (error === "audio-capture") {
@@ -110,6 +118,7 @@ function getSpeechErrorMessage(error: string): string {
 
 export function useVoicePrompt(word: LessonWord | null) {
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
+  const recognitionSettledRef = useRef(true);
   const supportsSpeechRecognition = useMemo(
     () => Boolean(getSpeechRecognitionConstructor()),
     []
@@ -122,6 +131,7 @@ export function useVoicePrompt(word: LessonWord | null) {
 
   const stopSpeechServices = useCallback(() => {
     recognitionRef.current?.abort();
+    recognitionSettledRef.current = true;
     recognitionRef.current = null;
     if (canUseSpeechSynthesis()) {
       window.speechSynthesis.cancel();
@@ -130,6 +140,7 @@ export function useVoicePrompt(word: LessonWord | null) {
 
   const reset = useCallback(() => {
     stopSpeechServices();
+    recognitionSettledRef.current = true;
     setStatus("idle");
     setTranscript("");
     setAccuracy(null);
@@ -146,8 +157,26 @@ export function useVoicePrompt(word: LessonWord | null) {
       return;
     }
 
+    const speechLang = getSpeechLang(word);
+    if (!canSpeakTextInLocale(word.word, speechLang)) {
+      setError(getUnsupportedSpeechTextMessage(speechLang));
+      setStatus("error");
+      return;
+    }
+
+    const voices = window.speechSynthesis.getVoices();
+    const voice = selectSpeechVoice(voices, speechLang);
+    if (voices.length > 0 && !voice) {
+      setError(`No ${word.languageName || speechLang} audio voice is available in this browser.`);
+      setStatus("error");
+      return;
+    }
+
     const utterance = new SpeechSynthesisUtterance(word.word);
-    utterance.lang = getSpeechLang(word);
+    utterance.lang = speechLang;
+    if (voice) {
+      utterance.voice = voice;
+    }
     utterance.rate = 0.9;
 
     utterance.onstart = () => {
@@ -187,6 +216,7 @@ export function useVoicePrompt(word: LessonWord | null) {
     recognition.maxAlternatives = 1;
 
     recognition.onstart = () => {
+      recognitionSettledRef.current = false;
       setTranscript("");
       setAccuracy(null);
       setError(null);
@@ -195,6 +225,16 @@ export function useVoicePrompt(word: LessonWord | null) {
 
     recognition.onresult = (event) => {
       const spokenText = event.results[0]?.[0]?.transcript.trim() ?? "";
+      recognitionSettledRef.current = true;
+
+      if (!spokenText) {
+        setTranscript("");
+        setAccuracy(0);
+        setError("I did not catch anything. You can continue or try again.");
+        setStatus("skipped");
+        return;
+      }
+
       const nextAccuracy = scoreLessonAnswer(spokenText, word.word);
 
       setTranscript(spokenText);
@@ -203,19 +243,33 @@ export function useVoicePrompt(word: LessonWord | null) {
     };
 
     recognition.onnomatch = () => {
+      recognitionSettledRef.current = true;
       setTranscript("");
       setAccuracy(0);
       setStatus("incorrect");
     };
 
     recognition.onerror = (event) => {
+      recognitionSettledRef.current = true;
       setError(event.message || getSpeechErrorMessage(event.error));
       setStatus("error");
     };
 
     recognition.onend = () => {
+      if (recognitionRef.current !== recognition) return;
+
       recognitionRef.current = null;
-      setStatus((currentStatus) => currentStatus === "listening" ? "idle" : currentStatus);
+      setStatus((currentStatus) => {
+        if (currentStatus !== "listening" || recognitionSettledRef.current) {
+          return currentStatus;
+        }
+
+        recognitionSettledRef.current = true;
+        setTranscript("");
+        setAccuracy(0);
+        setError("I did not catch anything. You can continue or try again.");
+        return "skipped";
+      });
     };
 
     recognitionRef.current = recognition;
@@ -224,6 +278,7 @@ export function useVoicePrompt(word: LessonWord | null) {
       recognition.start();
     } catch {
       recognitionRef.current = null;
+      recognitionSettledRef.current = true;
       setError("Speech check could not start. You can still listen and continue.");
       setStatus("error");
     }
@@ -242,6 +297,15 @@ export function useVoicePrompt(word: LessonWord | null) {
     }
   }, [startListening, status, stopListening]);
 
+  const skipPrompt = useCallback(() => {
+    recognitionSettledRef.current = true;
+    stopSpeechServices();
+    setTranscript("");
+    setAccuracy(null);
+    setError(null);
+    setStatus("skipped");
+  }, [stopSpeechServices]);
+
   const normalizedTranscript = useMemo(
     () => normalizeLessonAnswer(transcript),
     [transcript]
@@ -249,6 +313,8 @@ export function useVoicePrompt(word: LessonWord | null) {
 
   const canContinue =
     status === "correct" ||
+    status === "incorrect" ||
+    status === "skipped" ||
     status === "unsupported" ||
     !supportsSpeechRecognition ||
     (status === "error" && Boolean(error));
@@ -281,6 +347,7 @@ export function useVoicePrompt(word: LessonWord | null) {
     startListening,
     stopListening,
     toggleListening,
+    skipVoicePrompt: skipPrompt,
     resetVoicePrompt: reset,
   };
 }

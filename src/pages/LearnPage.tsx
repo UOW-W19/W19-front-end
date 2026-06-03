@@ -29,6 +29,7 @@ import { useAuth } from "@/contexts/useAuth";
 import { notifyFeedPostCreated } from "@/lib/feedRefresh";
 import { getUserLanguagePreferences } from "@/lib/userLanguages";
 import { ALL_WORD_CATEGORIES, categoriseWord, categoryLabel, categoryEmoji } from "@/lib/wordCategories";
+import { loadDailyProgress, recordDailyProgressCompletion } from "@/lib/dailyProgress";
 
 type PracticeMode = 'idle' | 'practicing' | 'results' | 'learning';
 type SortOption = 'newest' | 'mastery_high' | 'mastery_low';
@@ -77,6 +78,7 @@ function StatTile({
 
 export default function LearnPage() {
   const { user } = useAuth();
+  const dailyProgressUserId = user?.id ? String(user.id) : 'anonymous';
   const { primaryLearningLanguage } = getUserLanguagePreferences(user?.languages);
   const [mode, setMode] = useState<PracticeMode>('idle');
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -84,11 +86,13 @@ export default function LearnPage() {
   const [practiceWords, setPracticeWords] = useState<SavedWord[]>([]);
   const [results, setResults] = useState<PracticeResult[]>([]);
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [sessionsDoneToday, setSessionsDoneToday] = useState(0);
+  const [sessionsDoneToday, setSessionsDoneToday] = useState(() => loadDailyProgress(dailyProgressUserId).count);
   const [isSharingLesson, setIsSharingLesson] = useState(false);
   const [isLessonLocationAttached, setIsLessonLocationAttached] = useState(false);
   const [openBanks, setOpenBanks] = useState<Set<string>>(new Set());
   const startTimeRef = useRef<number>(0);
+  const lessonCompletionIdRef = useRef<string | null>(null);
+  const repairedTopicWordIdsRef = useRef<Set<string>>(new Set());
 
   const {
     lessonBank,
@@ -115,6 +119,7 @@ export default function LearnPage() {
     revealWriteAnswer,
     playVoicePrompt,
     toggleRecording,
+    skipVoicePrompt,
   } = useLessonSession();
 
   // Filtering & Sorting
@@ -190,6 +195,40 @@ export default function LearnPage() {
 
   const [deletedWordIds, setDeletedWordIds] = useState<Set<string>>(new Set());
   const [confirmDeleteWordId, setConfirmDeleteWordId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setSessionsDoneToday(loadDailyProgress(dailyProgressUserId).count);
+  }, [dailyProgressUserId]);
+
+  const recordDailyCompletion = useCallback((completionId: string) => {
+    const { record } = recordDailyProgressCompletion(dailyProgressUserId, completionId);
+    setSessionsDoneToday(record.count);
+  }, [dailyProgressUserId]);
+
+  useEffect(() => {
+    for (const word of savedWords) {
+      if (word.topic !== 'electronics' || repairedTopicWordIdsRef.current.has(word.id)) continue;
+
+      const suggestedTopic = categoriseWord(word.word, word.translation);
+      if (suggestedTopic === 'electronics' || suggestedTopic === 'other') continue;
+
+      repairedTopicWordIdsRef.current.add(word.id);
+      setTopicOverrides(prev => ({ ...prev, [word.id]: suggestedTopic }));
+      updateWordMutation.mutate(
+        { wordId: word.id, data: { topic: suggestedTopic } },
+        {
+          onError: () => {
+            repairedTopicWordIdsRef.current.delete(word.id);
+            setTopicOverrides(prev => {
+              const next = { ...prev };
+              delete next[word.id];
+              return next;
+            });
+          },
+        }
+      );
+    }
+  }, [savedWords, updateWordMutation]);
 
   const handleAddWord = async () => {
     if (!addWord.trim() || !addTranslation.trim()) return;
@@ -321,13 +360,13 @@ export default function LearnPage() {
       } else {
         // Complete session
         await completeSessionMutation.mutateAsync(sessionId);
-        setSessionsDoneToday(n => n + 1);
+        recordDailyCompletion(`practice:${sessionId}`);
         setMode('results');
       }
     } catch {
       // Error handled by mutation
     }
-  }, [sessionId, practiceWords, currentIndex, submitResultMutation, completeSessionMutation]);
+  }, [sessionId, practiceWords, currentIndex, submitResultMutation, completeSessionMutation, recordDailyCompletion]);
 
   const exitPractice = useCallback(() => {
     setMode('idle');
@@ -339,30 +378,37 @@ export default function LearnPage() {
 
   const startLesson = useCallback((bank: WordBank) => {
     if (startLessonSession(bank)) {
+      lessonCompletionIdRef.current = `lesson:${bank.id}:${Date.now()}`;
       setIsLessonLocationAttached(false);
       setMode('learning');
     }
   }, [startLessonSession]);
 
   const persistLessonProgress = useCallback(async () => {
+    const isCompletingLesson = lessonStep === 3 && currentWordIndex === lessonWords.length - 1;
     const progress = advanceStep();
-    if (!progress || progress.nextMastery === progress.previousMastery) return;
 
-    try {
-      await updateWordMutation.mutateAsync({
-        wordId: progress.wordId,
-        data: { mastery_level: progress.nextMastery },
-      });
-      setSessionsDoneToday(n => n + 1);
-    } catch {
-      // Error handled by mutation toast.
+    if (progress && progress.nextMastery !== progress.previousMastery) {
+      try {
+        await updateWordMutation.mutateAsync({
+          wordId: progress.wordId,
+          data: { mastery_level: progress.nextMastery },
+        });
+      } catch {
+        // Error handled by mutation toast.
+      }
     }
-  }, [advanceStep, updateWordMutation]);
+
+    if (isCompletingLesson && lessonCompletionIdRef.current) {
+      recordDailyCompletion(lessonCompletionIdRef.current);
+    }
+  }, [advanceStep, currentWordIndex, lessonStep, lessonWords.length, recordDailyCompletion, updateWordMutation]);
 
   const exitLesson = useCallback(() => {
     resetLessonSession();
     setIsSharingLesson(false);
     setIsLessonLocationAttached(false);
+    lessonCompletionIdRef.current = null;
     setMode('idle');
   }, [resetLessonSession]);
 
@@ -633,6 +679,7 @@ export default function LearnPage() {
         onAdvance={persistLessonProgress}
         onPlayVoicePrompt={playVoicePrompt}
         onToggleRecording={toggleRecording}
+        onSkipVoicePrompt={skipVoicePrompt}
         onPlaceChip={placeChip}
         onRemoveChip={removeChip}
         onReorderPlacedChips={reorderPlacedChips}

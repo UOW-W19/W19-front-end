@@ -185,6 +185,32 @@ describe("useLessonSession", () => {
     expect(result.current.lessonStep).toBe(4);
   });
 
+  it("lets learners skip the voice prompt and continue to arrange", () => {
+    const bank: LessonWordBank = {
+      id: "greetings",
+      label: "Greetings",
+      words: [savedWord("hola", "hola", "hello", 0)],
+    };
+
+    const { result } = renderHook(() => useLessonSession());
+
+    act(() => {
+      result.current.startLesson(bank);
+    });
+    act(() => {
+      result.current.skipVoicePrompt();
+    });
+
+    expect(result.current.voicePrompt.status).toBe("skipped");
+    expect(result.current.voicePrompt.canContinue).toBe(true);
+
+    act(() => {
+      expect(result.current.advanceStep()).toBeNull();
+    });
+
+    expect(result.current.lessonStep).toBe(2);
+  });
+
   it("does not duplicate a chip when placement fires twice", () => {
     const bank: LessonWordBank = {
       id: "greetings",
