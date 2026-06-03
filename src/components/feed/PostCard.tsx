@@ -391,26 +391,30 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
                 <span className="truncate text-sm font-medium leading-tight text-foreground">{post.author.name}</span>
               )}
             </div>
-            {post.author.location && (
-              <div className="mt-0.5 flex items-center gap-1 text-[11px] leading-tight text-muted-foreground">
-                <MapPin className="h-3 w-3" />
-                <span className="truncate">{post.author.location}</span>
-              </div>
-            )}
-            {(post.author.learningLanguages?.length ?? 0) > 0 && (
-              <div className="mt-0.5 flex items-center gap-1 flex-wrap">
-                <span className="text-[11px] leading-tight text-muted-foreground">Learning</span>
-                {post.author.learningLanguages!.slice(0, 3).map((lang) => (
-                  <span
-                    key={lang.code}
-                    title={lang.name}
-                    className="rounded-full bg-muted px-1 py-0.5 text-xs leading-none"
-                  >
-                    {lang.flagEmoji}
-                  </span>
-                ))}
-                {post.author.learningLanguages!.length > 3 && (
-                  <span className="text-[11px] text-muted-foreground">+{post.author.learningLanguages!.length - 3}</span>
+            {(post.author.location || (post.author.learningLanguages?.length ?? 0) > 0) && (
+              <div className="mt-0.5 flex min-w-0 items-center gap-2 overflow-hidden text-[11px] leading-tight text-muted-foreground">
+                {post.author.location && (
+                  <div className="flex min-w-0 items-center gap-1">
+                    <MapPin className="h-3 w-3 shrink-0" />
+                    <span className="truncate">{post.author.location}</span>
+                  </div>
+                )}
+                {(post.author.learningLanguages?.length ?? 0) > 0 && (
+                  <div className="flex shrink-0 items-center gap-1">
+                    <span>Learning</span>
+                    {post.author.learningLanguages!.slice(0, 3).map((lang) => (
+                      <span
+                        key={lang.code}
+                        title={lang.name}
+                        className="rounded-full bg-muted px-1 py-0.5 text-xs leading-none"
+                      >
+                        {lang.flagEmoji}
+                      </span>
+                    ))}
+                    {post.author.learningLanguages!.length > 3 && (
+                      <span>+{post.author.learningLanguages!.length - 3}</span>
+                    )}
+                  </div>
                 )}
               </div>
             )}

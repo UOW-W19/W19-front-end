@@ -261,7 +261,7 @@ export default function FeedPage() {
             )}
           </div>
 
-          <span className="text-xs font-medium text-muted-foreground">Community feed</span>
+
         </div>
 
         {/* Posts */}
