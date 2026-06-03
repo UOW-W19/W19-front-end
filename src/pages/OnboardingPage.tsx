@@ -166,7 +166,7 @@ function OnboardingScrollArea({
   className?: string;
 }) {
   return (
-    <div className={cn("min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1 scrollbar-thin", className)}>
+    <div className={cn("min-h-0 flex-1 overflow-y-auto overscroll-contain scrollbar-hide", className)}>
       {children}
     </div>
   );
