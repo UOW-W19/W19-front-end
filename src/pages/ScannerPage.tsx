@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
   Camera,
-  Check,
   ImagePlus,
   Languages,
   Loader2,
@@ -17,11 +17,12 @@ import {
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import ScannerAnnotationPill from "@/components/scanner/ScannerAnnotationPill";
-import { scanImage } from "@/services/api/scanner";
+import { UpgradeModal } from "@/components/subscription/UpgradeModal";
+import { saveDetectedObject as saveScannedDetection, scanImage, scanPostImage } from "@/services/api/scanner";
 import { createSavedWord } from "@/services/api/learn";
 import { learnKeys } from "@/hooks/useLearnApi";
 import { getScannerConfidenceLabel } from "@/lib/scannerPrecision";
-import type { DetectedObject } from "@/types/scanner";
+import type { DetectedObject, PostImageScannerRouteState } from "@/types/scanner";
 
 type ScannerStep = "select" | "preview" | "result";
 type SaveState = "saved" | "duplicate" | "error";
@@ -50,13 +51,30 @@ const translationSourceLabel = (object: DetectedObject) => {
   }
 };
 
+const isPostImageScannerRouteState = (state: unknown): state is PostImageScannerRouteState => {
+  if (!state || typeof state !== "object") return false;
+
+  const candidate = state as Partial<PostImageScannerRouteState>;
+  return (
+    candidate.source === "post-image" &&
+    typeof candidate.postId === "string" &&
+    typeof candidate.imageUrl === "string" &&
+    typeof candidate.imageIndex === "number"
+  );
+};
+
 export default function ScannerPage() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [step, setStep] = useState<ScannerStep>("select");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewUrlIsObjectUrl, setPreviewUrlIsObjectUrl] = useState(false);
+  const [postImageSource, setPostImageSource] = useState<PostImageScannerRouteState | null>(null);
   const [scanSessionId, setScanSessionId] = useState<string | null>(null);
   const [detectedObjects, setDetectedObjects] = useState<DetectedObject[]>([]);
   const [isScanning, setIsScanning] = useState(false);
+  const [scanError, setScanError] = useState("");
   const [showScannerHint, setShowScannerHint] = useState(true);
   const [demoScanCount, setDemoScanCount] = useState(() => {
     if (typeof window === "undefined") return 0;
@@ -68,15 +86,16 @@ export default function ScannerPage() {
   const [savingKeys, setSavingKeys] = useState<Set<string>>(new Set());
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
+  const routeScanKeyRef = useRef<string | null>(null);
   const queryClient = useQueryClient();
 
   useEffect(() => {
     return () => {
-      if (previewUrl) {
+      if (previewUrl && previewUrlIsObjectUrl) {
         URL.revokeObjectURL(previewUrl);
       }
     };
-  }, [previewUrl]);
+  }, [previewUrl, previewUrlIsObjectUrl]);
 
   const recordDemoScan = () => {
     const nextCount = demoScanCount + 1;
@@ -88,6 +107,53 @@ export default function ScannerPage() {
     }
   };
 
+  const runPostImageScan = async (source: PostImageScannerRouteState) => {
+    setIsScanning(true);
+    setScanError("");
+
+    try {
+      const result = await scanPostImage(source.postId, {
+        imageIndex: source.imageIndex,
+        imageUrl: source.imageUrl,
+      });
+      setScanSessionId(result.scanSessionId ?? null);
+      setDetectedObjects(result.detectedObjects);
+      setStep("result");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to scan post image";
+      setScanError(message);
+      setStep("preview");
+      toast.error(message);
+    } finally {
+      setIsScanning(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!isPostImageScannerRouteState(location.state)) return;
+
+    const source = location.state;
+    const scanKey = `${source.postId}:${source.imageIndex}:${source.imageUrl}`;
+    if (routeScanKeyRef.current === scanKey) return;
+    routeScanKeyRef.current = scanKey;
+
+    if (previewUrl && previewUrlIsObjectUrl) {
+      URL.revokeObjectURL(previewUrl);
+    }
+
+    setSelectedFile(null);
+    setPreviewUrl(source.imageUrl);
+    setPreviewUrlIsObjectUrl(false);
+    setPostImageSource(source);
+    setScanSessionId(null);
+    setDetectedObjects([]);
+    setSaveStates({});
+    setSavingKeys(new Set());
+    setScanError("");
+    setStep("preview");
+    void runPostImageScan(source);
+  }, [location.state, previewUrl, previewUrlIsObjectUrl]);
+
   const selectImage = (file?: File) => {
     if (!file) return;
 
@@ -96,39 +162,60 @@ export default function ScannerPage() {
       return;
     }
 
-    if (previewUrl) {
+    if (previewUrl && previewUrlIsObjectUrl) {
       URL.revokeObjectURL(previewUrl);
     }
 
     setSelectedFile(file);
     setPreviewUrl(URL.createObjectURL(file));
+    setPreviewUrlIsObjectUrl(true);
+    setPostImageSource(null);
     setScanSessionId(null);
     setDetectedObjects([]);
     setSaveStates({});
     setSavingKeys(new Set());
+    setScanError("");
     setStep("preview");
   };
 
   const resetScanner = () => {
-    if (previewUrl) {
+    if (previewUrl && previewUrlIsObjectUrl) {
       URL.revokeObjectURL(previewUrl);
     }
     setStep("select");
     setSelectedFile(null);
     setPreviewUrl(null);
+    setPreviewUrlIsObjectUrl(false);
+    setPostImageSource(null);
     setScanSessionId(null);
     setDetectedObjects([]);
     setSaveStates({});
     setSavingKeys(new Set());
     setIsScanning(false);
+    setScanError("");
     if (cameraInputRef.current) cameraInputRef.current.value = "";
     if (galleryInputRef.current) galleryInputRef.current.value = "";
   };
 
+  const handleBack = () => {
+    if (postImageSource) {
+      navigate(-1);
+      return;
+    }
+
+    resetScanner();
+  };
+
   const analyzeImage = async () => {
+    if (postImageSource) {
+      await runPostImageScan(postImageSource);
+      return;
+    }
+
     if (!selectedFile) return;
 
     setIsScanning(true);
+    setScanError("");
     try {
       const result = await scanImage(selectedFile);
       recordDemoScan();
@@ -137,6 +224,7 @@ export default function ScannerPage() {
       setStep("result");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to scan image";
+      setScanError(message);
       toast.error(message);
     } finally {
       setIsScanning(false);
@@ -149,14 +237,18 @@ export default function ScannerPage() {
     setSavingKeys((current) => new Set(current).add(key));
 
     try {
-      await createSavedWord({
-        word: object.learningWord,
-        translation: object.nativeWord,
-        language_code: object.languageCode,
-        source: "SCANNER",
-        source_id: object.id,
-        context: `Detected in photo with ${confidenceLabel(object.confidence)}`,
-      });
+      if (postImageSource && object.id) {
+        await saveScannedDetection(object.id);
+      } else {
+        await createSavedWord({
+          word: object.learningWord,
+          translation: object.nativeWord,
+          language_code: object.languageCode,
+          source: "SCANNER",
+          source_id: object.id,
+          context: postImageSource?.postContext ?? `Detected in photo with ${confidenceLabel(object.confidence)}`,
+        });
+      }
       setSaveStates((current) => ({ ...current, [key]: "saved" }));
       queryClient.invalidateQueries({ queryKey: learnKeys.words() });
       queryClient.invalidateQueries({ queryKey: learnKeys.stats() });
@@ -199,7 +291,7 @@ export default function ScannerPage() {
 
       <div className="mb-5 flex items-center gap-3">
         {step !== "select" && (
-          <Button variant="ghost" size="icon" onClick={resetScanner} aria-label="Back">
+          <Button variant="ghost" size="icon" onClick={handleBack} aria-label="Back">
             <ArrowLeft className="h-5 w-5" />
           </Button>
         )}
@@ -207,7 +299,7 @@ export default function ScannerPage() {
           <h1 className="text-2xl font-black leading-tight text-foreground">AI Object Scanner</h1>
           <p className="text-sm text-muted-foreground">
             {step === "select" && "Capture an object"}
-            {step === "preview" && "Ready to scan"}
+            {step === "preview" && (postImageSource ? `Scanning ${postImageSource.authorName ?? "post"} photo` : "Ready to scan")}
             {step === "result" && "Detected vocabulary"}
           </p>
         </div>
@@ -293,7 +385,7 @@ export default function ScannerPage() {
             {previewUrl && (
               <img
                 src={previewUrl}
-                alt="Selected object"
+                alt={postImageSource ? "Post image selected for scanning" : "Selected object"}
                 className="w-full h-full object-cover"
               />
             )}
@@ -307,19 +399,24 @@ export default function ScannerPage() {
               <X className="h-4 w-4" />
             </Button>
           </div>
+          {scanError && (
+            <div className="rounded-2xl border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+              {scanError}
+            </div>
+          )}
 
           <div className="mt-auto space-y-3">
             <Button
               className="h-14 w-full gap-3 text-base"
               onClick={analyzeImage}
-              disabled={isScanning}
+              disabled={isScanning || (!postImageSource && !selectedFile)}
             >
               {isScanning ? (
                 <Loader2 className="h-5 w-5 animate-spin" />
               ) : (
                 <Languages className="h-5 w-5" />
               )}
-              {isScanning ? "Scanning" : "Identify & Translate"}
+              {isScanning ? "Scanning" : scanError ? "Retry Scan" : "Identify & Translate"}
             </Button>
             <Button variant="ghost" className="w-full" onClick={resetScanner}>
               <RotateCcw className="h-4 w-4" />
@@ -335,7 +432,7 @@ export default function ScannerPage() {
             <div className="relative w-full overflow-hidden rounded-[28px] bg-muted shadow-locale-md">
               <img
                 src={previewUrl}
-                alt="Scanned object"
+                alt={postImageSource ? "Scanned post image" : "Scanned object"}
                 className="block w-full h-auto"
               />
               {detectedObjects.map((object, index) => {
@@ -454,82 +551,7 @@ export default function ScannerPage() {
         </div>
       )}
 
-      {showUpgradeModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
-          <div className="fixed inset-0 bg-black/45" onClick={() => setShowUpgradeModal(false)} />
-          <div className="relative z-10 w-full max-w-sm max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-3xl border border-border bg-card p-5 shadow-2xl">
-            <button
-              type="button"
-              onClick={() => setShowUpgradeModal(false)}
-              className="absolute right-4 top-4 rounded-full p-1 text-muted-foreground transition hover:bg-muted hover:text-foreground"
-              aria-label="Close upgrade modal"
-            >
-              <X className="h-4 w-4" />
-            </button>
-            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-amber-700">
-              <Sparkles className="h-5 w-5" />
-            </div>
-            <p className="text-sm font-semibold text-amber-700">Out of scans! Subscribe now.</p>
-            <h2 className="mt-1 text-2xl font-black text-foreground">Upgrade to Pro!</h2>
-            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              Unlock the full potential of Locale with our premium subscription.
-            </p>
-
-            <div className="mt-5 space-y-3">
-              <div className="rounded-2xl border border-border bg-muted/30 px-4 py-3">
-                <div className="flex items-start gap-3">
-                  <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full" style={{ background: '#CDDD01', color: '#7a8700' }}>
-                    <Check className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-foreground">Unlimited Scans</p>
-                    <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-                      Have unrestricted learning potential from your surroundings
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <div className="rounded-2xl border border-border bg-muted/30 px-4 py-3">
-                <div className="flex items-start gap-3">
-                  <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full" style={{ background: '#CDDD01', color: '#7a8700' }}>
-                    <Check className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-foreground">Word Set Expansions</p>
-                    <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-                      Have unrestricted learning potential from your surroundings
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-5 rounded-2xl border border-border bg-background px-4 py-4">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="font-semibold text-foreground">Pro Plan</p>
-                  <p className="text-xs text-muted-foreground">Billed Monthly</p>
-                </div>
-                <p className="text-xl font-black text-foreground">$4.99/mo.</p>
-              </div>
-              <div className="mt-4 space-y-2 border-t border-border pt-3 text-sm">
-                <div className="flex items-center justify-between text-muted-foreground">
-                  <span>Tax</span>
-                  <span>$0.51</span>
-                </div>
-                <div className="flex items-center justify-between font-semibold text-foreground">
-                  <span>Total for today</span>
-                  <span>$5.50</span>
-                </div>
-              </div>
-            </div>
-
-            <Button className="mt-5 h-12 w-full gap-2 rounded-xl" onClick={() => setShowUpgradeModal(false)}>
-              Checkout with Pay
-            </Button>
-          </div>
-        </div>
-      )}
+      <UpgradeModal open={showUpgradeModal} onClose={() => setShowUpgradeModal(false)} />
     </div>
   );
 }

@@ -1,19 +1,17 @@
 import { useState, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
-import { MapPin, Heart, MessageCircle, Share2, Send, X, Loader2, Languages, MoreHorizontal, Trash2, Flag, BookmarkPlus, Star, ScanLine, Save, Check, ChevronLeft, ChevronRight } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { MapPin, Heart, MessageCircle, Share2, Send, X, Loader2, Languages, MoreHorizontal, Trash2, Flag, BookmarkPlus, Star, ScanLine, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import UserAvatar from "@/components/common/UserAvatar";
 import { useAuth } from "@/contexts/useAuth";
 import { commentsApi, postsApi, wordsApi } from "@/services/api";
-import { saveDetectedObject as saveDetectedObjectById, scanPostImage } from "@/services/api/scanner";
 import { learnKeys } from "@/hooks/useLearnApi";
 import { LANGUAGES } from "@/services/api";
-import { getScannerConfidenceLabel } from "@/lib/scannerPrecision";
 import { getUserLanguagePreferences } from "@/lib/userLanguages";
 import type { Post } from "@/types";
 import type { ApiComment } from "@/types/api";
-import type { DetectedObject } from "@/types/scanner";
+import type { ScannerRouteState } from "@/types/scanner";
 
 export interface PostCardProps {
   post: Post;
@@ -31,13 +29,9 @@ const formatRelativeTime = (dateStr: string): string => {
   return `${Math.floor(diffHours / 24)}d ago`;
 };
 
-const confidenceLabel = getScannerConfidenceLabel;
-
-const detectedObjectKey = (object: DetectedObject) =>
-  object.id ?? `${object.label}:${object.languageCode}:${object.learningWord}`;
-
 export function PostCard({ post, onLikeToggle }: PostCardProps) {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [isLiked, setIsLiked] = useState(post.isLiked ?? false);
   const [likesCount, setLikesCount] = useState(post.reactions.likes);
@@ -66,12 +60,6 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
   const [isAutoTranslating, setIsAutoTranslating] = useState(false);
   const [isSavingWord, setIsSavingWord] = useState(false);
   const [savedWordDone, setSavedWordDone] = useState(false);
-  const [isScanningPostImage, setIsScanningPostImage] = useState(false);
-  const [postImageScanOpen, setPostImageScanOpen] = useState(false);
-  const [postImageScanError, setPostImageScanError] = useState("");
-  const [postImageDetections, setPostImageDetections] = useState<DetectedObject[]>([]);
-  const [postImageSaveStates, setPostImageSaveStates] = useState<Record<string, 'saved' | 'duplicate' | 'error'>>({});
-  const [postImageSavingKeys, setPostImageSavingKeys] = useState<Set<string>>(new Set());
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [lightboxImageIndex, setLightboxImageIndex] = useState<number | null>(null);
 
@@ -89,9 +77,6 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
   useEffect(() => {
     setActiveImageIndex(0);
     setLightboxImageIndex(null);
-    setPostImageScanOpen(false);
-    setPostImageScanError("");
-    setPostImageDetections([]);
   }, [post.id, post.image, post.imageUrls]);
 
   const handleSavePost = async () => {
@@ -275,55 +260,19 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
     }
   };
 
-  const handleScanPostImage = async () => {
-    if (isScanningPostImage) return;
+  const handleScanPostImage = () => {
+    if (lightboxImageIndex === null || !lightboxImage) return;
 
-    if (postImageDetections.length > 0) {
-      setPostImageScanOpen((current) => !current);
-      return;
-    }
+    const scannerState: ScannerRouteState = {
+      source: "post-image",
+      postId: post.id,
+      imageUrl: lightboxImage,
+      imageIndex: lightboxImageIndex,
+      authorName: post.author.name,
+      postContext: post.content,
+    };
 
-    setPostImageScanOpen(true);
-    setPostImageScanError("");
-    setIsScanningPostImage(true);
-
-    try {
-      const result = await scanPostImage(post.id);
-      setPostImageDetections(result.detectedObjects);
-    } catch (err) {
-      setPostImageScanError(err instanceof Error ? err.message : "Failed to scan post image");
-    } finally {
-      setIsScanningPostImage(false);
-    }
-  };
-
-  const handleSaveDetectedPostObject = async (object: DetectedObject) => {
-    const key = detectedObjectKey(object);
-    if (!object.id) {
-      setPostImageSaveStates((current) => ({ ...current, [key]: "error" }));
-      return;
-    }
-
-    setPostImageSavingKeys((current) => new Set(current).add(key));
-
-    try {
-      await saveDetectedObjectById(object.id);
-      setPostImageSaveStates((current) => ({ ...current, [key]: "saved" }));
-      queryClient.invalidateQueries({ queryKey: learnKeys.words() });
-      queryClient.invalidateQueries({ queryKey: learnKeys.stats() });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "";
-      setPostImageSaveStates((current) => ({
-        ...current,
-        [key]: message === "Word already saved" ? "duplicate" : "error",
-      }));
-    } finally {
-      setPostImageSavingKeys((current) => {
-        const next = new Set(current);
-        next.delete(key);
-        return next;
-      });
-    }
+    navigate("/scanner", { state: scannerState });
   };
 
   const langInfo = LANGUAGES.find((l) => l.code === post.originalLanguage);
@@ -734,30 +683,19 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
               )}
             </div>
             <div className="flex items-center gap-2">
-              {lightboxImageIndex === 0 && (
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    handleScanPostImage();
-                  }}
-                  disabled={isScanningPostImage}
-                  className="h-9 gap-2 rounded-full bg-white text-foreground hover:bg-white/90"
-                >
-                  {isScanningPostImage ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <ScanLine className="h-4 w-4" />
-                  )}
-                  {isScanningPostImage
-                    ? "Scanning"
-                    : postImageDetections.length > 0 && postImageScanOpen
-                      ? "Hide vocab"
-                      : "Scan image vocab"}
-                </Button>
-              )}
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  handleScanPostImage();
+                }}
+                className="h-9 gap-2 rounded-full bg-white text-foreground hover:bg-white/90"
+              >
+                <ScanLine className="h-4 w-4" />
+                Scan image vocab
+              </Button>
               <button
                 type="button"
                 onClick={(event) => {
@@ -800,65 +738,6 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
               onClick={(event) => event.stopPropagation()}
             />
           </div>
-
-          {postImageScanOpen && lightboxImageIndex === 0 && (
-            <div
-              className="max-h-[42vh] shrink-0 overflow-y-auto border-t border-white/10 bg-background p-4 text-foreground shadow-2xl"
-              onClick={(event) => event.stopPropagation()}
-            >
-              {postImageScanError ? (
-                <p className="text-sm text-destructive">{postImageScanError}</p>
-              ) : isScanningPostImage ? (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Identifying objects...</span>
-                </div>
-              ) : postImageDetections.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No objects detected in this image.</p>
-              ) : (
-                <div className="space-y-2">
-                  {postImageDetections.map((object) => {
-                    const key = detectedObjectKey(object);
-                    const saveState = postImageSaveStates[key];
-                    const isSaving = postImageSavingKeys.has(key);
-                    const isSavedObject = saveState === "saved";
-                    const isDuplicate = saveState === "duplicate";
-
-                    return (
-                      <div key={key} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card px-3 py-2">
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold text-foreground">{object.learningWord}</p>
-                          <p className="truncate text-xs text-muted-foreground">
-                            {object.nativeWord} - {confidenceLabel(object.confidence)}
-                          </p>
-                        </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={isSavedObject || isDuplicate || isSaving}
-                          onClick={() => handleSaveDetectedPostObject(object)}
-                          className={`h-8 flex-shrink-0 gap-1.5 ${
-                            isSavedObject || isDuplicate
-                              ? "border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-50"
-                              : ""
-                          }`}
-                        >
-                          {isSaving ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          ) : isSavedObject ? (
-                            <Check className="h-3.5 w-3.5 text-amber-600" />
-                          ) : (
-                            <Save className={`h-3.5 w-3.5 ${isDuplicate ? "text-amber-600" : ""}`} />
-                          )}
-                          {isDuplicate ? "Duplicate" : isSavedObject ? "Saved" : "Save"}
-                        </Button>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
         </div>
       )}
 

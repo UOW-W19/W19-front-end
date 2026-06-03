@@ -872,7 +872,7 @@ export default function LearnPage() {
           {/* Add word pill */}
           <button
             onClick={() => setShowAddWord(true)}
-            className="flex items-center gap-1 h-8 px-3 rounded-full border border-dashed border-primary/50 text-primary text-xs font-medium hover:bg-primary/5 transition-colors"
+            className="flex items-center gap-1 h-8 px-3 rounded-full border border-coral/20 bg-card text-coral text-xs font-medium shadow-locale-sm hover:bg-coral/10 transition-colors"
           >
             <Plus className="h-3.5 w-3.5" />
             Add
@@ -882,7 +882,7 @@ export default function LearnPage() {
             {/* Language Filter */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="h-8 gap-1.5">
+                <Button variant="ghost" size="sm" className="h-8 gap-1.5 border border-purple/15 bg-card shadow-locale-sm hover:bg-purple/10">
                   <LanguagesIcon className="h-3.5 w-3.5" />
                   {languageFilter === 'all' ? 'All' : languageFilter}
                   <ChevronDown className="h-3 w-3" />
@@ -906,7 +906,7 @@ export default function LearnPage() {
             {/* Sort Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="h-8 gap-1.5">
+                <Button variant="ghost" size="sm" className="h-8 gap-1.5 border border-purple/15 bg-card shadow-locale-sm hover:bg-purple/10">
                   <ArrowUpDown className="h-3.5 w-3.5" />
                   Sort
                   <ChevronDown className="h-3 w-3" />

@@ -4,6 +4,11 @@ import { prepareScannerDetections } from '@/lib/scannerPrecision';
 import type { BoundingBox, DetectedObject, ScanResult, ScannerTranslationSource } from '@/types/scanner';
 import type { SavedWordResponse } from './learn';
 
+export interface ScanPostImageOptions {
+  imageIndex?: number;
+  imageUrl?: string;
+}
+
 interface BackendDetectedObject {
   id?: string;
   label: string;
@@ -78,14 +83,26 @@ export const scanImage = async (image: File): Promise<ScanResult> => {
   };
 };
 
-export const scanPostImage = async (postId: string): Promise<ScanResult> => {
+export const scanPostImage = async (
+  postId: string,
+  options?: ScanPostImageOptions
+): Promise<ScanResult> => {
   const token = getStoredToken();
+  const body = options
+    ? JSON.stringify({
+        ...(options.imageIndex !== undefined ? { image_index: options.imageIndex } : {}),
+        ...(options.imageUrl ? { image_url: options.imageUrl } : {}),
+      })
+    : undefined;
+
   const response = await fetch(`${API_BASE_URL}/scan/post-image/${postId}`, {
     method: 'POST',
     headers: {
       'ngrok-skip-browser-warning': 'true',
+      ...(body ? { 'Content-Type': 'application/json' } : {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
+    body,
   });
 
   if (!response.ok) {
