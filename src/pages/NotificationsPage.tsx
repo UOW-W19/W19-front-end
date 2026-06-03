@@ -19,7 +19,7 @@ import { formatDistanceToNow } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { notificationsApi } from "@/services/api/notifications";
-import type { AppNotification, NotificationType } from "@/types/api";
+import type { AppNotification, NotificationCenterSummary, NotificationType } from "@/types/api";
 
 type Filter = "all" | "unread";
 
@@ -60,10 +60,12 @@ function targetFor(notification: AppNotification) {
 
 function NotificationRow({
   notification,
+  onOpen,
   onMarkRead,
   isUpdating,
 }: {
   notification: AppNotification;
+  onOpen: (notification: AppNotification) => void;
   onMarkRead: (id: string) => void;
   isUpdating: boolean;
 }) {
@@ -107,7 +109,7 @@ function NotificationRow({
       )}
     >
       {target ? (
-        <Link to={target} className="min-w-0 flex-1">
+        <Link to={target} className="min-w-0 flex-1" onClick={() => onOpen(notification)}>
           {content}
         </Link>
       ) : (
@@ -187,16 +189,50 @@ export default function NotificationsPage() {
     setLoadedNotifications([]);
   };
 
+  const mergeReadNotification = (updated: AppNotification) => {
+    setLoadedNotifications(current =>
+      unreadOnly
+        ? current.filter(notification => notification.id !== updated.id)
+        : current.map(notification => notification.id === updated.id ? updated : notification)
+    );
+  };
+
+  const applyOptimisticRead = (id: string) => {
+    const notification = loadedNotifications.find(n => n.id === id);
+    if (!notification || notification.readAt) return false;
+
+    const updated = { ...notification, readAt: new Date().toISOString() };
+    mergeReadNotification(updated);
+    queryClient.setQueryData<NotificationCenterSummary>(
+      ["notifications-summary"],
+      current => current
+        ? { ...current, unreadNotifications: Math.max(0, current.unreadNotifications - 1) }
+        : current
+    );
+
+    return true;
+  };
+
   const markRead = async (id: string) => {
+    const appliedOptimisticRead = applyOptimisticRead(id);
     setUpdatingId(id);
     try {
       const updated = await notificationsApi.markRead(id);
-      setLoadedNotifications(current =>
-        current.map(n => n.id === id ? updated : n)
-      );
+      mergeReadNotification(updated);
       queryClient.invalidateQueries({ queryKey: ["notifications-summary"] });
+    } catch (error) {
+      if (appliedOptimisticRead) {
+        await refreshNotifications();
+      }
+      console.warn("Failed to mark notification as read:", error);
     } finally {
       setUpdatingId(null);
+    }
+  };
+
+  const openNotification = (notification: AppNotification) => {
+    if (!notification.readAt) {
+      void markRead(notification.id);
     }
   };
 
@@ -285,6 +321,7 @@ export default function NotificationsPage() {
               <NotificationRow
                 key={notification.id}
                 notification={notification}
+                onOpen={openNotification}
                 onMarkRead={markRead}
                 isUpdating={updatingId === notification.id}
               />

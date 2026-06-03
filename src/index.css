@@ -5,7 +5,7 @@
 @layer base {
   :root {
     /* Beth design tokens, with legacy aliases kept for existing components. */
-    --background: 240 9% 96%;
+    --background: 40 12% 95%;
     --foreground: 259 43% 12%;
     
     --card: 0 0% 98%;

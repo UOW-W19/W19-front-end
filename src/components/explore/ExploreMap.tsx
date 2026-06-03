@@ -2,7 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import type { Meetup, NearbyLearner } from '@/types/meetup';
-import { LocateFixed, MapPin } from 'lucide-react';
+import type { CurrentWeather } from '@/services/api/weather';
+import { getInitialMapboxToken, MAPBOX_TOKEN_STORAGE_KEY } from '@/lib/mapbox';
+import { LocateFixed, MapPin, Moon, Sun } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
@@ -12,10 +14,11 @@ interface ExploreMapProps {
   onMeetupClick?: (meetup: Meetup) => void;
   onLearnerClick?: (learner: NearbyLearner) => void;
   userLocation?: { latitude: number; longitude: number };
+  locationLabel?: string;
+  isExtendedView?: boolean;
+  currentWeather?: CurrentWeather;
   className?: string;
 }
-
-const MAPBOX_TOKEN_STORAGE_KEY = 'locale_mapbox_token';
 
 type LngLat = { lng: number; lat: number };
 
@@ -31,24 +34,6 @@ const isValidLngLat = (lng: unknown, lat: unknown): boolean => {
   const Lat = lat as number;
   // Mapbox GL expects valid WGS84 ranges; clamp out clearly invalid values
   return Lng >= -180 && Lng <= 180 && Lat >= -85 && Lat <= 85;
-};
-
-const getInitialMapboxToken = (): string => {
-  // Check environment variable first (Vite exposes VITE_* vars)
-  const envToken = import.meta.env.VITE_MAPBOX_TOKEN as string | undefined;
-  if (envToken && envToken.startsWith('pk.')) {
-    return envToken;
-  }
-
-  // Check localStorage for user-provided override
-  const storedToken = typeof window !== 'undefined'
-    ? localStorage.getItem(MAPBOX_TOKEN_STORAGE_KEY)
-    : null;
-  if (storedToken && storedToken.startsWith('pk.')) {
-    return storedToken;
-  }
-
-  return '';
 };
 
 type WebGLDiagnostics = {
@@ -212,7 +197,17 @@ const buildStaticMapUrl = ({
   return `https://api.mapbox.com/styles/v1/${style}/static/${overlay}${center.lng.toFixed(5)},${center.lat.toFixed(5)},${zoom},0,0/${width}x${height}@2x?access_token=${encodeURIComponent(token)}`;
 };
 
-export default function ExploreMap({ meetups, learners, onMeetupClick, onLearnerClick, userLocation, className }: ExploreMapProps) {
+export default function ExploreMap({
+  meetups,
+  learners,
+  onMeetupClick,
+  onLearnerClick,
+  userLocation,
+  locationLabel,
+  isExtendedView = false,
+  currentWeather,
+  className,
+}: ExploreMapProps) {
   const mapContainer = useRef<HTMLDivElement | null>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
@@ -231,6 +226,15 @@ export default function ExploreMap({ meetups, learners, onMeetupClick, onLearner
 
   const [mapboxToken, setMapboxToken] = useState<string>(() => getInitialMapboxToken());
   const [tokenDraft, setTokenDraft] = useState('');
+  const showCurrentLocationBadge = isExtendedView && !!userLocation;
+  const CurrentWeatherIcon = currentWeather?.isDay ? Sun : Moon;
+  const currentLocationLabel = locationLabel?.trim() || 'Current Location';
+  const recenterButtonPosition = isExtendedView
+    ? 'left-4 bottom-4 z-20'
+    : 'left-3 top-3';
+  const legendPosition = isExtendedView
+    ? 'left-4 top-4 z-10'
+    : 'left-3 bottom-3';
 
   const staticFallbackUrl = useMemo(() => {
     if (!mapError || !mapError.toLowerCase().includes('webgl')) return null;
@@ -733,6 +737,25 @@ export default function ExploreMap({ meetups, learners, onMeetupClick, onLearner
         </div>
       )}
 
+      {showCurrentLocationBadge && (
+        <div className="pointer-events-none absolute left-1/2 top-16 z-10 flex w-[min(13rem,calc(100%-6rem))] -translate-x-1/2 flex-col items-center">
+          <div className="w-full rounded-full border border-foreground/10 bg-white px-4 py-2 text-center text-sm font-semibold text-foreground shadow-lg shadow-black/20 backdrop-blur-sm">
+            <span className="block truncate">{currentLocationLabel}</span>
+          </div>
+          {currentWeather && (
+            <div className="mt-2 flex min-h-10 items-center justify-center gap-4 px-4 py-1 text-foreground drop-shadow-[0_2px_6px_rgba(0,0,0,0.35)]">
+              <CurrentWeatherIcon
+                className={`h-6 w-6 ${currentWeather.isDay ? 'text-yellow-400' : 'text-blue-900'}`}
+                aria-hidden="true"
+              />
+              <span className="whitespace-nowrap text-base font-semibold">
+                {Math.round(currentWeather.temperatureC)}&deg; C
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+
       {userLocation && (
         <Button
           type="button"
@@ -740,7 +763,7 @@ export default function ExploreMap({ meetups, learners, onMeetupClick, onLearner
           variant="outline"
           onClick={recenterOnUser}
           disabled={!isMapReady}
-          className="absolute left-3 top-3 h-10 w-10 rounded-full border border-foreground/20 bg-white text-purple shadow-lg shadow-black/20 backdrop-blur-sm hover:bg-white hover:text-purple focus-visible:ring-2 focus-visible:ring-purple focus-visible:ring-offset-2 disabled:opacity-60"
+          className={`absolute ${recenterButtonPosition} h-10 w-10 rounded-full border border-foreground/20 bg-white text-purple shadow-lg shadow-black/20 backdrop-blur-sm hover:bg-white hover:text-purple focus-visible:ring-2 focus-visible:ring-purple focus-visible:ring-offset-2 disabled:opacity-60`}
           aria-label="Recenter map on your location"
           title="Recenter map on your location"
         >
@@ -749,7 +772,7 @@ export default function ExploreMap({ meetups, learners, onMeetupClick, onLearner
       )}
 
       {/* Legend */}
-      <div className="absolute bottom-3 left-3 pointer-events-none">
+      <div className={`absolute ${legendPosition} pointer-events-none`}>
         <div className="bg-background/90 backdrop-blur-sm rounded-lg px-3 py-2 flex gap-4 text-xs pointer-events-auto">
           {userLocation && (
             <div className="flex items-center gap-1.5">

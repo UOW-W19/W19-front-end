@@ -4,3 +4,4 @@ export * from "./language";
 export * from "./navigation";
 export * from "./api";
 export * from "./scanner";
+export * from "./lesson";

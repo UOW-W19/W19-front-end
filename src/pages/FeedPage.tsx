@@ -7,6 +7,7 @@ import UserAvatar from "@/components/common/UserAvatar";
 import { useAuth } from "@/contexts/useAuth";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { postsApi, LANGUAGES, getLanguageByCode } from "@/services/api";
+import { consumePendingFeedPosts, subscribeToFeedPostCreated } from "@/lib/feedRefresh";
 import type { ApiPost, CreatePostRequest, Post } from "@/types";
 
 const toUiPost = (apiPost: ApiPost): Post => {
@@ -72,11 +73,32 @@ export default function FeedPage() {
     [selectedLanguage]
   );
 
+  const shouldShowApiPost = useCallback((post: ApiPost) => {
+    const languageCode = getLangCode();
+    return !languageCode || post.originalLanguage === languageCode;
+  }, [getLangCode]);
+
+  const prependApiPost = useCallback((apiPost: ApiPost) => {
+    if (!shouldShowApiPost(apiPost)) return;
+
+    const uiPost = toUiPost(apiPost);
+    setPosts((currentPosts) => [
+      uiPost,
+      ...currentPosts.filter((post) => post.id !== uiPost.id),
+    ]);
+  }, [shouldShowApiPost]);
+
   const fetchPosts = useCallback(async () => {
     try {
       setIsLoading(true);
       const response = await postsApi.getFeed({ language: getLangCode() });
-      setPosts(response.posts.map(toUiPost));
+      const pendingPosts = consumePendingFeedPosts().filter(shouldShowApiPost);
+      const pendingIds = new Set(pendingPosts.map((post) => post.id));
+      const nextPosts = [
+        ...pendingPosts,
+        ...response.posts.filter((post) => !pendingIds.has(post.id)),
+      ];
+      setPosts(nextPosts.map(toUiPost));
       setHasMore(response.hasMore);
       setNextCursor(response.nextCursor);
     } catch (error) {
@@ -84,7 +106,7 @@ export default function FeedPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [getLangCode]);
+  }, [getLangCode, shouldShowApiPost]);
 
   const fetchMore = useCallback(async () => {
     if (isFetchingRef.current || !hasMore || !nextCursor) return;
@@ -110,6 +132,8 @@ export default function FeedPage() {
     fetchPosts();
   }, [fetchPosts]);
 
+  useEffect(() => subscribeToFeedPostCreated(prependApiPost), [prependApiPost]);
+
   // Infinite scroll listener
   useEffect(() => {
     const el = scrollContainerRef.current;
@@ -129,10 +153,9 @@ export default function FeedPage() {
   }, [fetchPosts]);
 
   const handleCreatePost = async (newPostData: ComposePostPayload) => {
-    const langCode = LANGUAGES.find((l) => l.name === newPostData.author.language)?.code || 'en';
     const payload: CreatePostRequest = {
       content: newPostData.content,
-      originalLanguage: langCode,
+      originalLanguage: newPostData.originalLanguage,
       images: newPostData.imageFiles?.length ? newPostData.imageFiles : undefined,
       image: newPostData.imageFile || undefined,
     };
@@ -165,8 +188,13 @@ export default function FeedPage() {
     <PullToRefresh onRefresh={handleRefresh} className="h-full">
       <div
         ref={scrollContainerRef}
-        className="h-full overflow-y-auto pb-24 scrollbar-hide w-full max-w-2xl mx-auto px-4 py-4 overflow-x-hidden"
+        className="h-full overflow-y-auto pb-24 scrollbar-hide w-full max-w-2xl mx-auto px-4 py-6 overflow-x-hidden"
       >
+        {/* Header */}
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-2xl font-bold">Community</h1>
+        </div>
+
         {/* Compose prompt */}
         <button
           onClick={() => setIsComposeOpen(true)}
@@ -176,7 +204,7 @@ export default function FeedPage() {
             name={user?.displayName ?? "You"}
             avatarUrl={user?.avatarUrl}
             className="h-10 w-10"
-            fallbackClassName="text-sm font-semibold"
+            fallbackClassName="bg-gradient-to-br from-coral to-coral/70 text-white text-sm font-semibold"
           />
           <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
             What&apos;s on your mind{user?.displayName ? `, ${user.displayName.split(" ")[0]}` : ""}?
@@ -231,8 +259,6 @@ export default function FeedPage() {
               </>
             )}
           </div>
-
-          <span className="text-xs font-medium text-muted-foreground">Community feed</span>
         </div>
 
         {/* Posts */}

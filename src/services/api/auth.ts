@@ -378,7 +378,9 @@ export const authApi = {
       // Fallback to legacy endpoint
       profile = await apiRequest<BackendProfile>('/profiles/me');
     }
-    return transformProfile(profile);
+    const user = transformProfile(profile);
+    localStorage.setItem(USER_KEY, JSON.stringify(user));
+    return user;
   },
 
   async updateProfile(data: UpdateProfileRequest): Promise<UserProfile> {

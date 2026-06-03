@@ -2,17 +2,19 @@ import { useEffect, useMemo, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts";
 import { useStomp } from "@/contexts/useStomp";
+import { normalizeBackendTimestamp } from "@/lib/backendTimestamp";
 import type { BackendMessage, Conversation, Message } from "@/types/message";
 
-const toMessage = (m: BackendMessage): Message => ({
+export const toSubscribedMessage = (m: BackendMessage): Message => ({
   id: String(m.id),
   conversationId: String(m.conversationId),
   senderId: String(m.sender.id),
   senderDisplayName: m.sender.displayName || m.sender.display_name || m.sender.username,
+  senderUsername: m.sender.username,
   senderAvatarUrl: m.sender.avatarUrl || m.sender.avatar_url,
   content: m.content || "",
   imageUrl: m.imageUrl || m.image_url,
-  createdAt: m.createdAt,
+  createdAt: normalizeBackendTimestamp(m.createdAt),
   isRead: m.isRead,
 });
 
@@ -22,7 +24,11 @@ const getPreview = (message: Message) => {
   return "";
 };
 
-export function useChatSubscription(conversationIds: string[], activeConversationId: string | null) {
+export function useChatSubscription(
+  conversationIds: string[],
+  activeConversationId: string | null,
+  onActiveConversationMessage?: (conversationId: string) => void,
+) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const { client, isConnected } = useStomp();
@@ -32,6 +38,7 @@ export function useChatSubscription(conversationIds: string[], activeConversatio
   );
   const activeConversationIdRef = useRef(activeConversationId);
   const currentUserIdRef = useRef(user?.id);
+  const onActiveConversationMessageRef = useRef(onActiveConversationMessage);
 
   useEffect(() => {
     activeConversationIdRef.current = activeConversationId;
@@ -42,6 +49,10 @@ export function useChatSubscription(conversationIds: string[], activeConversatio
   }, [user?.id]);
 
   useEffect(() => {
+    onActiveConversationMessageRef.current = onActiveConversationMessage;
+  }, [onActiveConversationMessage]);
+
+  useEffect(() => {
     if (!client || !isConnected || conversationIdsKey.length === 0) return;
 
     const subscribedConversationIds = conversationIdsKey.split("|");
@@ -49,7 +60,7 @@ export function useChatSubscription(conversationIds: string[], activeConversatio
       client.subscribe(`/topic/conversation.${conversationId}`, (frame) => {
         let incoming: Message;
         try {
-          incoming = toMessage(JSON.parse(frame.body) as BackendMessage);
+          incoming = toSubscribedMessage(JSON.parse(frame.body) as BackendMessage);
         } catch {
           return;
         }
@@ -66,6 +77,8 @@ export function useChatSubscription(conversationIds: string[], activeConversatio
 
         if (incoming.conversationId !== activeConversationId) {
           queryClient.invalidateQueries({ queryKey: ["messages", incoming.conversationId] });
+        } else if (!isOwnMessage) {
+          onActiveConversationMessageRef.current?.(incoming.conversationId);
         }
 
         queryClient.setQueryData(["conversations"], (old: Conversation[] = []) => {

@@ -1,10 +1,11 @@
-import { lazy, Suspense, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { OfflineBanner } from "@/components/pwa/OfflineBanner";
 import { AuthProvider, useAuth } from "@/contexts";
 import { StompProvider } from "@/contexts/StompContext";
+import { hasCompletedOnboarding } from "@/lib/onboarding";
 import { isAdminUser } from "@/lib/roles";
 import MessagesPage from "./pages/MessagesPage";
 
@@ -16,11 +17,14 @@ const UserProfilePage = lazy(() => import("./pages/UserProfilePage"));
 const SettingsPage    = lazy(() => import("./pages/SettingsPage"));
 const InstallPage     = lazy(() => import("./pages/InstallPage"));
 const AuthPage        = lazy(() => import("./pages/AuthPage"));
+const OnboardingPage  = lazy(() => import("./pages/OnboardingPage"));
 const ScannerPage     = lazy(() => import("./pages/ScannerPage"));
 const FriendsPage     = lazy(() => import("./pages/FriendsPage"));
 const NotificationsPage = lazy(() => import("./pages/NotificationsPage"));
 const NotificationsSettingsPage = lazy(() => import("./pages/NotificationsSettingsPage"));
 const AdminPage       = lazy(() => import("./pages/AdminPage"));
+
+const POST_LOGOUT_REDIRECT_KEY = "locale_post_logout_redirect";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -31,9 +35,24 @@ const queryClient = new QueryClient({
   },
 });
 
+function LoggedOutRedirect() {
+  const [redirectTo] = useState(() => {
+    if (typeof window === "undefined") return "/onboarding";
+    return window.sessionStorage.getItem(POST_LOGOUT_REDIRECT_KEY) === "/auth" ? "/auth" : "/onboarding";
+  });
+
+  useEffect(() => {
+    if (redirectTo === "/auth") {
+      window.sessionStorage.removeItem(POST_LOGOUT_REDIRECT_KEY);
+    }
+  }, [redirectTo]);
+
+  return <Navigate to={redirectTo} replace />;
+}
+
 // Protected route wrapper
 function ProtectedRoute({ children }: { children: ReactNode }) {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { user, isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
     return (
@@ -44,7 +63,11 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
   }
 
   if (!isAuthenticated) {
-    return <Navigate to="/auth" replace />;
+    return <LoggedOutRedirect />;
+  }
+
+  if (!hasCompletedOnboarding(user)) {
+    return <Navigate to="/onboarding" replace />;
   }
 
   return <>{children}</>;
@@ -62,7 +85,11 @@ function AdminRoute({ children }: { children: ReactNode }) {
   }
 
   if (!isAuthenticated) {
-    return <Navigate to="/auth" replace />;
+    return <LoggedOutRedirect />;
+  }
+
+  if (!hasCompletedOnboarding(user)) {
+    return <Navigate to="/onboarding" replace />;
   }
 
   if (!isAdminUser(user)) {
@@ -81,6 +108,7 @@ const PageSpinner = () => (
 const AppRoutes = () => (
   <Suspense fallback={<PageSpinner />}>
     <Routes>
+      <Route path="/onboarding" element={<OnboardingPage />} />
       <Route path="/auth" element={<AuthPage />} />
       <Route path="/install" element={<InstallPage />} />
       <Route

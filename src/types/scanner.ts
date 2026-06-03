@@ -27,3 +27,14 @@ export interface ScanResult {
   scanSessionId?: string;
   detectedObjects: DetectedObject[];
 }
+
+export interface PostImageScannerRouteState {
+  source: "post-image";
+  postId: string;
+  imageUrl: string;
+  imageIndex: number;
+  authorName?: string;
+  postContext?: string;
+}
+
+export type ScannerRouteState = PostImageScannerRouteState;

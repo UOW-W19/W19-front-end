@@ -83,6 +83,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(updatedUser);
   }, []);
 
+  const refreshUser = useCallback(async () => {
+    const profile = await authApi.getProfile();
+    setUser(profile);
+  }, []);
+
   return (
     <AuthContext.Provider
       value={{
@@ -93,6 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         register,
         logout,
         updateProfile,
+        refreshUser,
       }}
     >
       {children}

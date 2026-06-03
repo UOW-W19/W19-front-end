@@ -1,13 +1,13 @@
 import { NavLink, useLocation } from "react-router-dom";
-import { Home, Compass, Camera, BookOpen, MessageCircle } from "lucide-react";
+import { MapPin, Compass, Camera, BookOpen, MessageCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { NavItem } from "@/types";
 
 const navItems: NavItem[] = [
-  { to: "/", icon: Home, label: "Feed" },
-  { to: "/explore", icon: Compass, label: "Explore" },
-  { to: "/scanner", icon: Camera, label: "Scan" },
+  { to: "/explore", icon: MapPin, label: "Explore" },
   { to: "/messages", icon: MessageCircle, label: "Messages" },
+  { to: "/scanner", icon: Camera, label: "Scan" },
+  { to: "/", icon: Compass, label: "Feed" },
   { to: "/learn", icon: BookOpen, label: "Learn" },
 ];
 
@@ -42,7 +42,7 @@ export function BottomNav() {
                 </div>
                 <span className={cn(
                   "text-[11px] font-medium transition-colors -mt-1",
-                  isActive ? "text-primary" : "text-muted-foreground"
+                  isActive ? "text-purple" : "text-muted-foreground"
                 )}>
                   {item.label}
                 </span>
