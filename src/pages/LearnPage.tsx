@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useRef } from "react";
-import { Sparkles, RotateCcw, Check, X, ChevronLeft, BookOpen, Camera, TrendingUp, Globe, Zap, ArrowUpDown, ChevronDown, Loader2, Flame } from "lucide-react";
+import { Sparkles, RotateCcw, Check, X, ChevronLeft, BookOpen, Camera, TrendingUp, Globe, Zap, ArrowUpDown, ChevronDown, Loader2, Flame, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { LessonSessionView } from "@/components/learn/LessonSessionView";
@@ -18,6 +18,8 @@ import {
   useSubmitPracticeResult,
   useCompletePracticeSession,
   useUpdateWord,
+  useCreateWord,
+  useDeleteWord,
   transformSessionWord,
   type PracticeResult,
 } from "@/hooks/useLearnApi";
@@ -135,6 +137,20 @@ export default function LearnPage() {
   const [languageFilter, setLanguageFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<SortOption>('newest');
 
+  // Add-word modal state
+  const [showAddWord, setShowAddWord] = useState(false);
+  const [addWord, setAddWord] = useState('');
+  const [addTranslation, setAddTranslation] = useState('');
+  const [addLangCode, setAddLangCode] = useState('en');
+  const ADD_LANGUAGES = [
+    { code: 'en', flag: '🇺🇸', name: 'English'  },
+    { code: 'es', flag: '🇪🇸', name: 'Spanish'  },
+    { code: 'fr', flag: '🇫🇷', name: 'French'   },
+    { code: 'ja', flag: '🇯🇵', name: 'Japanese' },
+    { code: 'zh', flag: '🇨🇳', name: 'Chinese'  },
+    { code: 'it', flag: '🇮🇹', name: 'Italian'  },
+  ];
+
   // Session size options
   const [sessionSize, setSessionSize] = useState<5 | 10 | 15>(10);
 
@@ -156,6 +172,24 @@ export default function LearnPage() {
   const submitResultMutation = useSubmitPracticeResult();
   const completeSessionMutation = useCompletePracticeSession();
   const updateWordMutation = useUpdateWord();
+  const createWordMutation = useCreateWord();
+  const deleteWordMutation = useDeleteWord();
+
+  const [deletedWordIds, setDeletedWordIds] = useState<Set<string>>(new Set());
+  const [confirmDeleteWordId, setConfirmDeleteWordId] = useState<string | null>(null);
+
+  const handleAddWord = async () => {
+    if (!addWord.trim() || !addTranslation.trim()) return;
+    await createWordMutation.mutateAsync({
+      word: addWord.trim(),
+      translation: addTranslation.trim(),
+      language_code: addLangCode,
+      source: 'MANUAL',
+    });
+    setAddWord('');
+    setAddTranslation('');
+    setShowAddWord(false);
+  };
 
   // Get unique languages for filter
   const uniqueLanguages = useMemo(() => {
@@ -440,8 +474,8 @@ export default function LearnPage() {
             <span>Current mastery:</span>
             <div className="h-1.5 w-16 rounded-full bg-muted overflow-hidden">
               <div
-                className="h-full rounded-full bg-sage transition-all"
-                style={{ width: `${currentWord.masteryLevel}%` }}
+                className="h-full rounded-full transition-all"
+                style={{ width: `${currentWord.masteryLevel}%`, background: '#CDDD01' }}
               />
             </div>
             <span>{currentWord.masteryLevel}%</span>
@@ -463,7 +497,8 @@ export default function LearnPage() {
             <Button
               onClick={() => handleAnswer(true)}
               disabled={isSubmitting}
-              className="flex-1 h-14 gap-2 rounded-xl bg-sage hover:bg-sage/90"
+              className="flex-1 h-14 gap-2 rounded-xl"
+              style={{ background: '#CDDD01', color: '#7a8700' }}
             >
               {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Check className="h-5 w-5" />}
               Got it!
@@ -499,19 +534,19 @@ export default function LearnPage() {
             return (
               <div
                 key={index}
-                className={cn(
-                  "flex items-center gap-3 rounded-xl border p-4 transition-all",
-                  result.correct
-                    ? "border-sage/30 bg-sage/5"
-                    : "border-destructive/30 bg-destructive/5"
-                )}
+                className="flex items-center gap-3 rounded-xl border p-4 transition-all"
+                style={result.correct
+                  ? { borderColor: '#CDDD0150', background: '#CDDD0108' }
+                  : { borderColor: 'hsl(var(--destructive) / 0.3)', background: 'hsl(var(--destructive) / 0.05)' }}
               >
-                <div className={cn(
-                  "flex h-8 w-8 items-center justify-center rounded-full",
-                  result.correct ? "bg-sage/20" : "bg-destructive/20"
-                )}>
+                <div
+                  className="flex h-8 w-8 items-center justify-center rounded-full flex-shrink-0"
+                  style={result.correct
+                    ? { background: '#CDDD0125' }
+                    : { background: 'hsl(var(--destructive) / 0.2)' }}
+                >
                   {result.correct ? (
-                    <Check className="h-4 w-4 text-sage" />
+                    <Check className="h-4 w-4" style={{ color: '#8a9600' }} />
                   ) : (
                     <X className="h-4 w-4 text-destructive" />
                   )}
@@ -522,10 +557,10 @@ export default function LearnPage() {
                 </div>
                 <div className="text-right flex-shrink-0">
                   <span className="text-lg">{result.word.languageFlag}</span>
-                  <p className={cn(
-                    "text-xs font-medium",
-                    masteryChange > 0 ? "text-sage" : "text-destructive"
-                  )}>
+                  <p
+                    className="text-xs font-medium"
+                    style={{ color: masteryChange > 0 ? '#8a9600' : 'hsl(var(--destructive))' }}
+                  >
                     {masteryChange > 0 ? '+' : ''}{masteryChange}%
                   </p>
                 </div>
@@ -608,29 +643,38 @@ export default function LearnPage() {
       </div>
       {/* Today's Progress */}
       <section className="mb-5">
-        <div className={cn(
-          "rounded-2xl border p-4",
-          goalMet ? "bg-sage/5 border-sage/30" : "bg-card border-border"
-        )}>
+        <div
+          className="rounded-2xl border p-4 transition-colors duration-500"
+          style={goalMet
+            ? { background: '#CDDD0112', borderColor: '#CDDD0150' }
+            : {}}
+        >
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <Flame className={cn("h-4 w-4", goalMet ? "text-sage" : "text-muted-foreground")} />
+              <Flame
+                className="h-4 w-4 transition-colors duration-300"
+                style={{ color: goalMet ? '#CDDD01' : 'var(--muted-foreground)' }}
+              />
               <span className="text-sm font-medium text-foreground">Today's Progress</span>
             </div>
-            <span className={cn(
-              "text-xs font-medium px-2 py-0.5 rounded-full",
-              goalMet ? "bg-sage/20 text-sage" : "bg-muted text-muted-foreground"
-            )}>
-              {goalMet ? "Goal met!" : `${sessionsDoneToday} / ${dailyGoal} session`}
+            <span
+              className="text-xs font-bold px-2.5 py-0.5 rounded-full transition-colors duration-300"
+              style={goalMet
+                ? { background: '#CDDD0120', color: '#7a8700' }
+                : { background: 'var(--muted)', color: 'var(--muted-foreground)' }}
+            >
+              {goalMet
+                ? `${sessionsDoneToday}/${dailyGoal} session${dailyGoal !== 1 ? 's' : ''}`
+                : `${sessionsDoneToday} / ${dailyGoal} session`}
             </span>
           </div>
           <div className="h-2 rounded-full bg-muted overflow-hidden mb-3">
             <div
-              className={cn(
-                "h-full rounded-full transition-all duration-500",
-                goalMet ? "bg-sage" : "bg-primary"
-              )}
-              style={{ width: `${progressPct}%` }}
+              className="h-full rounded-full transition-all duration-500"
+              style={{
+                width: `${progressPct}%`,
+                background: goalMet ? '#CDDD01' : 'var(--primary)',
+              }}
             />
           </div>
           {sessionsDoneToday > 0 ? (
@@ -661,8 +705,8 @@ export default function LearnPage() {
 
           {/* Avg Mastery */}
           <div className="rounded-2xl bg-card border border-border p-4 text-center">
-            <div className="flex items-center justify-center h-10 w-10 mx-auto rounded-xl bg-sage/10 mb-2">
-              <TrendingUp className="h-5 w-5 text-sage" />
+            <div className="flex items-center justify-center h-10 w-10 mx-auto rounded-xl mb-2" style={{ background: '#CDDD0120' }}>
+              <TrendingUp className="h-5 w-5" style={{ color: '#7a8700' }} />
             </div>
             {isLoadingStats ? (
               <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
@@ -762,8 +806,16 @@ export default function LearnPage() {
 
       {/* Word Bank Section */}
       <section>
+        <h2 className="text-lg font-semibold text-foreground mb-3">Word Banks</h2>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-foreground">Word Banks</h2>
+          {/* Add word pill */}
+          <button
+            onClick={() => setShowAddWord(true)}
+            className="flex items-center gap-1 h-8 px-3 rounded-full border border-dashed border-primary/50 text-primary text-xs font-medium hover:bg-primary/5 transition-colors"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Add
+          </button>
 
           <div className="flex items-center gap-2">
             {/* Language Filter */}
@@ -857,7 +909,7 @@ export default function LearnPage() {
                     {/* Avg mastery pill */}
                     <div className="flex items-center gap-1.5 mr-2">
                       <div className="h-1.5 w-14 rounded-full bg-muted overflow-hidden">
-                        <div className="h-full rounded-full bg-sage transition-all" style={{ width: `${avgMastery}%` }} />
+                        <div className="h-full rounded-full transition-all" style={{ width: `${avgMastery}%`, background: '#CDDD01' }} />
                       </div>
                       <span className="text-xs text-muted-foreground w-7 text-right">{avgMastery}%</span>
                     </div>
@@ -875,26 +927,67 @@ export default function LearnPage() {
                   {/* Collapsible word list */}
                   {isOpen && (
                     <div className="border-t border-border divide-y divide-border/50">
-                      {bank.words.map((word) => (
-                        <div key={word.id} className="flex items-center gap-3 px-4 py-2.5">
-                          <span className="text-base flex-shrink-0">{word.languageFlag}</span>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              <p className="font-medium text-foreground text-sm truncate">{word.word}</p>
-                              {word.source === 'MANUAL' && (
-                                <Camera className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                              )}
+                      {bank.words.filter(w => !deletedWordIds.has(w.id)).map((word) => {
+                        const pendingDelete = confirmDeleteWordId === word.id;
+                        return (
+                          <div key={word.id}>
+                            <div className="flex items-center gap-3 px-4 py-2.5">
+                              <span className="text-base flex-shrink-0">{word.languageFlag}</span>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5">
+                                  <p className="font-medium text-foreground text-sm truncate">{word.word}</p>
+                                  {word.source === 'MANUAL' && (
+                                    <Camera className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                                  )}
+                                </div>
+                                <p className="text-xs text-muted-foreground truncate">{word.translation}</p>
+                              </div>
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                <div className="h-1.5 w-10 rounded-full bg-muted overflow-hidden">
+                                  <div className="h-full rounded-full transition-all" style={{ width: `${word.masteryLevel}%`, background: '#CDDD01' }} />
+                                </div>
+                                <span className="text-xs text-muted-foreground w-7 text-right">{word.masteryLevel}%</span>
+                              </div>
+                              <button
+                                onClick={() => setConfirmDeleteWordId(pendingDelete ? null : word.id)}
+                                className={cn(
+                                  "h-6 w-6 rounded-full flex items-center justify-center transition-colors flex-shrink-0",
+                                  pendingDelete
+                                    ? "bg-destructive/15 text-destructive ring-1 ring-destructive/30"
+                                    : "text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                )}
+                                title="Remove from word bank"
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </button>
                             </div>
-                            <p className="text-xs text-muted-foreground truncate">{word.translation}</p>
+
+                            {pendingDelete && (
+                              <div className="mx-4 mb-2 flex items-center justify-between rounded-lg bg-destructive/10 px-3 py-2 animate-in fade-in duration-200">
+                                <span className="text-destructive font-medium text-xs">Remove this word?</span>
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={() => setConfirmDeleteWordId(null)}
+                                    className="text-muted-foreground hover:text-foreground text-xs px-2 py-1 rounded"
+                                  >
+                                    Cancel
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setDeletedWordIds(prev => new Set([...prev, word.id]));
+                                      setConfirmDeleteWordId(null);
+                                      deleteWordMutation.mutate(word.id);
+                                    }}
+                                    className="bg-destructive text-destructive-foreground text-xs px-3 py-1 rounded-lg font-medium"
+                                  >
+                                    Remove
+                                  </button>
+                                </div>
+                              </div>
+                            )}
                           </div>
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            <div className="h-1.5 w-10 rounded-full bg-muted overflow-hidden">
-                              <div className="h-full rounded-full bg-sage transition-all" style={{ width: `${word.masteryLevel}%` }} />
-                            </div>
-                            <span className="text-xs text-muted-foreground w-7 text-right">{word.masteryLevel}%</span>
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -903,6 +996,68 @@ export default function LearnPage() {
           </div>
         )}
       </section>
+
+      {/* Add Word Modal */}
+      {showAddWord && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center">
+          <div className="absolute inset-0 bg-foreground/40 backdrop-blur-sm" onClick={() => setShowAddWord(false)} />
+          <div className="relative w-full max-w-md bg-card rounded-t-3xl shadow-soft p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-lg font-semibold text-foreground">Add to Word Bank</h3>
+              <button onClick={() => setShowAddWord(false)} className="h-8 w-8 rounded-full flex items-center justify-center text-muted-foreground hover:bg-muted transition-colors">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3 mb-5">
+              {/* Language picker */}
+              <div className="flex gap-2 flex-wrap">
+                {ADD_LANGUAGES.map(l => (
+                  <button
+                    key={l.code}
+                    onClick={() => setAddLangCode(l.code)}
+                    className={cn(
+                      "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border transition-colors",
+                      addLangCode !== l.code && "border-border text-muted-foreground hover:bg-muted"
+                    )}
+                    style={addLangCode === l.code
+                      ? { background: '#CDDD0120', borderColor: '#CDDD0160', color: '#5a6300' }
+                      : undefined}
+                  >
+                    <span>{l.flag}</span>
+                    <span>{l.name}</span>
+                  </button>
+                ))}
+              </div>
+
+              <input
+                type="text"
+                value={addWord}
+                onChange={e => setAddWord(e.target.value)}
+                placeholder="Word or phrase..."
+                className="w-full rounded-xl border border-border bg-muted px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+              />
+              <input
+                type="text"
+                value={addTranslation}
+                onChange={e => setAddTranslation(e.target.value)}
+                placeholder="Translation..."
+                className="w-full rounded-xl border border-border bg-muted px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                onKeyDown={e => { if (e.key === 'Enter') handleAddWord(); }}
+              />
+
+              <Button
+                onClick={handleAddWord}
+                disabled={!addWord.trim() || !addTranslation.trim() || createWordMutation.isPending}
+                className="w-full h-12 rounded-xl gap-2"
+              >
+                {createWordMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                Add
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

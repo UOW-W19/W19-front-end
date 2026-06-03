@@ -12,6 +12,7 @@ import {
   Sparkles,
   Star,
   X,
+  Zap,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -211,23 +212,22 @@ export default function ScannerPage() {
         </div>
       </div>
 
-      {showScannerHint && (
-        <div className="mb-5 flex items-start justify-between gap-3 rounded-2xl border border-purple/20 bg-card px-4 py-3 shadow-locale-sm">
-          <div className="flex items-start gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-purple/10 text-purple">
-              <Sparkles className="h-4 w-4" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-foreground">Scan real objects into vocabulary</p>
-              <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-                Identify objects, review translations, then save exact detections to Learn.
+      {showScannerHint && demoScanCount < DEMO_SCAN_LIMIT && (
+        <div className="mb-5 flex items-center justify-between gap-3 rounded-2xl border border-coral/20 bg-card px-4 py-3 shadow-locale-sm">
+          <div className="flex items-center gap-3 min-w-0">
+            <Sparkles className="h-4 w-4 shrink-0 text-coral" />
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-foreground">Scan objects into vocabulary</p>
+              <p className="text-xs text-muted-foreground">Identify objects and save translations to your word bank to learn.</p>
+              <p className="mt-0.5 text-xs text-muted-foreground/70">
+                {Math.min(demoScanCount, DEMO_SCAN_LIMIT)} / {DEMO_SCAN_LIMIT} free scans used
               </p>
             </div>
           </div>
           <button
             type="button"
             onClick={() => setShowScannerHint(false)}
-            className="rounded-full p-1 text-muted-foreground transition hover:bg-purple/10 hover:text-foreground"
+            className="rounded-full p-1 text-muted-foreground transition hover:bg-coral/10 hover:text-foreground shrink-0"
             aria-label="Dismiss scanner hint"
           >
             <X className="h-4 w-4" />
@@ -235,37 +235,30 @@ export default function ScannerPage() {
         </div>
       )}
 
-      <div className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="font-semibold">
-              {demoScanCount >= DEMO_SCAN_LIMIT ? "Out of scans! Subscribe now." : "Demo scans"}
-            </p>
-            {demoScanCount >= DEMO_SCAN_LIMIT && (
-              <p className="mt-0.5 text-xs text-amber-700">Upgrade to Pro for unlimited scanning.</p>
-            )}
+      {demoScanCount >= DEMO_SCAN_LIMIT && (
+        <div className="mb-5 flex items-center justify-between rounded-2xl border border-destructive/20 px-4 py-3 text-sm font-medium bg-destructive/10 text-destructive">
+          <div className="flex items-center gap-2">
+            <Zap className="h-4 w-4 flex-shrink-0" />
+            <div>
+              <p className="font-bold">Out of scans! Subscribe now.</p>
+              <p className="text-xs font-normal opacity-80">Upgrade to Pro for unlimited daily scanning.</p>
+            </div>
           </div>
-          {demoScanCount >= DEMO_SCAN_LIMIT ? (
-            <Button
-              type="button"
-              size="sm"
-              variant="orange"
-              onClick={() => setShowUpgradeModal(true)}
-              className="shrink-0"
-            >
-              Subscribe
-            </Button>
-          ) : (
-            <span className="shrink-0 font-medium">{Math.min(demoScanCount, DEMO_SCAN_LIMIT)} / {DEMO_SCAN_LIMIT}</span>
-          )}
+          <button
+            type="button"
+            onClick={() => setShowUpgradeModal(true)}
+            className="shrink-0 rounded-full bg-coral px-3 py-1 text-xs font-semibold text-white transition hover:bg-coral/90"
+          >
+            Subscribe
+          </button>
         </div>
-      </div>
+      )}
 
       {step === "select" && (
         <div className="flex flex-1 flex-col gap-6">
-          <div className="flex aspect-square w-full items-center justify-center rounded-[28px] border-2 border-dashed border-purple/30 bg-card shadow-locale-sm">
+          <div className="flex aspect-square w-full items-center justify-center rounded-[28px] border-2 border-dashed border-coral/30 bg-card shadow-locale-sm">
             <div className="text-center p-6">
-              <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-purple/10 text-purple">
+              <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-coral/10 text-coral">
                 <ScanLine className="h-10 w-10" />
               </div>
               <p className="font-semibold text-foreground">Scan a real-world object</p>
@@ -275,7 +268,6 @@ export default function ScannerPage() {
 
           <div className="w-full space-y-3 mt-auto">
             <Button
-              variant="orange"
               className="h-14 w-full gap-3 text-base"
               onClick={() => cameraInputRef.current?.click()}
             >
@@ -351,7 +343,7 @@ export default function ScannerPage() {
                 return (
                   <div
                     key={`box-${objectKey(object)}`}
-                    className="absolute border-2 border-purple bg-purple/10"
+                    className="absolute border-2 border-purple bg-coral/10"
                     style={{
                       left: `${object.box.x * 100}%`,
                       top: `${object.box.y * 100}%`,
@@ -385,8 +377,8 @@ export default function ScannerPage() {
           )}
 
           {detectedObjects.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-purple/30 bg-card p-8 text-center">
-              <ScanLine className="mx-auto mb-3 h-10 w-10 text-purple" />
+            <div className="rounded-2xl border border-dashed border-coral/30 bg-card p-8 text-center">
+              <ScanLine className="mx-auto mb-3 h-10 w-10 text-coral" />
               <h2 className="font-semibold text-foreground">No objects detected</h2>
               <p className="text-sm text-muted-foreground mt-1">
                 Try a clearer photo with one object in frame.
@@ -405,7 +397,7 @@ export default function ScannerPage() {
                 return (
                   <div
                     key={key}
-                    className="rounded-2xl border border-purple/15 bg-card p-4 shadow-locale-sm"
+                    className="rounded-2xl border border-coral/15 bg-card p-4 shadow-locale-sm"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
@@ -485,7 +477,7 @@ export default function ScannerPage() {
             <div className="mt-5 space-y-3">
               <div className="rounded-2xl border border-border bg-muted/30 px-4 py-3">
                 <div className="flex items-start gap-3">
-                  <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-sage/15 text-sage">
+                  <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full" style={{ background: '#CDDD01', color: '#7a8700' }}>
                     <Check className="h-4 w-4" />
                   </div>
                   <div>
@@ -498,7 +490,7 @@ export default function ScannerPage() {
               </div>
               <div className="rounded-2xl border border-border bg-muted/30 px-4 py-3">
                 <div className="flex items-start gap-3">
-                  <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
+                  <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full" style={{ background: '#CDDD01', color: '#7a8700' }}>
                     <Check className="h-4 w-4" />
                   </div>
                   <div>
@@ -517,16 +509,16 @@ export default function ScannerPage() {
                   <p className="font-semibold text-foreground">Pro Plan</p>
                   <p className="text-xs text-muted-foreground">Billed Monthly</p>
                 </div>
-                <p className="text-xl font-black text-foreground">$18/mo.</p>
+                <p className="text-xl font-black text-foreground">$4.99/mo.</p>
               </div>
               <div className="mt-4 space-y-2 border-t border-border pt-3 text-sm">
                 <div className="flex items-center justify-between text-muted-foreground">
                   <span>Tax</span>
-                  <span>$4</span>
+                  <span>$0.51</span>
                 </div>
                 <div className="flex items-center justify-between font-semibold text-foreground">
                   <span>Total for today</span>
-                  <span>$22.00</span>
+                  <span>$5.50</span>
                 </div>
               </div>
             </div>

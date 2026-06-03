@@ -370,7 +370,7 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
                 name={post.author.name}
                 avatarUrl={post.author.avatarUrl}
                 className="h-9 w-9"
-                fallbackClassName="text-xs font-semibold"
+                fallbackClassName="bg-gradient-to-br from-coral to-coral/70 text-white text-xs font-semibold"
               />
             </Link>
           ) : (

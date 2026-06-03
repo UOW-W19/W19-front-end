@@ -189,8 +189,13 @@ export default function FeedPage() {
     <PullToRefresh onRefresh={handleRefresh} className="h-full">
       <div
         ref={scrollContainerRef}
-        className="h-full overflow-y-auto pb-24 scrollbar-hide w-full max-w-2xl mx-auto px-4 py-4 overflow-x-hidden"
+        className="h-full overflow-y-auto pb-24 scrollbar-hide w-full max-w-2xl mx-auto px-4 py-6 overflow-x-hidden"
       >
+        {/* Header */}
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-2xl font-bold">Community</h1>
+        </div>
+
         {/* Compose prompt */}
         <button
           onClick={() => setIsComposeOpen(true)}
@@ -200,7 +205,7 @@ export default function FeedPage() {
             name={user?.displayName ?? "You"}
             avatarUrl={user?.avatarUrl}
             className="h-10 w-10"
-            fallbackClassName="text-sm font-semibold"
+            fallbackClassName="bg-gradient-to-br from-coral to-coral/70 text-white text-sm font-semibold"
           />
           <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
             What&apos;s on your mind{user?.displayName ? `, ${user.displayName.split(" ")[0]}` : ""}?

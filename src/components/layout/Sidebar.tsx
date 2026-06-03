@@ -1,7 +1,7 @@
 import { NavLink, useLocation } from "react-router-dom";
 import {
-  Home,
   Compass,
+  MapPin,
   MessageCircle,
   BookOpen,
   User,
@@ -15,10 +15,10 @@ import { cn } from "@/lib/utils";
 import type { NavItem } from "@/types";
 
 const mainNavItems: NavItem[] = [
-  { to: "/", icon: Home, label: "Feed" },
-  { to: "/explore", icon: Compass, label: "Explore" },
-  { to: "/scanner", icon: Camera, label: "Scan" },
+  { to: "/explore", icon: MapPin, label: "Explore" },
   { to: "/messages", icon: MessageCircle, label: "Messages" },
+  { to: "/scanner", icon: Camera, label: "Scan" },
+  { to: "/", icon: Compass, label: "Feed" },
   { to: "/learn", icon: BookOpen, label: "Learn" },
   { to: "/profile", icon: User, label: "Profile" },
 ];
