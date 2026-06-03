@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { categoriseWord } from '@/lib/wordCategories';
 import {
   fetchSavedWords,
   createSavedWord,
@@ -38,6 +39,7 @@ export const transformSavedWord = (word: SavedWordResponse): SavedWord => ({
   source: word.source,
   sourceId: word.source_id,
   context: word.context,
+  topic: word.topic ?? categoriseWord(word.word, word.translation),
   nextReview: word.next_review,
   createdAt: word.created_at,
 });

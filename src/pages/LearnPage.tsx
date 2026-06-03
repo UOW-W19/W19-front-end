@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef, type ComponentType } from "react";
-import { Sparkles, RotateCcw, Check, X, ChevronLeft, BookOpen, Camera, ArrowUpDown, ChevronDown, Loader2, Plus, Target, Trophy, BookMarked, Gauge, Languages as LanguagesIcon, Brain } from "lucide-react";
+import { Sparkles, RotateCcw, Check, X, ChevronLeft, BookOpen, Camera, ArrowUpDown, ChevronDown, Loader2, Plus, Target, Trophy, BookMarked, Gauge, Languages as LanguagesIcon, Brain, Tag } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { LessonSessionView } from "@/components/learn/LessonSessionView";
@@ -28,6 +28,7 @@ import { postsApi } from "@/services/api/posts";
 import { useAuth } from "@/contexts/useAuth";
 import { notifyFeedPostCreated } from "@/lib/feedRefresh";
 import { getUserLanguagePreferences } from "@/lib/userLanguages";
+import { ALL_WORD_CATEGORIES, categoriseWord, categoryLabel, categoryEmoji } from "@/lib/wordCategories";
 
 type PracticeMode = 'idle' | 'practicing' | 'results' | 'learning';
 type SortOption = 'newest' | 'mastery_high' | 'mastery_low';
@@ -73,63 +74,6 @@ function StatTile({
   );
 }
 
-// ── Concept categorisation ──────────────────────────────────────────────────
-
-const CONCEPT_CATEGORIES: { id: string; label: string; keywords: string[] }[] = [
-  {
-    id: 'electronics',
-    label: 'Electronics & Tech',
-    keywords: ['keyboard', 'computer', 'phone', 'screen', 'battery', 'charger', 'laptop', 'tablet', 'mouse', 'cable', 'internet', 'wifi', 'app', 'device', 'camera', 'printer', 'monitor', 'software', 'hardware', 'network', 'bluetooth', 'headphone', 'speaker', 'remote', 'digital'],
-  },
-  {
-    id: 'shopping',
-    label: 'Shopping & Money',
-    keywords: ['how much', 'price', 'cost', 'buy', 'shop', 'store', 'market', 'pay', 'discount', 'cheap', 'expensive', 'sale', 'receipt', 'money', 'cash', 'card', 'purchase', 'refund', 'wallet', 'coin', 'bank', 'currency', 'change', 'bill', 'budget'],
-  },
-  {
-    id: 'food',
-    label: 'Food & Drink',
-    keywords: ['eat', 'food', 'drink', 'coffee', 'restaurant', 'menu', 'hungry', 'cook', 'meal', 'breakfast', 'lunch', 'dinner', 'bread', 'meat', 'vegetable', 'fruit', 'juice', 'beer', 'wine', 'tea', 'rice', 'soup', 'dessert', 'snack', 'delicious', 'taste', 'kitchen', 'recipe', 'milk', 'cheese', 'egg'],
-  },
-  {
-    id: 'travel',
-    label: 'Travel & Transport',
-    keywords: ['train', 'bus', 'airport', 'hotel', 'map', 'ticket', 'passport', 'direction', 'car', 'taxi', 'flight', 'trip', 'journey', 'station', 'city', 'country', 'border', 'luggage', 'reservation', 'tourist', 'road', 'bridge', 'ferry', 'subway', 'platform'],
-  },
-  {
-    id: 'greetings',
-    label: 'Greetings & Phrases',
-    keywords: ['hello', 'good morning', 'good night', 'goodbye', 'thank', 'please', 'sorry', 'excuse', 'welcome', 'understand', 'speak', 'repeat', 'help', 'know', 'what is', 'how are', 'nice to meet', 'see you', 'good luck', 'congratulations'],
-  },
-  {
-    id: 'people',
-    label: 'People & Family',
-    keywords: ['mother', 'father', 'brother', 'sister', 'friend', 'family', 'child', 'baby', 'husband', 'wife', 'parent', 'son', 'daughter', 'uncle', 'aunt', 'grandmother', 'grandfather', 'person', 'man', 'woman', 'boy', 'girl', 'neighbour', 'colleague', 'boss'],
-  },
-  {
-    id: 'body',
-    label: 'Body & Health',
-    keywords: ['head', 'hand', 'foot', 'eye', 'ear', 'nose', 'mouth', 'body', 'sick', 'doctor', 'hospital', 'medicine', 'pain', 'heart', 'back', 'arm', 'leg', 'tooth', 'health', 'exercise', 'sleep', 'tired', 'fever', 'allergy', 'pharmacy'],
-  },
-  {
-    id: 'home',
-    label: 'Home & Living',
-    keywords: ['house', 'home', 'room', 'door', 'window', 'bed', 'chair', 'table', 'bathroom', 'garden', 'floor', 'wall', 'furniture', 'key', 'clean', 'wash', 'sofa', 'lamp', 'shelf', 'cupboard', 'neighbour', 'apartment', 'flat'],
-  },
-  {
-    id: 'nature',
-    label: 'Nature & Weather',
-    keywords: ['sun', 'rain', 'tree', 'flower', 'weather', 'hot', 'cold', 'wind', 'snow', 'cloud', 'river', 'sea', 'mountain', 'forest', 'animal', 'dog', 'cat', 'bird', 'fish', 'sky', 'earth', 'storm', 'beach', 'lake', 'plant', 'season'],
-  },
-];
-
-function categoriseWord(word: string, translation: string): string {
-  const text = `${word} ${translation}`.toLowerCase();
-  for (const cat of CONCEPT_CATEGORIES) {
-    if (cat.keywords.some(kw => text.includes(kw))) return cat.id;
-  }
-  return 'other';
-}
 
 export default function LearnPage() {
   const { user } = useAuth();
@@ -181,8 +125,13 @@ export default function LearnPage() {
   const [showAddWord, setShowAddWord] = useState(false);
   const [addWord, setAddWord] = useState('');
   const [addTranslation, setAddTranslation] = useState('');
+  const [addTopic, setAddTopic] = useState<string>('other');
   const defaultAddLangCode = primaryLearningLanguage?.code ?? 'en';
   const [addLangCode, setAddLangCode] = useState(defaultAddLangCode);
+
+  // Word topic override state (local until backend supports topic persistence)
+  const [topicOverrides, setTopicOverrides] = useState<Record<string, string>>({});
+  const [editTopicWordId, setEditTopicWordId] = useState<string | null>(null);
   const ADD_LANGUAGES = [
     { code: 'en', flag: '🇺🇸', name: 'English'  },
     { code: 'es', flag: '🇪🇸', name: 'Spanish'  },
@@ -207,8 +156,13 @@ export default function LearnPage() {
   useEffect(() => {
     if (showAddWord) {
       setAddLangCode(defaultAddLangCode);
+      setAddTopic('other');
     }
   }, [defaultAddLangCode, showAddWord]);
+
+  useEffect(() => {
+    setAddTopic(categoriseWord(addWord, addTranslation));
+  }, [addWord, addTranslation]);
 
   // Session size options
   const [sessionSize, setSessionSize] = useState<5 | 10 | 15>(10);
@@ -244,9 +198,11 @@ export default function LearnPage() {
       translation: addTranslation.trim(),
       language_code: addLangCode,
       source: 'MANUAL',
+      topic: addTopic,
     });
     setAddWord('');
     setAddTranslation('');
+    setAddTopic('other');
     setShowAddWord(false);
   };
 
@@ -268,8 +224,8 @@ export default function LearnPage() {
   const wordBanks = useMemo(() => {
     const map = new Map<string, { id: string; label: string; words: typeof filteredWords }>();
     for (const w of filteredWords) {
-      const id = categoriseWord(w.word, w.translation);
-      const label = CONCEPT_CATEGORIES.find(c => c.id === id)?.label ?? 'Other';
+      const id = topicOverrides[w.id] ?? w.topic ?? 'other';
+      const label = ALL_WORD_CATEGORIES.find(c => c.id === id)?.label ?? 'Other';
       if (!map.has(id)) map.set(id, { id, label, words: [] });
       map.get(id)!.words.push(w);
     }
@@ -278,7 +234,7 @@ export default function LearnPage() {
     const otherIdx = banks.findIndex(b => b.id === 'other');
     if (otherIdx > 0) banks.push(banks.splice(otherIdx, 1)[0]);
     return banks;
-  }, [filteredWords]);
+  }, [filteredWords, topicOverrides]);
 
   // Computed stats from API or fallback
   const displayStats = useMemo(() => {
@@ -1004,6 +960,14 @@ export default function LearnPage() {
                                   )}
                                 </div>
                                 <p className="text-xs text-muted-foreground truncate">{word.translation}</p>
+                                <button
+                                  type="button"
+                                  onClick={() => setEditTopicWordId(editTopicWordId === word.id ? null : word.id)}
+                                  className="flex items-center gap-0.5 mt-0.5 text-[10px] text-muted-foreground/70 hover:text-primary transition-colors"
+                                >
+                                  <Tag className="h-2.5 w-2.5 flex-shrink-0" />
+                                  <span>{categoryEmoji(topicOverrides[word.id] ?? word.topic ?? 'other')} {categoryLabel(topicOverrides[word.id] ?? word.topic ?? 'other')}</span>
+                                </button>
                               </div>
                               <div className="flex items-center gap-2 flex-shrink-0">
                                 <div className="h-1.5 w-10 rounded-full bg-muted overflow-hidden">
@@ -1024,6 +988,31 @@ export default function LearnPage() {
                                 <X className="h-3.5 w-3.5" />
                               </button>
                             </div>
+
+                            {editTopicWordId === word.id && (
+                              <div className="px-4 pb-2.5 flex flex-wrap gap-1.5 animate-in fade-in duration-150">
+                                {ALL_WORD_CATEGORIES.map(cat => (
+                                  <button
+                                    key={cat.id}
+                                    type="button"
+                                    onClick={() => {
+                                      setTopicOverrides(prev => ({ ...prev, [word.id]: cat.id }));
+                                      updateWordMutation.mutate({ wordId: word.id, data: { topic: cat.id } });
+                                      setEditTopicWordId(null);
+                                    }}
+                                    className={cn(
+                                      "flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border transition-colors",
+                                      (topicOverrides[word.id] ?? word.topic ?? 'other') === cat.id
+                                        ? "border-primary/30 bg-primary/10 text-primary font-medium"
+                                        : "border-border text-muted-foreground hover:bg-muted"
+                                    )}
+                                  >
+                                    <span>{cat.emoji}</span>
+                                    <span>{cat.label}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
 
                             {pendingDelete && (
                               <div className="mx-4 mb-2 flex items-center justify-between rounded-lg bg-destructive/10 px-3 py-2 animate-in fade-in duration-200">
@@ -1107,6 +1096,32 @@ export default function LearnPage() {
                 className="w-full rounded-xl border border-border bg-muted px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
                 onKeyDown={e => { if (e.key === 'Enter') handleAddWord(); }}
               />
+
+              {/* Topic picker */}
+              <div>
+                <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1">
+                  <Tag className="h-3 w-3" />
+                  Topic
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {ALL_WORD_CATEGORIES.map(cat => (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => setAddTopic(cat.id)}
+                      className={cn(
+                        "flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border transition-colors",
+                        addTopic === cat.id
+                          ? "border-primary/30 bg-primary/10 text-primary font-medium"
+                          : "border-border text-muted-foreground hover:bg-muted"
+                      )}
+                    >
+                      <span>{cat.emoji}</span>
+                      <span>{cat.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
 
               <Button
                 onClick={handleAddWord}

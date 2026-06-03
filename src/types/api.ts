@@ -183,6 +183,7 @@ export interface SavedWord {
   source: WordSource;
   sourceId?: string;
   context?: string;
+  topic?: string;
   masteryLevel: number;
   nextReview?: string;
   createdAt: string;
@@ -195,11 +196,13 @@ export interface CreateWordRequest {
   source: WordSource;
   sourceId?: string;
   context?: string;
+  topic?: string;
 }
 
 export interface UpdateWordRequest {
   translation?: string;
   context?: string;
+  topic?: string;
 }
 
 export interface StartSessionRequest {
