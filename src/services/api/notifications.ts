@@ -5,6 +5,7 @@ import type {
   NotificationCenterSummary,
   NotificationType,
 } from '@/types/api';
+import { normalizeBackendTimestamp } from '@/lib/backendTimestamp';
 
 interface BackendNotificationActor {
   id: string;
@@ -19,8 +20,15 @@ interface BackendNotification {
   title: string;
   body?: string;
   target_url?: string;
+  targetUrl?: string;
+  entity_type?: string;
+  entityType?: string;
+  entity_id?: string;
+  entityId?: string;
   read_at?: string;
-  created_at: string;
+  readAt?: string;
+  created_at?: string;
+  createdAt?: string;
   actor?: BackendNotificationActor | null;
 }
 
@@ -63,9 +71,13 @@ const transformNotification = (notification: BackendNotification): AppNotificati
   type: notification.type,
   title: notification.title,
   body: notification.body,
-  targetUrl: notification.target_url,
-  readAt: notification.read_at,
-  createdAt: notification.created_at,
+  targetUrl: notification.target_url ?? notification.targetUrl,
+  entityType: notification.entity_type ?? notification.entityType,
+  entityId: notification.entity_id ?? notification.entityId,
+  readAt: normalizeBackendTimestamp(notification.read_at ?? notification.readAt),
+  createdAt: normalizeBackendTimestamp(
+    notification.created_at ?? notification.createdAt ?? new Date().toISOString()
+  ),
   actor: transformActor(notification.actor),
 });
 
