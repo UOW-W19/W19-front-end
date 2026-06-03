@@ -1,5 +1,5 @@
-import { useState, useMemo, useCallback, useEffect, useRef } from "react";
-import { Sparkles, RotateCcw, Check, X, ChevronLeft, BookOpen, Camera, TrendingUp, Globe, Zap, ArrowUpDown, ChevronDown, Loader2, Flame, Plus } from "lucide-react";
+import { useState, useMemo, useCallback, useEffect, useRef, type ComponentType } from "react";
+import { Sparkles, RotateCcw, Check, X, ChevronLeft, BookOpen, Camera, ArrowUpDown, ChevronDown, Loader2, Plus, Target, Trophy, BookMarked, Gauge, Languages as LanguagesIcon, Brain } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { LessonSessionView } from "@/components/learn/LessonSessionView";
@@ -34,6 +34,44 @@ type SortOption = 'newest' | 'mastery_high' | 'mastery_low';
 type WordBank = LessonWordBank;
 
 const SESSION_SIZE_OPTIONS = [5, 10, 15] as const;
+
+type StatTileTone = 'purple' | 'lime' | 'coral';
+
+const statTileToneClasses: Record<StatTileTone, string> = {
+  purple: 'bg-purple/10 text-purple',
+  lime: 'bg-lime/15 text-lime',
+  coral: 'bg-coral/10 text-coral',
+};
+
+function StatTile({
+  icon: Icon,
+  label,
+  value,
+  tone,
+  isLoading,
+}: {
+  icon: ComponentType<{ className?: string }>;
+  label: string;
+  value: string | number;
+  tone: StatTileTone;
+  isLoading?: boolean;
+}) {
+  return (
+    <div className="min-h-[8rem] rounded-2xl border border-purple/15 bg-card p-3 text-center shadow-locale-sm sm:p-4">
+      <div className={cn("mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-xl", statTileToneClasses[tone])}>
+        <Icon className="h-5 w-5" />
+      </div>
+      <div className="flex min-h-8 items-center justify-center">
+        {isLoading ? (
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        ) : (
+          <p className="text-xl font-bold leading-none text-foreground sm:text-2xl">{value}</p>
+        )}
+      </div>
+      <p className="mt-2 text-[11px] leading-tight text-muted-foreground sm:text-xs">{label}</p>
+    </div>
+  );
+}
 
 // ── Concept categorisation ──────────────────────────────────────────────────
 
@@ -495,8 +533,8 @@ export default function LearnPage() {
             <span>Current mastery:</span>
             <div className="h-1.5 w-16 rounded-full bg-muted overflow-hidden">
               <div
-                className="h-full rounded-full transition-all"
-                style={{ width: `${currentWord.masteryLevel}%`, background: '#CDDD01' }}
+                className="h-full rounded-full bg-lime transition-all"
+                style={{ width: `${currentWord.masteryLevel}%` }}
               />
             </div>
             <span>{currentWord.masteryLevel}%</span>
@@ -518,8 +556,7 @@ export default function LearnPage() {
             <Button
               onClick={() => handleAnswer(true)}
               disabled={isSubmitting}
-              className="flex-1 h-14 gap-2 rounded-xl"
-              style={{ background: '#CDDD01', color: '#7a8700' }}
+              className="flex-1 h-14 gap-2 rounded-xl border border-lime/30 bg-lime/15 text-lime hover:bg-lime/20"
             >
               {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Check className="h-5 w-5" />}
               Got it!
@@ -555,19 +592,21 @@ export default function LearnPage() {
             return (
               <div
                 key={index}
-                className="flex items-center gap-3 rounded-xl border p-4 transition-all"
-                style={result.correct
-                  ? { borderColor: '#CDDD0150', background: '#CDDD0108' }
-                  : { borderColor: 'hsl(var(--destructive) / 0.3)', background: 'hsl(var(--destructive) / 0.05)' }}
+                className={cn(
+                  "flex items-center gap-3 rounded-xl border p-4 transition-all",
+                  result.correct
+                    ? "border-lime/30 bg-lime/10"
+                    : "border-destructive/30 bg-destructive/5"
+                )}
               >
                 <div
-                  className="flex h-8 w-8 items-center justify-center rounded-full flex-shrink-0"
-                  style={result.correct
-                    ? { background: '#CDDD0125' }
-                    : { background: 'hsl(var(--destructive) / 0.2)' }}
+                  className={cn(
+                    "flex h-8 w-8 items-center justify-center rounded-full flex-shrink-0",
+                    result.correct ? "bg-lime/15" : "bg-destructive/20"
+                  )}
                 >
                   {result.correct ? (
-                    <Check className="h-4 w-4" style={{ color: '#8a9600' }} />
+                    <Check className="h-4 w-4 text-lime" />
                   ) : (
                     <X className="h-4 w-4 text-destructive" />
                   )}
@@ -579,8 +618,10 @@ export default function LearnPage() {
                 <div className="text-right flex-shrink-0">
                   <span className="text-lg">{result.word.languageFlag}</span>
                   <p
-                    className="text-xs font-medium"
-                    style={{ color: masteryChange > 0 ? '#8a9600' : 'hsl(var(--destructive))' }}
+                    className={cn(
+                      "text-xs font-medium",
+                      masteryChange > 0 ? "text-lime" : "text-destructive"
+                    )}
                   >
                     {masteryChange > 0 ? '+' : ''}{masteryChange}%
                   </p>
@@ -655,6 +696,7 @@ export default function LearnPage() {
   const dailyGoal = 1;
   const goalMet = sessionsDoneToday >= dailyGoal;
   const progressPct = Math.min((sessionsDoneToday / dailyGoal) * 100, 100);
+  const DailyProgressIcon = goalMet ? Trophy : Target;
 
   return (
     <div className="h-full overflow-y-auto pb-24 scrollbar-hide mx-auto max-w-2xl px-4 py-6">
@@ -665,42 +707,57 @@ export default function LearnPage() {
       {/* Today's Progress */}
       <section className="mb-5">
         <div
-          className="rounded-2xl border p-4 transition-colors duration-500"
-          style={goalMet
-            ? { background: '#CDDD0112', borderColor: '#CDDD0150' }
-            : {}}
+          className={cn(
+            "rounded-2xl border bg-card p-4 shadow-locale-sm transition-colors duration-500",
+            goalMet ? "border-lime/30" : "border-purple/15"
+          )}
         >
           <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <Flame
-                className="h-4 w-4 transition-colors duration-300"
-                style={{ color: goalMet ? '#CDDD01' : 'var(--muted-foreground)' }}
-              />
-              <span className="text-sm font-medium text-foreground">Today's Progress</span>
+            <div className="flex min-w-0 items-center gap-3">
+              <div
+                className={cn(
+                  "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-colors duration-300",
+                  goalMet ? "bg-lime/15 text-lime" : "bg-coral/10 text-coral"
+                )}
+              >
+                <DailyProgressIcon className="h-5 w-5" />
+              </div>
+              <span className="truncate text-sm font-semibold text-foreground">Today's Progress</span>
             </div>
             <span
-              className="text-xs font-bold px-2.5 py-0.5 rounded-full transition-colors duration-300"
-              style={goalMet
-                ? { background: '#CDDD0120', color: '#7a8700' }
-                : { background: 'var(--muted)', color: 'var(--muted-foreground)' }}
+              className={cn(
+                "shrink-0 rounded-full border px-2.5 py-0.5 text-xs font-bold transition-colors duration-300",
+                goalMet
+                  ? "border-lime/30 bg-lime/15 text-lime"
+                  : "border-purple/15 bg-purple/10 text-purple"
+              )}
             >
               {goalMet
                 ? `${sessionsDoneToday}/${dailyGoal} session${dailyGoal !== 1 ? 's' : ''}`
                 : `${sessionsDoneToday} / ${dailyGoal} session`}
             </span>
           </div>
-          <div className="h-2 rounded-full bg-muted overflow-hidden mb-3">
+          <div
+            className="h-2 rounded-full bg-muted/80 overflow-hidden mb-3"
+            role="progressbar"
+            aria-label="Daily practice progress"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={Math.round(progressPct)}
+          >
             <div
-              className="h-full rounded-full transition-all duration-500"
+              className={cn(
+                "h-full rounded-full transition-all duration-500",
+                goalMet ? "bg-lime" : "bg-primary"
+              )}
               style={{
                 width: `${progressPct}%`,
-                background: goalMet ? '#CDDD01' : 'var(--primary)',
               }}
             />
           </div>
           {sessionsDoneToday > 0 ? (
             <p className="text-xs text-muted-foreground">
-              {sessionsDoneToday} session{sessionsDoneToday !== 1 ? "s" : ""} completed today — keep it up!
+              {sessionsDoneToday} session{sessionsDoneToday !== 1 ? "s" : ""} completed today - keep it up!
             </p>
           ) : (
             <p className="text-xs text-muted-foreground">Complete a practice session to hit your daily goal</p>
@@ -710,45 +767,28 @@ export default function LearnPage() {
 
       {/* Stats Dashboard */}
       <section className="mb-6">
-        <div className="grid grid-cols-3 gap-3">
-          {/* Words Saved */}
-          <div className="rounded-2xl bg-card border border-border p-4 text-center">
-            <div className="flex items-center justify-center h-10 w-10 mx-auto rounded-xl bg-primary/10 mb-2">
-              <BookOpen className="h-5 w-5 text-primary" />
-            </div>
-            {isLoadingStats ? (
-              <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
-            ) : (
-              <p className="text-2xl font-bold text-foreground">{displayStats.totalWords}</p>
-            )}
-            <p className="text-xs text-muted-foreground">Words Saved</p>
-          </div>
-
-          {/* Avg Mastery */}
-          <div className="rounded-2xl bg-card border border-border p-4 text-center">
-            <div className="flex items-center justify-center h-10 w-10 mx-auto rounded-xl mb-2" style={{ background: '#CDDD0120' }}>
-              <TrendingUp className="h-5 w-5" style={{ color: '#7a8700' }} />
-            </div>
-            {isLoadingStats ? (
-              <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
-            ) : (
-              <p className="text-2xl font-bold text-foreground">{displayStats.avgMastery}%</p>
-            )}
-            <p className="text-xs text-muted-foreground">Avg Mastery</p>
-          </div>
-
-          {/* Languages */}
-          <div className="rounded-2xl bg-card border border-border p-4 text-center">
-            <div className="flex items-center justify-center h-10 w-10 mx-auto rounded-xl bg-coral/10 mb-2">
-              <Globe className="h-5 w-5 text-coral" />
-            </div>
-            {isLoadingStats ? (
-              <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
-            ) : (
-              <p className="text-2xl font-bold text-foreground">{displayStats.languages.length}</p>
-            )}
-            <p className="text-xs text-muted-foreground">Languages</p>
-          </div>
+        <div className="grid grid-cols-3 gap-2 sm:gap-3">
+          <StatTile
+            icon={BookMarked}
+            label="Words Saved"
+            value={displayStats.totalWords}
+            tone="purple"
+            isLoading={isLoadingStats}
+          />
+          <StatTile
+            icon={Gauge}
+            label="Avg Mastery"
+            value={`${displayStats.avgMastery}%`}
+            tone="lime"
+            isLoading={isLoadingStats}
+          />
+          <StatTile
+            icon={LanguagesIcon}
+            label="Languages"
+            value={displayStats.languages.length}
+            tone="coral"
+            isLoading={isLoadingStats}
+          />
         </div>
 
         {/* Language flags row */}
@@ -763,12 +803,12 @@ export default function LearnPage() {
 
       {/* Practice Card */}
       <section className="mb-6">
-        <div className="rounded-2xl bg-gradient-to-br from-primary/5 to-coral/5 border border-primary/20 p-5">
+        <div className="rounded-2xl border border-coral/20 bg-card p-5 shadow-locale-sm">
           <div className="flex items-center gap-3 mb-4">
-            <div className="flex items-center justify-center h-12 w-12 rounded-xl bg-primary/10">
-              <Zap className="h-6 w-6 text-primary" />
+            <div className="flex items-center justify-center h-12 w-12 shrink-0 rounded-xl bg-coral/10 text-coral">
+              <Brain className="h-6 w-6" />
             </div>
-            <div>
+            <div className="min-w-0">
               <h2 className="font-semibold text-foreground">Ready to practice?</h2>
               <p className="text-sm text-muted-foreground">
                 {/* {displayStats.masteredWords} of {displayStats.totalWords}  */}
@@ -782,9 +822,9 @@ export default function LearnPage() {
           </p> */}
 
           {/* Session Size Selector */}
-          <div className="flex items-center justify-between mb-4 p-3 rounded-xl bg-background/50 border border-border">
+          <div className="flex items-center justify-between gap-3 mb-4 p-3 rounded-xl bg-card/80 border border-purple/15">
             <span className="text-sm text-muted-foreground">Words per session</span>
-            <div className="flex gap-2">
+            <div className="flex shrink-0 gap-2">
               {SESSION_SIZE_OPTIONS.map((size) => (
                 <button
                   key={size}
@@ -843,7 +883,7 @@ export default function LearnPage() {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="h-8 gap-1.5">
-                  <Globe className="h-3.5 w-3.5" />
+                  <LanguagesIcon className="h-3.5 w-3.5" />
                   {languageFilter === 'all' ? 'All' : languageFilter}
                   <ChevronDown className="h-3 w-3" />
                 </Button>
@@ -888,8 +928,10 @@ export default function LearnPage() {
         </div>
 
         {wordBanks.length === 0 ? (
-          <div className="text-center py-12 rounded-2xl border border-dashed border-border">
-            <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+          <div className="rounded-2xl border border-dashed border-purple/20 bg-card/80 px-6 py-12 text-center shadow-locale-sm">
+            <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-purple/10 text-purple">
+              <BookMarked className="h-7 w-7" />
+            </div>
             <h3 className="font-medium text-foreground mb-1">No words saved yet</h3>
             <p className="text-sm text-muted-foreground max-w-xs mx-auto">
               Save words from posts or use the scanner to build your vocabulary
@@ -914,14 +956,14 @@ export default function LearnPage() {
                 });
 
               return (
-                <div key={bank.id} className="rounded-2xl border border-border bg-card overflow-hidden">
+                <div key={bank.id} className="overflow-hidden rounded-2xl border border-purple/15 bg-card shadow-locale-sm">
                   {/* Card header */}
                   <button
                     onClick={toggleOpen}
-                    className="w-full flex items-center gap-3 p-4 hover:bg-muted/30 transition-colors text-left"
+                    className="w-full flex items-center gap-3 p-4 hover:bg-purple/5 transition-colors text-left"
                   >
-                    <div className="flex items-center justify-center h-9 w-9 rounded-xl bg-primary/10 flex-shrink-0">
-                      <BookOpen className="h-4 w-4 text-primary" />
+                    <div className="flex items-center justify-center h-9 w-9 rounded-xl bg-purple/10 text-purple flex-shrink-0">
+                      <BookMarked className="h-4 w-4" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-foreground text-sm">{bank.label}</p>
@@ -930,7 +972,7 @@ export default function LearnPage() {
                     {/* Avg mastery pill */}
                     <div className="flex items-center gap-1.5 mr-2">
                       <div className="h-1.5 w-14 rounded-full bg-muted overflow-hidden">
-                        <div className="h-full rounded-full transition-all" style={{ width: `${avgMastery}%`, background: '#CDDD01' }} />
+                        <div className="h-full rounded-full bg-lime transition-all" style={{ width: `${avgMastery}%` }} />
                       </div>
                       <span className="text-xs text-muted-foreground w-7 text-right">{avgMastery}%</span>
                     </div>
@@ -938,7 +980,7 @@ export default function LearnPage() {
                   </button>
 
                   {/* Learn button row — always visible */}
-                  <div className="px-4 pb-3 flex justify-end border-t border-border/50 pt-3">
+                  <div className="px-4 pb-3 flex justify-end border-t border-purple/10 pt-3">
                     <Button size="sm" onClick={() => startLesson(bank)} className="h-8 px-4 rounded-lg gap-1.5">
                       <Sparkles className="h-3.5 w-3.5" />
                       Learn
@@ -947,7 +989,7 @@ export default function LearnPage() {
 
                   {/* Collapsible word list */}
                   {isOpen && (
-                    <div className="border-t border-border divide-y divide-border/50">
+                    <div className="border-t border-purple/10 divide-y divide-border/50">
                       {bank.words.filter(w => !deletedWordIds.has(w.id)).map((word) => {
                         const pendingDelete = confirmDeleteWordId === word.id;
                         return (
@@ -965,7 +1007,7 @@ export default function LearnPage() {
                               </div>
                               <div className="flex items-center gap-2 flex-shrink-0">
                                 <div className="h-1.5 w-10 rounded-full bg-muted overflow-hidden">
-                                  <div className="h-full rounded-full transition-all" style={{ width: `${word.masteryLevel}%`, background: '#CDDD01' }} />
+                                  <div className="h-full rounded-full bg-lime transition-all" style={{ width: `${word.masteryLevel}%` }} />
                                 </div>
                                 <span className="text-xs text-muted-foreground w-7 text-right">{word.masteryLevel}%</span>
                               </div>
@@ -1039,11 +1081,10 @@ export default function LearnPage() {
                     onClick={() => setAddLangCode(l.code)}
                     className={cn(
                       "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border transition-colors",
-                      addLangCode !== l.code && "border-border text-muted-foreground hover:bg-muted"
+                      addLangCode === l.code
+                        ? "border-lime/30 bg-lime/15 text-lime"
+                        : "border-border text-muted-foreground hover:bg-muted"
                     )}
-                    style={addLangCode === l.code
-                      ? { background: '#CDDD0120', borderColor: '#CDDD0160', color: '#5a6300' }
-                      : undefined}
                   >
                     <span>{l.flag}</span>
                     <span>{l.name}</span>
