@@ -40,7 +40,7 @@ export function Sidebar() {
   };
 
   return (
-    <aside className="hidden h-screen w-64 flex-col border-r border-purple/20 bg-card lg:flex">
+    <aside className="hidden h-dvh min-h-dvh w-64 flex-col border-r border-purple/20 bg-card lg:flex">
       {/* Logo */}
       <div className="flex h-16 items-center gap-3 border-b border-purple/20 px-6">
         <img src="/locale-logo.svg" alt="Locale" className="h-9 w-9 object-contain" />

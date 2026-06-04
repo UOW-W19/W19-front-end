@@ -21,17 +21,17 @@ export function AppLayout() {
   const title = routeTitles[location.pathname] || "Locale";
 
   return (
-    <div className="flex h-screen w-full bg-background overflow-hidden">
+    <div className="flex h-dvh min-h-dvh w-full overflow-hidden bg-background">
       {/* Desktop sidebar - hidden on mobile/tablet */}
       <div className="hidden lg:block">
         <Sidebar />
       </div>
 
       {/* Main content */}
-      <div className="flex flex-1 flex-col min-w-0">
+      <div className="flex min-h-0 flex-1 flex-col min-w-0">
         <Header title={title} />
 
-        <main className="relative flex-1 overflow-hidden">
+        <main className="relative min-h-0 flex-1 overflow-hidden">
           <Outlet />
         </main>
       </div>

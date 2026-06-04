@@ -59,6 +59,7 @@ interface LessonSessionViewProps {
   onAdvance: () => void;
   onPlayVoicePrompt: () => void;
   onToggleRecording: () => void;
+  onSkipVoicePrompt: () => void;
   onPlaceChip: (tokenId: string, beforeTokenId?: string) => void;
   onRemoveChip: (tokenId: string) => void;
   onReorderPlacedChips: (activeId: string, overId: string) => void;
@@ -91,6 +92,7 @@ export function LessonSessionView({
   onAdvance,
   onPlayVoicePrompt,
   onToggleRecording,
+  onSkipVoicePrompt,
   onPlaceChip,
   onRemoveChip,
   onReorderPlacedChips,
@@ -129,6 +131,7 @@ export function LessonSessionView({
           voicePrompt={voicePrompt}
           onPlayPrompt={onPlayVoicePrompt}
           onToggleRecording={onToggleRecording}
+          onSkipPrompt={onSkipVoicePrompt}
           onContinue={onAdvance}
         />
       )}
@@ -325,6 +328,7 @@ function VoicePromptStep({
   voicePrompt,
   onPlayPrompt,
   onToggleRecording,
+  onSkipPrompt,
   onContinue,
 }: {
   word: LessonWord;
@@ -332,6 +336,7 @@ function VoicePromptStep({
   voicePrompt: VoicePromptState;
   onPlayPrompt: () => void;
   onToggleRecording: () => void;
+  onSkipPrompt: () => void;
   onContinue: () => void;
 }) {
   const scorePercent = voicePrompt.accuracy === null
@@ -340,6 +345,7 @@ function VoicePromptStep({
   const canUseMic = voicePrompt.supportsSpeechRecognition;
   const recordingLabel = isRecording ? "Listening..." : "Speak";
   const canContinueAfterMismatch = voicePrompt.status === "incorrect";
+  const hasSkipped = voicePrompt.status === "skipped";
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -413,6 +419,9 @@ function VoicePromptStep({
         {voicePrompt.status === "incorrect" && (
           <p className="text-xs font-medium text-destructive">Not quite. Try the phrase again.</p>
         )}
+        {hasSkipped && (
+          <p className="text-xs font-medium text-muted-foreground">Voice check skipped. Continue when ready.</p>
+        )}
         {voicePrompt.error && (
           <p className="text-xs text-muted-foreground">{voicePrompt.error}</p>
         )}
@@ -437,7 +446,7 @@ function VoicePromptStep({
           </Button>
         </LessonActionBar>
       ) : (
-        <LessonActionBar>
+        <LessonActionBar className="space-y-2">
           <Button
             type="button"
             onClick={onContinue}
@@ -446,6 +455,16 @@ function VoicePromptStep({
           >
             {voicePrompt.canContinue ? "Continue" : recordingLabel}
           </Button>
+          {!voicePrompt.canContinue && (
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={onSkipPrompt}
+              className="h-11 w-full rounded-xl text-muted-foreground"
+            >
+              Skip voice check
+            </Button>
+          )}
         </LessonActionBar>
       )}
     </div>

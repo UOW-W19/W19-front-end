@@ -27,6 +27,7 @@ const DEFAULT_ZOOM = 12;
 const USER_FOCUS_ZOOM = 13;
 const STACK_OFFSET_METERS = 12;
 const METERS_PER_DEGREE_LAT = 111_320;
+const MAP_LOAD_WARNING_TIMEOUT_MS = 20000;
 
 const isValidLngLat = (lng: unknown, lat: unknown): boolean => {
   if (!Number.isFinite(lng) || !Number.isFinite(lat)) return false;
@@ -217,6 +218,7 @@ export default function ExploreMap({
   const lastUserLngLatRef = useRef<LngLat | null>(null);
   const [isMapReady, setIsMapReady] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
+  const [mapLoadWarning, setMapLoadWarning] = useState<string | null>(null);
   const [webglDiagnostics, setWebglDiagnostics] = useState<WebGLDiagnostics | null>(null);
 
   const origin = useMemo(() => {
@@ -237,9 +239,12 @@ export default function ExploreMap({
     : 'left-3 bottom-3';
 
   const staticFallbackUrl = useMemo(() => {
-    if (!mapError || !mapError.toLowerCase().includes('webgl')) return null;
+    const shouldShowStaticPreview =
+      Boolean(mapLoadWarning) ||
+      Boolean(mapError && (mapError.toLowerCase().includes('webgl') || mapError.toLowerCase().includes('context')));
+    if (!shouldShowStaticPreview || !mapboxToken) return null;
     return buildStaticMapUrl({ meetups, learners, token: mapboxToken });
-  }, [mapError, meetups, learners, mapboxToken]);
+  }, [mapError, mapLoadWarning, meetups, learners, mapboxToken]);
 
   const getFriendlyMapError = (e: unknown): string => {
     const { message: msg, status } = getErrorInfo(e);
@@ -279,6 +284,7 @@ export default function ExploreMap({
     setMapboxToken(cleaned);
     setTokenDraft('');
     setMapError(null);
+    setMapLoadWarning(null);
   };
 
   const recenterOnUser = () => {
@@ -297,6 +303,7 @@ export default function ExploreMap({
   // Initialize map (re-runs when token changes)
   useEffect(() => {
     setIsMapReady(false);
+    setMapLoadWarning(null);
     userInteractedRef.current = false;
     hasCenteredOnUserRef.current = false;
     lastUserLngLatRef.current = null;
@@ -305,6 +312,8 @@ export default function ExploreMap({
       setMapError('Map token missing. Set VITE_MAPBOX_TOKEN or paste a token below.');
       return;
     }
+
+    setMapError(null);
 
     // Collect diagnostics but do NOT block map initialization.
     // In some embedded/preview environments, pre-checks can be false negatives.
@@ -326,6 +335,7 @@ export default function ExploreMap({
 
     let isCancelled = false;
     let mapInstance: mapboxgl.Map | null = null;
+    let timeoutId: number | null = null;
 
     // If the user starts interacting (zoom/pan), stop any pending camera animation
     // Only stop animations ONCE when user first interacts, not continuously
@@ -397,21 +407,23 @@ export default function ExploreMap({
       mapInstance.addControl(new mapboxgl.AttributionControl({ compact: true }), 'bottom-right');
       mapInstance.addControl(new mapboxgl.NavigationControl({ visualizePitch: true }), 'top-right');
 
-      const timeoutId = window.setTimeout(() => {
+      timeoutId = window.setTimeout(() => {
         if (isCancelled) return;
-        if (!isMapReady) {
-          setMapError(`Map is taking too long to load. If your token is restricted, allow: ${origin}`);
-        }
-      }, 12000);
+        setMapLoadWarning(`Map is still loading. On mobile, check WebGL support, network access, or Mapbox token allowed origins for: ${origin}`);
+      }, MAP_LOAD_WARNING_TIMEOUT_MS);
 
       mapInstance.on('load', () => {
-        window.clearTimeout(timeoutId);
+        if (timeoutId !== null) {
+          window.clearTimeout(timeoutId);
+          timeoutId = null;
+        }
         if (isCancelled) return;
         if (mapInstance) {
           mapInstance.resize();
         }
         setIsMapReady(true);
         setMapError(null);
+        setMapLoadWarning(null);
       });
 
       mapInstance.on('wheel', markUserInteracted);
@@ -427,6 +439,11 @@ export default function ExploreMap({
 
         console.error('[ExploreMap] Map error event:', evt);
         if (!isCancelled) {
+          if (timeoutId !== null) {
+            window.clearTimeout(timeoutId);
+            timeoutId = null;
+          }
+          setMapLoadWarning(null);
           setMapError(getFriendlyMapError(evt));
         }
       });
@@ -434,6 +451,11 @@ export default function ExploreMap({
     } catch (error) {
       console.error('[ExploreMap] Failed to initialize map:', error);
       if (!isCancelled) {
+        if (timeoutId !== null) {
+          window.clearTimeout(timeoutId);
+          timeoutId = null;
+        }
+        setMapLoadWarning(null);
         setMapError(getFriendlyMapError(error));
       }
     }
@@ -464,6 +486,9 @@ export default function ExploreMap({
     return () => {
       isCancelled = true;
       window.removeEventListener('resize', handleResize);
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
       resizeObserver?.disconnect();
       try {
         mapInstance?.off('wheel', markUserInteracted);
@@ -701,6 +726,7 @@ export default function ExploreMap({
                   localStorage.removeItem(MAPBOX_TOKEN_STORAGE_KEY);
                   setMapboxToken(getInitialMapboxToken());
                   setMapError(null);
+                  setMapLoadWarning(null);
                 }}
               >
                 Reset
@@ -732,8 +758,23 @@ export default function ExploreMap({
       `}</style>
 
       {!isMapReady && (
-        <div className="absolute inset-0 bg-muted flex items-center justify-center">
-          <div className="animate-pulse text-muted-foreground">Loading map...</div>
+        <div className="absolute inset-0 flex items-center justify-center bg-muted p-4">
+          <div className="max-w-xs text-center">
+            <div className="animate-pulse text-muted-foreground">Loading map...</div>
+            {mapLoadWarning && (
+              <>
+                <p className="mt-2 text-xs text-muted-foreground">{mapLoadWarning}</p>
+                {staticFallbackUrl && (
+                  <img
+                    src={staticFallbackUrl}
+                    alt="Static map preview of meetups and nearby learners"
+                    className="mt-3 h-32 w-full rounded-lg border border-border object-cover"
+                    loading="lazy"
+                  />
+                )}
+              </>
+            )}
+          </div>
         </div>
       )}
 

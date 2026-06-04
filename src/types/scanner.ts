@@ -5,6 +5,8 @@ export type ScannerTranslationSource =
   | "TAXONOMY"
   | "FALLBACK";
 
+export type ScannerMode = "precision" | "scene";
+
 export interface BoundingBox {
   x: number;
   y: number;

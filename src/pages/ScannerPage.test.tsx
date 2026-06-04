@@ -72,10 +72,10 @@ beforeEach(() => {
     detectedObjects: [
       {
         id: "detection-1",
-        label: "chair",
+        label: "apple",
         confidence: 0.08,
-        nativeWord: "chair",
-        learningWord: "silla",
+        nativeWord: "apple",
+        learningWord: "manzana",
         languageCode: "es",
       },
     ],
@@ -89,7 +89,7 @@ afterEach(() => {
 });
 
 describe("ScannerPage post image scans", () => {
-  it("auto-scans transferred post image state and saves detections by id", async () => {
+  it("previews transferred post image state and scans with precision by default", async () => {
     renderPage({
       source: "post-image",
       postId: "post-1",
@@ -99,20 +99,49 @@ describe("ScannerPage post image scans", () => {
       postContext: "hola mundo",
     });
 
+    expect(screen.getByText("Ana photo ready")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Precision" }).getAttribute("aria-pressed")).toBe("true");
+    expect(mocks.scanPostImage).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Identify & Translate" }));
+
     await waitFor(() => {
       expect(mocks.scanPostImage).toHaveBeenCalledWith("post-1", {
         imageIndex: 1,
         imageUrl: "https://cdn.example.com/second.jpg",
+        scanMode: "precision",
       });
     });
 
-    expect(await screen.findAllByText("silla")).toHaveLength(2);
+    expect(await screen.findAllByText("manzana")).toHaveLength(2);
+    expect(screen.getAllByText("apple")).toHaveLength(2);
+    expect(screen.queryByText("High confidence")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Add to word bank" }));
 
     await waitFor(() => {
       expect(mocks.saveDetectedObject).toHaveBeenCalledWith("detection-1");
     });
     expect(mocks.createSavedWord).not.toHaveBeenCalled();
+  });
+
+  it("sends scene mode for a transferred post image when selected", async () => {
+    renderPage({
+      source: "post-image",
+      postId: "post-1",
+      imageUrl: "https://cdn.example.com/cafe.jpg",
+      imageIndex: 0,
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Scene" }));
+    expect(screen.getByRole("button", { name: "Scene" }).getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: "Identify & Translate" }));
+
+    await waitFor(() => {
+      expect(mocks.scanPostImage).toHaveBeenCalledWith("post-1", {
+        imageIndex: 0,
+        imageUrl: "https://cdn.example.com/cafe.jpg",
+        scanMode: "scene",
+      });
+    });
   });
 
   it("keeps uploaded images on the regular scanImage flow", async () => {
@@ -124,7 +153,7 @@ describe("ScannerPage post image scans", () => {
     fireEvent.click(screen.getByRole("button", { name: "Identify & Translate" }));
 
     await waitFor(() => {
-      expect(mocks.scanImage).toHaveBeenCalledWith(file);
+      expect(mocks.scanImage).toHaveBeenCalledWith(file, "precision");
     });
     expect(mocks.scanPostImage).not.toHaveBeenCalled();
   });

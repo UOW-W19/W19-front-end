@@ -22,7 +22,8 @@ import { saveDetectedObject as saveScannedDetection, scanImage, scanPostImage } 
 import { createSavedWord } from "@/services/api/learn";
 import { learnKeys } from "@/hooks/useLearnApi";
 import { getScannerConfidenceLabel } from "@/lib/scannerPrecision";
-import type { DetectedObject, PostImageScannerRouteState } from "@/types/scanner";
+import { cn } from "@/lib/utils";
+import type { DetectedObject, PostImageScannerRouteState, ScannerMode } from "@/types/scanner";
 
 type ScannerStep = "select" | "preview" | "result";
 type SaveState = "saved" | "duplicate" | "error";
@@ -73,6 +74,7 @@ export default function ScannerPage() {
   const [postImageSource, setPostImageSource] = useState<PostImageScannerRouteState | null>(null);
   const [scanSessionId, setScanSessionId] = useState<string | null>(null);
   const [detectedObjects, setDetectedObjects] = useState<DetectedObject[]>([]);
+  const [scanMode, setScanMode] = useState<ScannerMode>("precision");
   const [isScanning, setIsScanning] = useState(false);
   const [scanError, setScanError] = useState("");
   const [showScannerHint, setShowScannerHint] = useState(true);
@@ -107,7 +109,10 @@ export default function ScannerPage() {
     }
   };
 
-  const runPostImageScan = async (source: PostImageScannerRouteState) => {
+  const runPostImageScan = async (
+    source: PostImageScannerRouteState,
+    mode: ScannerMode = scanMode
+  ) => {
     setIsScanning(true);
     setScanError("");
 
@@ -115,6 +120,7 @@ export default function ScannerPage() {
       const result = await scanPostImage(source.postId, {
         imageIndex: source.imageIndex,
         imageUrl: source.imageUrl,
+        scanMode: mode,
       });
       setScanSessionId(result.scanSessionId ?? null);
       setDetectedObjects(result.detectedObjects);
@@ -150,8 +156,8 @@ export default function ScannerPage() {
     setSaveStates({});
     setSavingKeys(new Set());
     setScanError("");
+    setScanMode("precision");
     setStep("preview");
-    void runPostImageScan(source);
   }, [location.state, previewUrl, previewUrlIsObjectUrl]);
 
   const selectImage = (file?: File) => {
@@ -175,6 +181,7 @@ export default function ScannerPage() {
     setSaveStates({});
     setSavingKeys(new Set());
     setScanError("");
+    setScanMode("precision");
     setStep("preview");
   };
 
@@ -193,6 +200,7 @@ export default function ScannerPage() {
     setSavingKeys(new Set());
     setIsScanning(false);
     setScanError("");
+    setScanMode("precision");
     if (cameraInputRef.current) cameraInputRef.current.value = "";
     if (galleryInputRef.current) galleryInputRef.current.value = "";
   };
@@ -208,7 +216,7 @@ export default function ScannerPage() {
 
   const analyzeImage = async () => {
     if (postImageSource) {
-      await runPostImageScan(postImageSource);
+      await runPostImageScan(postImageSource, scanMode);
       return;
     }
 
@@ -217,7 +225,7 @@ export default function ScannerPage() {
     setIsScanning(true);
     setScanError("");
     try {
-      const result = await scanImage(selectedFile);
+      const result = await scanImage(selectedFile, scanMode);
       recordDemoScan();
       setScanSessionId(result.scanSessionId ?? null);
       setDetectedObjects(result.detectedObjects);
@@ -299,7 +307,7 @@ export default function ScannerPage() {
           <h1 className="text-2xl font-black leading-tight text-foreground">AI Object Scanner</h1>
           <p className="text-sm text-muted-foreground">
             {step === "select" && "Capture an object"}
-            {step === "preview" && (postImageSource ? `Scanning ${postImageSource.authorName ?? "post"} photo` : "Ready to scan")}
+            {step === "preview" && (postImageSource ? `${postImageSource.authorName ?? "Post"} photo ready` : "Ready to scan")}
             {step === "result" && "Detected vocabulary"}
           </p>
         </div>
@@ -399,6 +407,29 @@ export default function ScannerPage() {
               <X className="h-4 w-4" />
             </Button>
           </div>
+          <div
+            className="grid grid-cols-2 gap-1 rounded-2xl border border-coral/15 bg-card p-1 shadow-locale-sm"
+            role="group"
+            aria-label="Scan mode"
+          >
+            {(["precision", "scene"] as const).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => setScanMode(mode)}
+                aria-pressed={scanMode === mode}
+                className={cn(
+                  "flex h-11 items-center justify-center gap-2 rounded-xl text-sm font-semibold transition",
+                  scanMode === mode
+                    ? "bg-coral text-white shadow-sm"
+                    : "text-muted-foreground hover:bg-coral/10 hover:text-foreground"
+                )}
+              >
+                {mode === "precision" ? <ScanLine className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
+                {mode === "precision" ? "Precision" : "Scene"}
+              </button>
+            ))}
+          </div>
           {scanError && (
             <div className="rounded-2xl border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
               {scanError}
@@ -497,16 +528,11 @@ export default function ScannerPage() {
                     key={key}
                     className="rounded-2xl border border-coral/15 bg-card p-4 shadow-locale-sm"
                   >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="font-semibold text-foreground truncate">
-                            {object.nativeWord}
-                          </p>
-                          <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                            {confidenceLabel(object.confidence)}
-                          </span>
-                        </div>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0 flex-1">
+                        <p className="break-words font-semibold text-foreground">
+                          {object.nativeWord}
+                        </p>
                         <p className="mt-1 break-words text-xl font-black text-primary">
                           {object.learningWord}
                         </p>
@@ -520,7 +546,7 @@ export default function ScannerPage() {
                         size="sm"
                         disabled={isSaved || isDuplicate || isSaving}
                         onClick={() => saveDetectedObject(object)}
-                        className={`flex-shrink-0 transition-colors ${
+                        className={`w-full flex-shrink-0 transition-colors sm:w-auto ${
                           isSaved || isDuplicate
                             ? "border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-50"
                             : ""

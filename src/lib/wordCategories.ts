@@ -22,7 +22,7 @@ export const CONCEPT_CATEGORIES: ConceptCategory[] = [
     id: 'food',
     label: 'Food & Drink',
     emoji: '🍽️',
-    keywords: ['eat', 'food', 'drink', 'coffee', 'restaurant', 'menu', 'hungry', 'cook', 'meal', 'breakfast', 'lunch', 'dinner', 'bread', 'meat', 'vegetable', 'fruit', 'juice', 'beer', 'wine', 'tea', 'rice', 'soup', 'dessert', 'snack', 'delicious', 'taste', 'kitchen', 'recipe', 'milk', 'cheese', 'egg'],
+    keywords: ['eat', 'food', 'drink', 'coffee', 'restaurant', 'menu', 'hungry', 'cook', 'meal', 'breakfast', 'lunch', 'dinner', 'bread', 'meat', 'vegetable', 'fruit', 'apple', 'banana', 'orange', 'grape', 'strawberry', 'melon', 'peach', 'pear', 'pineapple', 'juice', 'beer', 'wine', 'tea', 'rice', 'soup', 'dessert', 'snack', 'delicious', 'taste', 'kitchen', 'recipe', 'milk', 'cheese', 'egg'],
   },
   {
     id: 'travel',
@@ -66,10 +66,31 @@ export const OTHER_CATEGORY: ConceptCategory = { id: 'other', label: 'Other', em
 
 export const ALL_WORD_CATEGORIES: ConceptCategory[] = [...CONCEPT_CATEGORIES, OTHER_CATEGORY];
 
+function normalizeCategoryText(text: string): string {
+  return text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function categoryTextMatches(text: string, keyword: string): boolean {
+  const normalizedKeyword = normalizeCategoryText(keyword);
+  if (!normalizedKeyword) return false;
+
+  if (normalizedKeyword.includes(' ')) {
+    return ` ${text} `.includes(` ${normalizedKeyword} `);
+  }
+
+  return text.split(' ').includes(normalizedKeyword);
+}
+
 export function categoriseWord(word: string, translation: string): string {
-  const text = `${word} ${translation}`.toLowerCase();
+  const text = normalizeCategoryText(`${word} ${translation}`);
   for (const cat of CONCEPT_CATEGORIES) {
-    if (cat.keywords.some(kw => text.includes(kw))) return cat.id;
+    if (cat.keywords.some(kw => categoryTextMatches(text, kw))) return cat.id;
   }
   return 'other';
 }

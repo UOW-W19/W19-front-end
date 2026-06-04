@@ -142,6 +142,7 @@ export function useLessonSession() {
     voicePrompt,
     playPrompt,
     toggleListening,
+    skipVoicePrompt,
     resetVoicePrompt,
   } = useVoicePrompt(currentLessonWord);
 
@@ -438,5 +439,6 @@ export function useLessonSession() {
     revealWriteAnswer,
     playVoicePrompt: playPrompt,
     toggleRecording: toggleListening,
+    skipVoicePrompt,
   };
 }

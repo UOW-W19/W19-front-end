@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
 import { MapPin, Heart, MessageCircle, Share2, Send, X, Loader2, Languages, MoreHorizontal, Trash2, Flag, BookmarkPlus, Star, ScanLine, ChevronLeft, ChevronRight } from "lucide-react";
@@ -28,6 +28,10 @@ const formatRelativeTime = (dateStr: string): string => {
   if (diffHours < 24) return `${diffHours}h ago`;
   return `${Math.floor(diffHours / 24)}d ago`;
 };
+
+const IMAGE_SWIPE_THRESHOLD_PX = 45;
+const IMAGE_SWIPE_VERTICAL_RATIO = 1.2;
+type ImageSwipeTarget = "feed" | "lightbox";
 
 export function PostCard({ post, onLikeToggle }: PostCardProps) {
   const { user } = useAuth();
@@ -62,6 +66,8 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
   const [savedWordDone, setSavedWordDone] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [lightboxImageIndex, setLightboxImageIndex] = useState<number | null>(null);
+  const imageSwipeStartRef = useRef<{ x: number; y: number; target: ImageSwipeTarget } | null>(null);
+  const suppressImageClickRef = useRef(false);
 
   const postImages = post.imageUrls?.length ? post.imageUrls : post.image ? [post.image] : [];
   const hasMultipleImages = postImages.length > 1;
@@ -278,25 +284,74 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
   const langInfo = LANGUAGES.find((l) => l.code === post.originalLanguage);
 
   const currentUserInitial = user?.displayName?.charAt(0).toUpperCase() ?? "U";
-  const showPreviousImage = (e?: React.MouseEvent) => {
-    e?.stopPropagation();
+  const suppressNextImageClick = () => {
+    suppressImageClickRef.current = true;
+    window.setTimeout(() => {
+      suppressImageClickRef.current = false;
+    }, 0);
+  };
+  const goToPreviousImage = () => {
     setActiveImageIndex((current) => (current - 1 + postImages.length) % postImages.length);
   };
-  const showNextImage = (e?: React.MouseEvent) => {
-    e?.stopPropagation();
+  const goToNextImage = () => {
     setActiveImageIndex((current) => (current + 1) % postImages.length);
   };
-  const showPreviousLightboxImage = (e?: React.MouseEvent) => {
-    e?.stopPropagation();
+  const goToPreviousLightboxImage = () => {
     setLightboxImageIndex((current) =>
       current === null ? 0 : (current - 1 + postImages.length) % postImages.length
     );
   };
-  const showNextLightboxImage = (e?: React.MouseEvent) => {
-    e?.stopPropagation();
+  const goToNextLightboxImage = () => {
     setLightboxImageIndex((current) =>
       current === null ? 0 : (current + 1) % postImages.length
     );
+  };
+  const showPreviousImage = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    goToPreviousImage();
+  };
+  const showNextImage = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    goToNextImage();
+  };
+  const showPreviousLightboxImage = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    goToPreviousLightboxImage();
+  };
+  const showNextLightboxImage = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    goToNextLightboxImage();
+  };
+  const beginImageSwipe = (event: React.PointerEvent, target: ImageSwipeTarget) => {
+    if (!hasMultipleImages) return;
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    if (event.target instanceof HTMLElement && event.target.closest("button")) return;
+
+    imageSwipeStartRef.current = { x: event.clientX, y: event.clientY, target };
+  };
+  const endImageSwipe = (event: React.PointerEvent, target: ImageSwipeTarget) => {
+    const start = imageSwipeStartRef.current;
+    imageSwipeStartRef.current = null;
+    if (!start || start.target !== target) return;
+
+    const deltaX = event.clientX - start.x;
+    const deltaY = event.clientY - start.y;
+    const absX = Math.abs(deltaX);
+    const absY = Math.abs(deltaY);
+    if (absX < IMAGE_SWIPE_THRESHOLD_PX || absX < absY * IMAGE_SWIPE_VERTICAL_RATIO) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    suppressNextImageClick();
+
+    if (target === "feed") {
+      deltaX > 0 ? goToPreviousImage() : goToNextImage();
+    } else {
+      deltaX > 0 ? goToPreviousLightboxImage() : goToNextLightboxImage();
+    }
+  };
+  const cancelImageSwipe = () => {
+    imageSwipeStartRef.current = null;
   };
 
   if (isDeleted) return null;
@@ -433,7 +488,16 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
           style={{ height: hasMultipleImages ? "220px" : undefined }}
         >
           <div
-            onClick={() => setLightboxImageIndex(activeImageIndex)}
+            onPointerDown={(event) => beginImageSwipe(event, "feed")}
+            onPointerUp={(event) => endImageSwipe(event, "feed")}
+            onPointerCancel={cancelImageSwipe}
+            onClick={(event) => {
+              if (suppressImageClickRef.current) {
+                event.stopPropagation();
+                return;
+              }
+              setLightboxImageIndex(activeImageIndex);
+            }}
             onKeyDown={(event) => {
               if (event.key === "Enter" || event.key === " ") {
                 event.preventDefault();
@@ -442,7 +506,7 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
             }}
             role="button"
             tabIndex={0}
-            className={`group block cursor-zoom-in overflow-hidden bg-muted text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+            className={`group block touch-pan-y cursor-zoom-in overflow-hidden bg-muted text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
               hasMultipleImages
                 ? "absolute inset-y-0 left-0 right-4 z-30 rounded-2xl shadow-md"
                 : "w-full rounded-xl"
@@ -671,7 +735,13 @@ export function PostCard({ post, onLikeToggle }: PostCardProps) {
       {lightboxImage && lightboxImageIndex !== null && (
         <div
           className="fixed inset-0 z-50 flex flex-col bg-black/90"
-          onClick={() => setLightboxImageIndex(null)}
+          onPointerDown={(event) => beginImageSwipe(event, "lightbox")}
+          onPointerUp={(event) => endImageSwipe(event, "lightbox")}
+          onPointerCancel={cancelImageSwipe}
+          onClick={() => {
+            if (suppressImageClickRef.current) return;
+            setLightboxImageIndex(null);
+          }}
         >
           <div className="flex shrink-0 items-center justify-between gap-3 px-4 py-3 text-white">
             <div className="min-w-0">

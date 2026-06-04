@@ -1,6 +1,11 @@
-import type { DetectedObject } from "@/types/scanner";
+import type { DetectedObject, ScannerMode } from "@/types/scanner";
 
 export const MAX_SCANNER_DETECTIONS = 2;
+export const SCENE_SCANNER_DETECTIONS = 4;
+export const SCANNER_MODE_RESULT_LIMITS: Record<ScannerMode, number> = {
+  precision: MAX_SCANNER_DETECTIONS,
+  scene: SCENE_SCANNER_DETECTIONS,
+};
 export const UNKNOWN_SCANNER_LABEL = "unknown object";
 
 const normalizeScannerLabel = (value: string) => value.trim().toLowerCase();
@@ -14,8 +19,11 @@ export const getScannerConfidenceLabel = (confidence: number) => {
   return "Needs review";
 };
 
-export const prepareScannerDetections = (objects: DetectedObject[]) =>
+export const prepareScannerDetections = (
+  objects: DetectedObject[],
+  mode: ScannerMode = "precision"
+) =>
   objects
     .filter(isKnownScannerObject)
     .sort((a, b) => b.confidence - a.confidence)
-    .slice(0, MAX_SCANNER_DETECTIONS);
+    .slice(0, SCANNER_MODE_RESULT_LIMITS[mode]);
