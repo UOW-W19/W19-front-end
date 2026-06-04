@@ -89,7 +89,7 @@ afterEach(() => {
 });
 
 describe("ScannerPage post image scans", () => {
-  it("auto-scans transferred post image state and saves detections by id", async () => {
+  it("previews transferred post image state and scans with precision by default", async () => {
     renderPage({
       source: "post-image",
       postId: "post-1",
@@ -99,10 +99,16 @@ describe("ScannerPage post image scans", () => {
       postContext: "hola mundo",
     });
 
+    expect(screen.getByText("Ana photo ready")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Precision" }).getAttribute("aria-pressed")).toBe("true");
+    expect(mocks.scanPostImage).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Identify & Translate" }));
+
     await waitFor(() => {
       expect(mocks.scanPostImage).toHaveBeenCalledWith("post-1", {
         imageIndex: 1,
         imageUrl: "https://cdn.example.com/second.jpg",
+        scanMode: "precision",
       });
     });
 
@@ -117,6 +123,27 @@ describe("ScannerPage post image scans", () => {
     expect(mocks.createSavedWord).not.toHaveBeenCalled();
   });
 
+  it("sends scene mode for a transferred post image when selected", async () => {
+    renderPage({
+      source: "post-image",
+      postId: "post-1",
+      imageUrl: "https://cdn.example.com/cafe.jpg",
+      imageIndex: 0,
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Scene" }));
+    expect(screen.getByRole("button", { name: "Scene" }).getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: "Identify & Translate" }));
+
+    await waitFor(() => {
+      expect(mocks.scanPostImage).toHaveBeenCalledWith("post-1", {
+        imageIndex: 0,
+        imageUrl: "https://cdn.example.com/cafe.jpg",
+        scanMode: "scene",
+      });
+    });
+  });
+
   it("keeps uploaded images on the regular scanImage flow", async () => {
     const { container } = renderPage();
     const file = new File(["image-bytes"], "photo.png", { type: "image/png" });
@@ -126,7 +153,7 @@ describe("ScannerPage post image scans", () => {
     fireEvent.click(screen.getByRole("button", { name: "Identify & Translate" }));
 
     await waitFor(() => {
-      expect(mocks.scanImage).toHaveBeenCalledWith(file);
+      expect(mocks.scanImage).toHaveBeenCalledWith(file, "precision");
     });
     expect(mocks.scanPostImage).not.toHaveBeenCalled();
   });

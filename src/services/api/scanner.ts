@@ -1,12 +1,13 @@
 import { API_BASE_URL } from './config';
 import { getStoredToken } from './auth';
 import { prepareScannerDetections } from '@/lib/scannerPrecision';
-import type { BoundingBox, DetectedObject, ScanResult, ScannerTranslationSource } from '@/types/scanner';
+import type { BoundingBox, DetectedObject, ScanResult, ScannerMode, ScannerTranslationSource } from '@/types/scanner';
 import type { SavedWordResponse } from './learn';
 
 export interface ScanPostImageOptions {
   imageIndex?: number;
   imageUrl?: string;
+  scanMode?: ScannerMode;
 }
 
 interface BackendDetectedObject {
@@ -59,9 +60,13 @@ const readErrorMessage = async (response: Response, fallback: string) => {
   }
 };
 
-export const scanImage = async (image: File): Promise<ScanResult> => {
+export const scanImage = async (
+  image: File,
+  scanMode: ScannerMode = "precision"
+): Promise<ScanResult> => {
   const formData = new FormData();
   formData.append('image', image);
+  formData.append('scan_mode', scanMode);
 
   const token = getStoredToken();
   const response = await fetch(`${API_BASE_URL}/scan`, {
@@ -83,7 +88,10 @@ export const scanImage = async (image: File): Promise<ScanResult> => {
   const data: BackendScanResponse = await response.json();
   return {
     scanSessionId: data.scan_session_id,
-    detectedObjects: prepareScannerDetections((data.detected_objects ?? []).map(transformDetectedObject)),
+    detectedObjects: prepareScannerDetections(
+      (data.detected_objects ?? []).map(transformDetectedObject),
+      scanMode
+    ),
   };
 };
 
@@ -92,10 +100,12 @@ export const scanPostImage = async (
   options?: ScanPostImageOptions
 ): Promise<ScanResult> => {
   const token = getStoredToken();
+  const scanMode = options?.scanMode ?? "precision";
   const body = options
     ? JSON.stringify({
         ...(options.imageIndex !== undefined ? { image_index: options.imageIndex } : {}),
         ...(options.imageUrl ? { image_url: options.imageUrl } : {}),
+        scan_mode: scanMode,
       })
     : undefined;
 
@@ -119,7 +129,10 @@ export const scanPostImage = async (
   const data: BackendScanResponse = await response.json();
   return {
     scanSessionId: data.scan_session_id,
-    detectedObjects: prepareScannerDetections((data.detected_objects ?? []).map(transformDetectedObject)),
+    detectedObjects: prepareScannerDetections(
+      (data.detected_objects ?? []).map(transformDetectedObject),
+      scanMode
+    ),
   };
 };
 
